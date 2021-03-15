@@ -72,26 +72,67 @@ if(NOT glad_POPULATED)
 endif()
 
 # ------------------ Eigen ------------------
-message(STATUS "Fetching Eigen...")
-FetchContent_Declare(
-  Eigen
-  GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-  GIT_TAG master
-  GIT_SHALLOW TRUE
-  GIT_PROGRESS TRUE)
-set(EIGEN_BUILD_DOC OFF FORCE)
-# note: To disable eigen tests,
-# you should put this code in a add_subdirectory to avoid to change
-# BUILD_TESTING for your own project too since variables are directory
-# scoped
-set(BUILD_TESTING OFF FORCE)
-set(EIGEN_BUILD_PKGCONFIG OFF FORCE)
-set( OFF)
-FetchContent_MakeAvailable(Eigen)
+find_package (Eigen3 3.3.9 QUIET NO_MODULE)
+if (NOT EIGEN3_FOUND)
+	message(STATUS "Fetching Eigen...")
+	FetchContent_Declare(
+	Eigen
+	GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+	GIT_TAG master
+	GIT_SHALLOW TRUE
+	GIT_PROGRESS TRUE)
+	set(EIGEN_BUILD_DOC OFF FORCE)
+	# note: To disable eigen tests,
+	# you should put this code in a add_subdirectory to avoid to change
+	# BUILD_TESTING for your own project too since variables are directory
+	# scoped
+	set(BUILD_TESTING OFF FORCE)
+	set(EIGEN_BUILD_PKGCONFIG OFF FORCE)
+	set( OFF)
+	FetchContent_MakeAvailable(Eigen)
+endif ()
 
-target_link_libraries(tv
+# ------------------ IMGUI ------------------
+message(STATUS "Fetching imgui...")
+FetchContent_Declare(
+	imgui
+	GIT_REPOSITORY https://github.com/ocornut/imgui.git
+)
+FetchContent_GetProperties(imgui)
+
+if(NOT imgui_POPULATED)
+	FetchContent_Populate(imgui)
+
+	message(STATUS "Preparing imgui...")
+
+	set(IMGUI_FILES
+		"${imgui_SOURCE_DIR}/imgui_demo.cpp"
+		"${imgui_SOURCE_DIR}/imgui_draw.cpp"
+		"${imgui_SOURCE_DIR}/imgui_widgets.cpp"
+		"${imgui_SOURCE_DIR}/imgui_tables.cpp"
+		"${imgui_SOURCE_DIR}/imgui.cpp"		
+	)
+
+	add_library(imgui "${IMGUI_FILES}")
+
+	target_include_directories(tv INTERFACE "${imgui_SOURCE_DIR}")
+endif()
+
+if (MSVC)
+	target_link_libraries(tv
 		glfw		
 		spdlog::spdlog	
 		glad
 		Eigen3::Eigen
-)
+		imgui
+	)
+else()
+	target_link_libraries(tv
+		glfw		
+		spdlog::spdlog	
+		glad
+		Eigen3::Eigen
+		imgui
+		dl
+	)
+endif()

@@ -42,9 +42,9 @@ int main() {
 	}
 
     glEnable(GL_STENCIL_TEST);
-	glEnable(GL_DEBUG_OUTPUT);
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_SRGB);
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_SRGB);
 
     double time = glfwGetTime();
     double deltaTime = 0.;

@@ -3,14 +3,16 @@
 #define __AVX2__
 #include <libmorton/morton.h>
 
+using namespace Data;
+
 SparseGrid::SparseGrid(){}
 
-void SparseGrid::init(const Gridsize& _newSize) {
+void SparseGrid::init(Gridsize _newSize) {
     size = _newSize;
     map.reserve(size*size*size);
 }
 
-void SparseGrid::downsample(const Gridsize& _newSize){
+void SparseGrid::downsample(Gridsize _newSize){
     //TODO
 }
 
@@ -27,10 +29,11 @@ void SparseGrid::insert(float _val, uint16_t _x, uint16_t _y, uint16_t _z){
     map[index] = _val;
 }
 
-void SparseGrid::insertBulk(const std::vector<Triplet>& _vals){
-    for(const auto& e : _vals){
-        const size_t index = libmorton::morton3D_64_encode((uint_fast32_t)std::get<1>(e), (uint_fast32_t)std::get<2>(e), (uint_fast32_t)std::get<3>(e));
-        map[index] = std::get<0>(e);
+void SparseGrid::insertBulk(Iterator _begin, Iterator _end){
+    for(Iterator i = _begin; i < _end; ++i){
+        const auto& t = *i;
+        const size_t index = libmorton::morton3D_64_encode((uint_fast32_t)std::get<1>(t), (uint_fast32_t)std::get<2>(t), (uint_fast32_t)std::get<3>(t));
+        map[index] = std::get<0>(t);
     }
 }
 
@@ -39,13 +42,13 @@ void SparseGrid::insert_async(float _val, uint16_t _x, uint16_t _y, uint16_t _z)
     insert(_val, _x, _y, _z);
 }
 
-void SparseGrid::insertBulk_async(const std::vector<Triplet>& _vals){
+void SparseGrid::insertBulk_async(Iterator _begin, Iterator _end){
     std::lock_guard<std::mutex> lock(mutex);
-    insertBulk(_vals);
+    insertBulk(_begin, _end);
 }
 
 std::unique_ptr<float> SparseGrid::toBuffer() const{
-    const size_t bs = GET_WIDTH(size);
+    const size_t bs = static_cast<size_t>(size);
     float* buffer = new float[bs * bs * bs];
     std::memset(buffer, 0, sizeof(float) * bs);
     for(auto it = map.begin(); it != map.end(); ++it){
@@ -55,11 +58,11 @@ std::unique_ptr<float> SparseGrid::toBuffer() const{
         buffer[z*size*size + y*size +x] = (*it).second;
     }
     std::unique_ptr<float> out = std::unique_ptr<float>(buffer);
-    return std::move(out);
+    return out;
 }
 
-std::unique_ptr<float> SparseGrid::createBuffers(const Gridsize& _size, const float _cellwidth) const{
-    const size_t bs = GET_WIDTH(size);
+std::unique_ptr<float> SparseGrid::createBuffers(Gridsize _size, float _cellwidth) const{
+    const size_t bs = static_cast<size_t>(size);
     float* v = new float[bs * bs * bs * 3];
     
     for(uint16_t z = 0; z < bs; ++z){
@@ -74,17 +77,17 @@ std::unique_ptr<float> SparseGrid::createBuffers(const Gridsize& _size, const fl
     }
 
     std::unique_ptr<float> out = std::unique_ptr<float>(v);
-    return std::move(out);
+    return out;
 }
 
 // [start, end + 1)
 void FunctionData::eval(
-    const std::function<float(int16_t, int16_t, int16_t)> _func, 
+    std::function<float(int16_t, int16_t, int16_t)> _func, 
     SparseGrid& _grid,
-    const bool _async,
-    const int16_t _startX, const int16_t _endX, 
-    const int16_t _startY, const int16_t _endY, 
-    const int16_t _startZ, const int16_t _endZ)
+    bool _async,
+    int16_t _startX, int16_t _endX, 
+    int16_t _startY, int16_t _endY, 
+    int16_t _startZ, int16_t _endZ)
 {
     std::vector<Triplet> tmp;
     tmp.reserve((_endX - _startX)*(_endY - _startY)*(_endZ - _startZ));
@@ -100,13 +103,13 @@ void FunctionData::eval(
     }
 
     if(_async)
-        _grid.insertBulk_async(tmp);
+        _grid.insertBulk_async(tmp.begin(), tmp.end());
     else
-        _grid.insertBulk(tmp);
+        _grid.insertBulk(tmp.begin(), tmp.end());
 
 }
 
-void FunctionData::createDataFromFunction(const std::function<float(int16_t, int16_t, int16_t)> _func, const Gridsize _size, const size_t _threads = 4){
+void FunctionData::createDataFromFunction(std::function<float(int16_t, int16_t, int16_t)> _func, Gridsize _size){
     grid.init(_size);
     switch(_size){
         case Gridsize::x2:
@@ -125,9 +128,9 @@ void FunctionData::createDataFromFunction(const std::function<float(int16_t, int
             std::vector<Eigen::Triplet<float>> data;
             data.reserve(16*16*16);
             std::vector<std::future<void>> futures;
-            for(int16_t x = 0; x < 4; ++x){
+            for(int16_t z = 0; z < 4; ++z){
                 for(int16_t y = 0; y < 4; ++y){
-                    for(int16_t z = 0; z < 4; ++z){
+                    for(int16_t x = 0; x < 4; ++x){
                         futures.push_back(std::async(std::launch::async, &FunctionData::eval, _func, std::ref(data), x * 4, x * 4 + 4, y * 4, y * 4 + 4, z * 4, z * 4 + 4));
                     }
                 }           
@@ -183,7 +186,7 @@ void FunctionData::createDataFromFunction(const std::function<float(int16_t, int
     }
 }
 
-void FunctionData::downsample(const Gridsize& _newSize){
+void FunctionData::downsample(Gridsize _newSize){
     grid.downsample(_newSize);
 }
 

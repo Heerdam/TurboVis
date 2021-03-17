@@ -17,6 +17,7 @@
 #include <Eigen/Eigen>
 #include <immintrin.h>
 #include <spdlog/spdlog.h>
+#include <imgui.h>
 
 using GL_Matrix4 = Eigen::Matrix<float, 4, 4, Eigen::ColMajor>;
 using GL_Frustum = Eigen::Matrix<float, 6, 4>;

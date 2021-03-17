@@ -41,6 +41,10 @@ namespace GL {
         void bind();
         void unbind();
     };
+
+    class Camera {
+
+    };
 }
 
 #endif /* GLL_HPP */

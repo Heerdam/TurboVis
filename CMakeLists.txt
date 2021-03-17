@@ -16,13 +16,10 @@ endif()
 include(FetchContent)
 
 add_executable(tv
-	include/defines.hpp
-	include/data.hpp
-	include/gl.hpp
-
 	src/main.cpp
 	src/data.cpp
 	src/gl.cpp
+	src/gui.cpp
 )
 
 # ------------------ GLFW ------------------
@@ -49,7 +46,7 @@ endif()
 message(STATUS "Fetching SPDLOG...")
 FetchContent_Declare(
 	spdlog
-	GIT_REPOSITORY https://github.com/gabime/spdlog
+	GIT_REPOSITORY https://github.com/gabime/spdlog.git
 	GIT_TAG        v1.8.2
 	GIT_SHALLOW TRUE
 )
@@ -59,6 +56,7 @@ FetchContent_MakeAvailable(spdlog)
 # ------------------ GLAD ------------------
 
 set(GLAD_API "gl=4.3" CACHE STRING "API type/version pairs, like \"gl=4.3,gles=\", no version means latest")
+set(GLAD_EXTENSIONS "GL_ARB_buffer_storage" CACHE STRING "Path to extensions file or comma separated list of extensions, if missing all extensions are included")
 FetchContent_Declare(
 	glad
 	GIT_REPOSITORY https://github.com/Dav1dde/glad.git
@@ -97,6 +95,7 @@ message(STATUS "Fetching imgui...")
 FetchContent_Declare(
 	imgui
 	GIT_REPOSITORY https://github.com/ocornut/imgui.git
+	GIT_SHALLOW TRUE
 )
 FetchContent_GetProperties(imgui)
 
@@ -115,7 +114,8 @@ if(NOT imgui_POPULATED)
 
 	add_library(imgui "${IMGUI_FILES}")
 
-	target_include_directories(tv INTERFACE "${imgui_SOURCE_DIR}")
+	target_include_directories(tv PUBLIC "${imgui_SOURCE_DIR}")
+	#include("${imgui_SOURCE_DIR}")
 endif()
 
 # ------------------ LIBMORTON ------------------

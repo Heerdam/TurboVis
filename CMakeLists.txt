@@ -8,7 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if (MSVC)
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /DNDEBUG")
 else()
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -mavx")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -mavx -march=haswell -march=icelake-client")
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -ggdb" )
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -DNDEBUG -flto")
 endif()
@@ -118,6 +118,19 @@ if(NOT imgui_POPULATED)
 	target_include_directories(tv INTERFACE "${imgui_SOURCE_DIR}")
 endif()
 
+# ------------------ LIBMORTON ------------------
+message(STATUS "Fetching LIBMORTON...")
+FetchContent_Declare(
+	libmorton 
+	GIT_REPOSITORY https://github.com/Forceflow/libmorton.git
+	GIT_TAG        v0.2.7
+	GIT_SHALLOW TRUE
+)
+option(BUILD_TESTING "Build unit tests for libmorton" OFF)
+FetchContent_GetProperties(libmorton)
+FetchContent_MakeAvailable(libmorton)
+
+
 if (MSVC)
 	target_link_libraries(tv
 		glfw		
@@ -125,6 +138,7 @@ if (MSVC)
 		glad
 		Eigen3::Eigen
 		imgui
+		libmorton 
 	)
 else()
 	target_link_libraries(tv
@@ -134,5 +148,6 @@ else()
 		Eigen3::Eigen
 		imgui
 		dl
+		libmorton 
 	)
 endif()

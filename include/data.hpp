@@ -22,8 +22,17 @@ namespace Data {
     };
 
     template<class T>
-    inline size_t operator*(T _v1, Gridsize _v2){
+    inline constexpr size_t operator*(T _v1, Gridsize _v2){
         return _v1 * static_cast<size_t>(_v2);
+    }
+
+    template<class T>
+    inline constexpr size_t operator*(Gridsize _v2, T _v1){
+        return _v1 * static_cast<size_t>(_v2);
+    }
+
+    inline constexpr size_t operator*(Gridsize _v1, Gridsize _v2){
+        return static_cast<size_t>(_v1) * static_cast<size_t>(_v2);
     }
 
     class SparseGrid {
@@ -45,8 +54,8 @@ namespace Data {
         void insert_async(float, uint16_t, uint16_t, uint16_t);
         void insertBulk_async(Iterator, Iterator);
 
-        std::unique_ptr<float> toBuffer() const;
-        std::unique_ptr<float> createBuffers(Gridsize, float) const;
+        std::vector<float> toBuffer() const;
+        std::vector<float> createBuffers(float) const;
     };
 
     class FunctionData {
@@ -61,7 +70,9 @@ namespace Data {
         void createDataFromFunction(std::function<float(int16_t, int16_t, int16_t)>, Gridsize);
         void downsample(Gridsize);
 
-        std::unique_ptr<float> toBuffer() const;
+        std::vector<float> toBuffer() const;
+        std::vector<float> createBuffers() const;
+
         size_t getDataSizeinBytes() const;
         Gridsize currentGridSize() const;
 

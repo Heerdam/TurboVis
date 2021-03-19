@@ -47,24 +47,21 @@ void SparseGrid::insertBulk_async(Iterator _begin, Iterator _end){
     insertBulk(_begin, _end);
 }
 
-std::unique_ptr<float> SparseGrid::toBuffer() const{
+std::vector<float> SparseGrid::toBuffer() const{
     const size_t bs = static_cast<size_t>(size);
-    float* buffer = new float[bs * bs * bs];
-    std::memset(buffer, 0, sizeof(float) * bs);
+    std::vector<float> buffer(bs * bs * bs);
     for(auto it = map.begin(); it != map.end(); ++it){
         const size_t index = (*it).first;
         uint_fast32_t x, y, z;
         libmorton::morton3D_64_decode(index, x, y, z);
         buffer[z*size*size + y*size +x] = (*it).second;
     }
-    std::unique_ptr<float> out = std::unique_ptr<float>(buffer);
-    return out;
+    return buffer;
 }
 
-std::unique_ptr<float> SparseGrid::createBuffers(Gridsize _size, float _cellwidth) const{
+std::vector<float> SparseGrid::createBuffers(float _cellwidth) const{
     const size_t bs = static_cast<size_t>(size);
-    float* v = new float[bs * bs * bs * 3];
-    
+    std::vector<float> v(bs * bs * bs * 3);
     for(uint16_t z = 0; z < bs; ++z){
         for(uint16_t y = 0; y < bs; ++y){
             for(uint16_t x = 0; x < bs; ++x){
@@ -75,9 +72,11 @@ std::unique_ptr<float> SparseGrid::createBuffers(Gridsize _size, float _cellwidt
             }
         }
     }
+    return v;
+}
 
-    std::unique_ptr<float> out = std::unique_ptr<float>(v);
-    return out;
+std::vector<float> FunctionData::createBuffers() const {
+    return grid.createBuffers(25.f);
 }
 
 // [start, end + 1)
@@ -190,7 +189,7 @@ void FunctionData::downsample(Gridsize _newSize){
     grid.downsample(_newSize);
 }
 
-std::unique_ptr<float> FunctionData::toBuffer() const{
+std::vector<float> FunctionData::toBuffer() const{
     return grid.toBuffer();
 }
     

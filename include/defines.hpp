@@ -16,6 +16,8 @@
 #include <filesystem>
 #include <chrono>
 #include <utility>
+#include <optional>
+#include <array>
 
 #include <Eigen/Eigen>
 
@@ -29,6 +31,8 @@
 #include <glm/ext.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/string_cast.hpp>
+
+#include "allocator.hpp"
 
 using Vec2i = glm::ivec2;
 using Vec3i = glm::ivec3;

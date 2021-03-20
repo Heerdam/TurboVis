@@ -76,7 +76,7 @@ std::vector<float> SparseGrid::createBuffers(float _cellwidth) const{
 }
 
 std::vector<float> FunctionData::createBuffers() const {
-    return grid.createBuffers(25.f);
+    return grid.createBuffers(50.f);
 }
 
 // [start, end + 1)

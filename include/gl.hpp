@@ -5,6 +5,9 @@
 
 namespace GL {
 
+    using Vector_af32 = std::vector<__m256, aligned_allocator<__m256, sizeof(__m256)>>;
+    using Vector_aui16 = std::vector<__m256i, aligned_allocator<__m256i, sizeof(__m256i)>>;
+
     class ShaderProgram {
         enum class Status {
             success,
@@ -53,6 +56,34 @@ namespace GL {
         static Quat trackball_holroyd(const Vec2&, const Vec2&, float);
     };
 
+    class ShapeRenderer{
+
+        ShaderProgram shader;
+
+        GLuint VAO[2], EBO[2];
+        GLuint VBO_POS[2], VBO_COL[2], VBO_NRM[2];
+
+        float* VBO_ptr_pos[2];
+        float* VBO_ptr_col[2];
+        float* VBO_ptr_nrm[2];
+        uint16_t* EBO_ptr[2];
+
+        uint32_t currIndex = 0;
+
+        uint32_t currVert = 0;
+        uint32_t currIdx = 0;
+
+        std::vector<std::optional<std::pair<Vector_af32, Vector_aui16>>> spheres;
+
+    public:
+        ShapeRenderer(uint32_t /*_maxVertices*/);
+        void render(const float* /*_camera*/);
+        //Lines
+        void drawLine(const Vec3& /*_p1*/, const Vec3& /*_p2*/, uint32_t /*_segments*/, float /*_thickness*/, const Vec4& /*_col*/);        
+        void drawAABB(const Vec3&, const Vec3&, float, const Vec4&);
+        void drawSphere(const Vec3& /*_centre*/, float /*_radius*/, uint32_t /*_subdivisions*/, const Vec4& /*_col*/);
+    };
+
     namespace util {
         struct alignas(16) array4f16a {
             float v[4];
@@ -61,6 +92,18 @@ namespace GL {
         struct alignas(32) array4f32a {
             float v[8];
             float operator[](size_t _index){ return v[_index]; }
+        };
+        struct alignas(16) array4ui16a {
+            uint16_t v[16];
+            uint16_t operator[](size_t _index){ return v[_index]; }
+        };
+        struct alignas(32) array4ui32a {
+            uint32_t v[8];
+            uint32_t operator[](size_t _index){ return v[_index]; }
+        };
+        struct Geometry {
+	        static std::pair<Vector_af32, Vector_aui16>Icosahedron(uint16_t /*_subdivisions*/);
+            static std::pair<Vector_af32, Vector_aui16>Zylinder(uint16_t /*_subdivisions*/);
         };
     }
 }

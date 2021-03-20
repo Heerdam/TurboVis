@@ -109,12 +109,6 @@ void Gui::GLGui::initGui(GLFWwindow* _window, size_t _width, size_t _height) {
 		io.KeyMap[ImGuiKey_Y] = GLFW_KEY_Y;
 		io.KeyMap[ImGuiKey_Z] = GLFW_KEY_Z;
 
-		/*
-		glfwSetMouseButtonCallback(_window, ImGui_ImplGlfw_MouseButtonCallback);
-		glfwSetScrollCallback(_window, ImGui_ImplGlfw_ScrollCallback);
-		glfwSetKeyCallback(_window, ImGui_ImplGlfw_KeyCallback);
-		glfwSetCharCallback(_window, ImGui_ImplGlfw_CharCallback);
-        */
         Gui::InputMultiplexer::mouseButtonCallback(ImGui_ImplGlfw_MouseButtonCallback);
         Gui::InputMultiplexer::scrollCallback(ImGui_ImplGlfw_ScrollCallback);
         Gui::InputMultiplexer::keyCallback(ImGui_ImplGlfw_KeyCallback);

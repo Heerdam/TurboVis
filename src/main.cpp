@@ -29,7 +29,12 @@ int main() {
     glfwWindowHint(GLFW_DEPTH_BITS, 24);
     glfwWindowHint(GLFW_STENCIL_BITS, 8);
 
-    auto window = glfwCreateWindow(1920, 1080, "TurboVis 0.1a", NULL, NULL);
+    const int WIDTH = 1920;
+    const int HEIGHT = 1080;
+    const float HALFWIDTH = WIDTH * 0.5f;
+    const float HALFHEIGHTH = HEIGHT * 0.5f;
+
+    auto window = glfwCreateWindow(WIDTH, HEIGHT, "TurboVis 0.1a", NULL, NULL);
     if (!window) {
         spdlog::error("Failed to create window. Shutting down...", true);
         return EXIT_FAILURE;
@@ -58,37 +63,60 @@ int main() {
     // -------------- GUI --------------
     Gui::InputMultiplexer::init(window);
     Gui::GLGui gui;
-    gui.initGui(window, 1920, 1080);
+    gui.initGui(window, WIDTH, HEIGHT);
     try {
         gui.initGL((unsigned int)(100000), (unsigned int)(200000));
     } catch (const TurboGUI::TurboGuiException& e) {
         spdlog::error("{}", e.what());
     }
 
-    bool show_demo_window = true;
+    bool show_demo_window = false;
 
     double time = glfwGetTime();
     double deltaTime = 0.;
     unsigned long long frame = 0;
     size_t frames = 0, fps = 0;
 
-	Data::FunctionData data;
-	data.createDataFromFunction([](int16_t _x, int16_t _y, int16_t _z)-> float {
-		return 1.f;
-	}, Data::Gridsize::x4);
-
     // -------------- CAMERA --------------
     GL::Camera camera;
-    camera.position = { 500.f, 0.f, 0.f };
-    camera.size = { 1920.f, 1080.f };
+    camera.position = { 250.f, 0.f, 0.f };
     camera.combined = glm::perspective(65.f, 1920.f / 1080.f, 0.1f, 1000.f);
     camera.combined *= glm::lookAt(camera.position, {0.f, 0.f, 0.f}, {0.f, 0.f, 1.f});
+
+    bool RMB_down = false;
+
+    double mX, mY;
+    glfwGetCursorPos(window, &mX, &mY);
+    Vec2 oldPosition = Vec2((float)mY - HALFHEIGHTH, (float)mX - HALFWIDTH);
+    Vec2 newPosition = oldPosition;
+
+    Gui::InputMultiplexer::mouseButtonCallback([&](GLFWwindow*, int _button, int _action, int _mods)-> void{
+        if(_button == GLFW_MOUSE_BUTTON_RIGHT && _mods == 0x0){
+            RMB_down = _action == GLFW_PRESS ? true : _action == GLFW_RELEASE ? false : RMB_down;
+        }
+    });
+
+    Gui::InputMultiplexer::cursorPosCallback([&](GLFWwindow*, double _xpos, double _ypos)-> void{
+        oldPosition = newPosition;
+        newPosition = Vec2((HEIGHT - (float)_ypos - HALFHEIGHTH), (float)_xpos - HALFWIDTH);
+
+        if(RMB_down){
+            const auto rot = GL::Camera::trackball_shoemake(oldPosition, newPosition, 250.f);
+            const glm::mat4 RotationMatrix = glm::toMat4(rot);
+            camera.combined *= RotationMatrix;
+        }
+    });
 
     // -------------- SHADER --------------
     GL::ShaderProgram shader;
     shader.compileFromFile("shader/shader");
 
     // -------------- DATA --------------
+    Data::FunctionData data;
+	data.createDataFromFunction([](int16_t _x, int16_t _y, int16_t _z)-> float {
+		return 1.f;
+	}, Data::Gridsize::x4);
+
 	auto vals = data.toBuffer();
 	auto verts = data.createBuffers();
 

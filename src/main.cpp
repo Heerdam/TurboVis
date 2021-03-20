@@ -56,7 +56,8 @@ int main() {
     // glEnable(GL_SRGB); //why error?
 
     // -------------- GUI --------------
-    Gui::Gui gui;
+    Gui::InputMultiplexer::init(window);
+    Gui::GLGui gui;
     gui.initGui(window, 1920, 1080);
     try {
         gui.initGL((unsigned int)(100000), (unsigned int)(200000));
@@ -64,7 +65,7 @@ int main() {
         spdlog::error("{}", e.what());
     }
 
-    bool show_demo_window = false;
+    bool show_demo_window = true;
 
     double time = glfwGetTime();
     double deltaTime = 0.;
@@ -80,29 +81,8 @@ int main() {
     GL::Camera camera;
     camera.position = { 500.f, 0.f, 0.f };
     camera.size = { 1920.f, 1080.f };
-    camera.combined.setIdentity();
-
-
-
-    using vec3 = glm::vec3;
-
-    //camera.combined *= GL::Camera::lookAt(camera.position, {0.f, 0.f, 0.f}, {0.f, 0.f, 1.f});
-    vec3 v1 = vec3( -500.f, 0.f, 0.f );
-    vec3 v2 = vec3(0.f, 0.f, 0.f);
-    vec3 v3 = vec3(0.f, 0.f, 1.f);
-    auto t1 = bench_function( glm::lookAt, v1, v2, v3);
-
-    Eigen::Vector3f w1 = {-500.f, 0.f, 0.f};
-    Eigen::Vector3f w2 = {0.f, 0.f, 0.f};
-    Eigen::Vector3f w3 = {0.f, 0.f, 1.f};
-
-    auto t2 = bench_function( GL::Camera::lookAt, w1, w2, w3);
-    //std::cout << t1 << std::endl;
-    std::cout << t2 << std::endl;
-    //std::cout << la1 << std::endl;
-    //std::cout << glm::to_string(la2) << std::endl;
-
-    return 0;
+    camera.combined = glm::perspective(65.f, 1920.f / 1080.f, 0.1f, 1000.f);
+    camera.combined *= glm::lookAt(camera.position, {0.f, 0.f, 0.f}, {0.f, 0.f, 1.f});
 
     // -------------- SHADER --------------
     GL::ShaderProgram shader;
@@ -150,7 +130,7 @@ int main() {
         // -------------- GEOMETRY PASS --------------
         shader.bind();
         glBindVertexArray(vao);
-        glUniformMatrix4fv(1, 1, false, camera.combined.data());
+        glUniformMatrix4fv(1, 1, false, glm::value_ptr(camera.combined));
         glDrawElements(GL_POINTS, (GLsizei)indices.size(), GL_UNSIGNED_INT, nullptr);   
         shader.unbind();
 

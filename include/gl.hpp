@@ -5,11 +5,6 @@
 
 namespace GL {
 
-    namespace Frustum {
-        GL_Frustum extractPlanes(const GL_Matrix4&);
-        bool isPointInside(const GL_Frustum&, const Eigen::Vector3f&);
-    }
-
     class ShaderProgram {
         enum class Status {
             success,
@@ -46,22 +41,16 @@ namespace GL {
 
         Camera();
 
-        Eigen::Vector3f position;
-        Eigen::Vector3f up;
-        Eigen::Vector2f size;
+        Vec3 position;
+        Vec3 up;
+        Vec2 size;
         float near = 0.1f, far = 1000.f;
-        GL_Matrix4 combined;
+        Mat4 combined;
 
-        static GL_Matrix4 projection(float, float, float, float, float, float);
-        static GL_Matrix4 projection(float, float, float, float);
-        static GL_Matrix4 orthographic (float, float, float, float);
-        static GL_Matrix4 lookAt(const Eigen::Vector3f&, const Eigen::Vector3f&, const Eigen::Vector3f&);
-        static GL_Matrix4 rotate(float, const Eigen::Vector3f&);
-        static GL_Matrix4 translate(const Eigen::Vector3f&);
-        static Eigen::Vector3f shoemake_projection(const Eigen::Vector2f&, float);
-        static Eigen::Vector3f holroyd_projection(const Eigen::Vector2f&, float);
-        static Eigen::Quaternionf trackball_shoemake(const Eigen::Vector2f&, const Eigen::Vector2f&, float);
-        static Eigen::Quaternionf trackball_holroyd(const Eigen::Vector2f&, const Eigen::Vector2f&, float);
+        static Vec3 shoemake_projection(const Vec2&, float);
+        static Vec3 holroyd_projection(const Vec2&, float);
+        static Quat trackball_shoemake(const Vec2&, const Vec2&, float);
+        static Quat trackball_holroyd(const Vec2&, const Vec2&, float);
     };
 
     namespace util {

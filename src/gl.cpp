@@ -1,72 +1,5 @@
 #include "../include/gl.hpp"
 
-// -------------- FRUSTUM -------------- \\
-
-GL_Frustum GL::Frustum::extractPlanes(const GL_Matrix4& _m){  
-
-    GL_Frustum out;
-
-    const __m128 _1x = _mm_load_ps(&_m(0, 0));
-    const __m128 _2x = _mm_load_ps(&_m(1, 0));
-    const __m128 _3x = _mm_load_ps(&_m(2, 0));
-    const __m128 _4x = _mm_load_ps(&_m(3, 0));
-    
-	util::array4f16a v;
-    //plane 0
-    {
-        const __m128 p = _mm_add_ps(_4x, _1x);		
-		_mm_store_ps(v.v, p);
-        std::memcpy(out.data(), v.v, sizeof(float) * 4);
-    }
-
-    //plane 1
-    {
-        const __m128 p = _mm_sub_ps(_4x, _1x);
-		_mm_store_ps(v.v, p);
-        std::memcpy(out.data() + 4, v.v, sizeof(float) * 4);
-    }
-
-    //plane 2
-    {
-        const __m128 p = _mm_sub_ps(_4x, _2x);
-		_mm_store_ps(v.v, p);
-        std::memcpy(out.data() + 2*4, v.v, sizeof(float) * 4);
-    }
-
-    //plane 3
-    {
-        const __m128 p = _mm_add_ps(_4x, _2x);
-		_mm_store_ps(v.v, p);
-        std::memcpy(out.data() + 3*4, v.v, sizeof(float) * 4);
-    }
-
-    //plane 4
-    {
-        const __m128 p = _mm_add_ps(_4x, _3x);
-		_mm_store_ps(v.v, p);
-        std::memcpy(out.data() + 4*4, v.v, sizeof(float) * 4);
-    }
-
-    //plane 5
-    {
-        const __m128 p = _mm_sub_ps(_4x, _3x);
-		_mm_store_ps(v.v, p);
-        std::memcpy(out.data() + 5*4, v.v, sizeof(float) * 4);
-    }
-
-    out.rowwise().normalize(); //TODO necessary??
-    return out;
-}
-
-bool GL::Frustum::isPointInside(const GL_Frustum& _planes, const Eigen::Vector3f& _point){
-    for(size_t i = 0; i < 6; ++i){
-        const float d = _planes.row(i).head(3).dot(_point) + _planes(i, 3);
-        if(d <= 0.f)
-            return false;
-    }
-    return true;
-}
-
 // -------------- SHADERPROGRAM -------------- \\
 
 void GL::ShaderProgram::print(std::string _id, ShaderProgram::Status _compComp, ShaderProgram::Status _compVert,
@@ -113,6 +46,8 @@ bool GL::ShaderProgram::compileFromFile(const std::string& _path) {
 		return false;
 	}
 
+	id = _path;
+
 	bool success = compile(
 		(cExists ? std::string{ std::istreambuf_iterator<char>(compB), std::istreambuf_iterator<char>() } : "").c_str(),
 		(vExists ? std::string{ std::istreambuf_iterator<char>(vertB), std::istreambuf_iterator<char>() } : "").c_str(),
@@ -122,7 +57,7 @@ bool GL::ShaderProgram::compileFromFile(const std::string& _path) {
 	compB.close();
 	vertB.close();
 	geomB.close();
-	fragB.close();
+	fragB.close();	
 
 	return success;
 }
@@ -297,190 +232,13 @@ GL::Camera::Camera(){
 
 }
 
-GL_Matrix4 GL::Camera::projection(float _n, float _f, float _l, float _r, float _b, float _t){
-	//step 1
-	const __m128 v11 = _mm_set_ps(_r, _t, _f, 0.f);
-	const __m128 v12 = _mm_set_ps(_l, _b, _n, 0.f);
-	const __m128 rp = _mm_add_ps(v11, v12);
-	const __m128 rs = _mm_sub_ps(v11, v12);
-	const float n2 = 2.f*_n;
-	const float fn = -n2 * _f;
-
-	//step 2
-	const __m128 v21 = _mm_set_ps(n2, n2, fn, 0.f);
-	__m128 rd1 = _mm_div_ps(v21, rs);
-	__m128 rd2 = _mm_div_ps(rp, rs);
-
-	util::array4f16a rf1;
-	util::array4f16a rf2;
-	_mm_store_ps(rf1.v, rd1);
-	_mm_store_ps(rf2.v, rd2);
-
-	GL_Matrix4 out;
-	//rd1
-	out(0, 0) = rf1[0];
-	out(1, 1) = rf1[1];
-	out(2, 3) = rf1[2];
-	//rd2
-	out(0, 2) = rf2[0];
-	out(1, 2) = rf2[1];
-	out(2, 2) = -rf2[2];
-
-	out(3, 2) = -1.f;
-
-	return out;
-}
-
-GL_Matrix4 GL::Camera::projection(float _n, float _f, float _r, float _t){
-	const float fn = _f - _n;
-	const __m128 v1 = _mm_set_ps(_n, _n, -(_f+_n), -2.f*_f*_n);
-	const __m128 v2 = _mm_set_ps(_r, _t, fn, fn);
-	const __m128 r = _mm_div_ps(v1, v2);
-
-	util::array4f16a v;
-	_mm_store_ps(v.v, r);
-
-	GL_Matrix4 out;
-	out(0, 0) = v[0];
-	out(1, 1) = v[1];
-	out(2, 2) = v[2];
-	out(2, 3) = v[3];
-	out(3, 2) = -1.f;
-
-	return out;
-}
-
-GL_Matrix4 GL::Camera::orthographic(float _n, float _f, float _r, float _t){
-	const float fn = _f - _n;
-	const __m128 v1 = _mm_set_ps(1.f, 1.f, -2.f, _f+_n);
-	const __m128 v2 = _mm_set_ps(_r, _t, fn, fn);
-	const __m128 r = _mm_div_ps(v1, v2);
-
-	util::array4f16a v;
-	_mm_store_ps(v.v, r);
-
-	GL_Matrix4 out;
-	out(0, 0) = v[0];
-	out(1, 1) = v[1];
-	out(2, 2) = v[2];
-	out(2, 3) = v[3];
-	out(3, 3) = 1.f;
-
-	return out;
-}
-
-GL_Matrix4 GL::Camera::lookAt(const Eigen::Vector3f& _eye, const Eigen::Vector3f& _target, const Eigen::Vector3f& _up){
-
-	const Eigen::Vector3f f = (_eye - _target).normalized(); //forward
-	const Eigen::Vector3f l = (_up.cross(f)).normalized(); //left
-	const Eigen::Vector3f u = f.cross(l); //up
-	
-
-	const __m128 v1 = _mm_set_ps(-l[0], -u[0], -f[0], 0.f);
-	const __m128 v2 = _mm_set_ps(-l[1], -u[1], -f[1], 0.f);
-	const __m128 v3 = _mm_set_ps(-l[2], -u[2], -f[2], 0.f);
-
-	const __m128 e1 = _mm_set_ps(_eye[0], _eye[0], _eye[0], 0.f);
-	const __m128 e2 = _mm_set_ps(_eye[1], _eye[1], _eye[1], 0.f);
-	const __m128 e3 = _mm_set_ps(_eye[2], _eye[2], _eye[2], 0.f);
-
-	const __m128 rm1 = _mm_mul_ps(v1, e1);
-	const __m128 rm2 = _mm_mul_ps(v2, e2);
-	const __m128 rm3 = _mm_mul_ps(v3, e3);
-
-	const __m128 ra1 = _mm_add_ps(rm1, rm2);
-	const __m128 ra2 = _mm_add_ps(ra1, rm3);
-
-	util::array4f16a v;
-	_mm_store_ps(v.v, ra2);
-
-	GL_Matrix4 out;
-	out.setIdentity();
-	out(0,0) = l[0];
-	out(0,1) = l[1];
-	out(0,2) = l[2];
-	//out(0,3) = 0.f;
-
-	out(1,0) = u[0];
-	out(1,1) = u[1];
-	out(1,2) = u[2];
-	//out(1,3) = 0.f;
-
-	out(2,0) = f[0];
-	out(2,1) = f[1];
-	out(2,2) = f[2];
-	//out(2,3) = 0.f;
-
-	out(3,0) = v[0];
-	out(3,1) = v[1];
-	out(3,2) = v[2];
-	//out(3,3) = 1.f;
-
-	return out;
-}
-
-GL_Matrix4 GL::Camera::rotate(float _angle_rad, const Eigen::Vector3f& _axis){
-	const float c = std::cos(_angle_rad);
-	const float s = std::sin(_angle_rad);
-	const float cm1 = (1.f - c);
-
-	const __m128 v = _mm_set_ps(_axis[0], _axis[1], _axis[2], 0.f);
-	const __m128 sv = _mm_set_ps(s, s, s, 0.f);
-	const __m128 cm1v = _mm_set_ps(cm1, cm1, cm1, 0.f);
-
-	const __m128 vx = _mm_set_ps(_axis[0], _axis[0], _axis[0], 0.f);
-	const __m128 vy = _mm_set_ps(_axis[1], _axis[1], _axis[1], 0.f);
-	const __m128 vz = _mm_set_ps(_axis[2], _axis[2], _axis[2], 0.f);
-
-	const __m128 r1 = _mm_mul_ps(cm1v, _mm_mul_ps(vx, v));
-	const __m128 r2 = _mm_mul_ps(cm1v, _mm_mul_ps(vy, v));
-	const __m128 r3 = _mm_mul_ps(cm1v, _mm_mul_ps(vz, v));
-	const __m128 r4 = _mm_mul_ps(sv, v);
-
-	util::array4f16a a1;
-	_mm_store_ps(a1.v, r1);
-
-	util::array4f16a a2;
-	_mm_store_ps(a2.v, r2);
-
-	util::array4f16a a3;
-	_mm_store_ps(a3.v, r3);
-
-	util::array4f16a a4;
-	_mm_store_ps(a4.v, r4);
-
-	GL_Matrix4 out;
-	out(0, 0) = a1[0] + c;
-	out(1, 0) = a1[1] + a4[2];
-	out(2, 0) = a1[2] - a4[1];
-	out(3, 0) = 0.f;
-
-	out(0, 1) = a2[0] - a4[2];
-	out(1, 1) = a2[1] + c;
-	out(2, 1) = a2[2] + a4[0];
-	out(3, 1) = 0.f;
-
-	out(0, 2) = a3[0] + a4[1];
-	out(1, 2) = a3[1] - a4[0];
-	out(2, 2) = a3[2] - c;
-	out(3, 2) = 0.f;
-
-	out(0, 3) = 0.f;
-	out(1, 3) = 0.f;
-	out(2, 3) = 0.f;
-	out(3, 3) = 1.f;
-
-	return out;
-		
-}
-
 /*
 	code taken and adapted from https://github.com/Pascal-So/turbotrack
 	with permission by Pascal Sommer, 2021
 */
-Eigen::Vector3f GL::Camera::shoemake_projection(const Eigen::Vector2f& _mousePos, float _radius) {
+Vec3 GL::Camera::shoemake_projection(const Vec2& _mousePos, float _radius) {
 	const float r2 = _radius * _radius;
-	const float d2 = _mousePos.squaredNorm();
+	const float d2 = glm::dot(_mousePos, _mousePos);
 
 	if (d2 <= r2) {
 		// sphere
@@ -496,9 +254,9 @@ Eigen::Vector3f GL::Camera::shoemake_projection(const Eigen::Vector2f& _mousePos
 	code taken and adapted from https://github.com/Pascal-So/turbotrack
 	with permission by Pascal Sommer, 2021
 */
-Eigen::Vector3f GL::Camera::holroyd_projection(const Eigen::Vector2f& _mousePos, float _radius) {
+Vec3 GL::Camera::holroyd_projection(const Vec2& _mousePos, float _radius) {
 	const float r2 = _radius * _radius;
-	const float d2 = _mousePos.squaredNorm();
+	const float d2 = glm::dot(_mousePos, _mousePos);
 
 	if (d2 <= r2 / 2) {
 		// sphere
@@ -513,18 +271,18 @@ Eigen::Vector3f GL::Camera::holroyd_projection(const Eigen::Vector2f& _mousePos,
 	code taken and adapted from https://github.com/Pascal-So/turbotrack
 	with permission by Pascal Sommer, 2021
 */
-Eigen::Quaternionf GL::Camera::trackball_shoemake(const Eigen::Vector2f& _oldPos, const Eigen::Vector2f& _newPos, float _radius){
-	const Eigen::Vector3f p1 = shoemake_projection(_oldPos, _radius);
-	const Eigen::Vector3f p2 = shoemake_projection(_newPos, _radius);
-	return Eigen::Quaternionf::FromTwoVectors(p1, p2);
+Quat GL::Camera::trackball_shoemake(const Vec2& _oldPos, const Vec2& _newPos, float _radius){
+	const Vec3 p1 = glm::normalize(shoemake_projection(_oldPos, _radius));
+	const Vec3 p2 = glm::normalize(shoemake_projection(_newPos, _radius));
+	return glm::rotation(p1, p2);
 }
 
 /*
 	code taken and adapted from https://github.com/Pascal-So/turbotrack
 	with permission by Pascal Sommer, 2021
 */
-Eigen::Quaternionf GL::Camera::trackball_holroyd(const Eigen::Vector2f& _oldPos, const Eigen::Vector2f& _newPos, float _radius){
-	const Eigen::Vector3f p1 = holroyd_projection(_oldPos, _radius);
-	const Eigen::Vector3f p2 = holroyd_projection(_newPos, _radius);
-	return Eigen::Quaternionf::FromTwoVectors(p1, p2);
+Quat GL::Camera::trackball_holroyd(const Vec2& _oldPos, const Vec2& _newPos, float _radius){
+	const Vec3 p1 = glm::normalize(holroyd_projection(_oldPos, _radius));
+	const Vec3 p2 = glm::normalize(holroyd_projection(_newPos, _radius));
+	return glm::rotation(p1, p2);
 }

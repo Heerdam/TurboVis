@@ -7,6 +7,6 @@ layout (location = 1) uniform mat4 cam;
 out vec4 col;
 
 void main() {
-    col = vec4(1., 0, 0, 0);
+    col = vec4(1.0, 1.0, 1.0, 1.0);
     gl_Position = cam * vec4(pos.xyz, 1);
 }

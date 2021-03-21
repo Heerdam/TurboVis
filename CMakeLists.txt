@@ -22,6 +22,30 @@ add_executable(tv
 	src/gui.cpp
 )
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+
+# ------------------ Eigen ------------------
+find_package (Eigen3 3.3.9 QUIET ) 
+target_include_directories(tv PUBLIC "${EIGEN3_INCLUDE_DIR}")
+if (NOT EIGEN3_FOUND)
+	message(STATUS "Fetching Eigen...")
+	FetchContent_Declare(
+	Eigen
+	GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git 
+	GIT_TAG master
+	GIT_SHALLOW TRUE
+	GIT_PROGRESS TRUE)
+	set(EIGEN_BUILD_DOC OFF FORCE)
+	# note: To disable eigen tests,
+	# you should put this code in a add_subdirectory to avoid to change
+	# BUILD_TESTING for your own project too since variables are directory
+	# scoped
+	set(BUILD_TESTING OFF FORCE)
+	set(EIGEN_BUILD_PKGCONFIG OFF FORCE)
+	set( OFF)
+	FetchContent_MakeAvailable(Eigen)
+endif ()
+
 # ------------------ GLFW ------------------
 message(STATUS "Fetching GLFW...")
 FetchContent_Declare(
@@ -53,7 +77,7 @@ FetchContent_Declare(
 FetchContent_GetProperties(spdlog)
 FetchContent_MakeAvailable(spdlog)
 
-# ------------------ GLAD ------------------
+# ------------------ GLAD ------------------ 
 
 set(GLAD_API "gl=4.3" CACHE STRING "API type/version pairs, like \"gl=4.3,gles=\", no version means latest")
 set(GLAD_EXTENSIONS "GL_ARB_buffer_storage" CACHE STRING "Path to extensions file or comma separated list of extensions, if missing all extensions are included")
@@ -68,28 +92,7 @@ if(NOT glad_POPULATED)
 	FetchContent_Populate(glad)
 	add_subdirectory("${glad_SOURCE_DIR}" "${glad_BINARY_DIR}")
 endif()
-
-# ------------------ Eigen ------------------
-find_package (Eigen3 3.3.9 QUIET NO_MODULE)
-if (NOT EIGEN3_FOUND)
-	message(STATUS "Fetching Eigen...")
-	FetchContent_Declare(
-	Eigen
-	GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-	GIT_TAG master
-	GIT_SHALLOW TRUE
-	GIT_PROGRESS TRUE)
-	set(EIGEN_BUILD_DOC OFF FORCE)
-	# note: To disable eigen tests,
-	# you should put this code in a add_subdirectory to avoid to change
-	# BUILD_TESTING for your own project too since variables are directory
-	# scoped
-	set(BUILD_TESTING OFF FORCE)
-	set(EIGEN_BUILD_PKGCONFIG OFF FORCE)
-	set( OFF)
-	FetchContent_MakeAvailable(Eigen)
-endif ()
-
+ 
 # ------------------ IMGUI ------------------
 message(STATUS "Fetching imgui...")
 FetchContent_Declare(
@@ -115,7 +118,6 @@ if(NOT imgui_POPULATED)
 	add_library(imgui "${IMGUI_FILES}")
 
 	target_include_directories(tv PUBLIC "${imgui_SOURCE_DIR}")
-	#include("${imgui_SOURCE_DIR}")
 endif()
 
 # ------------------ LIBMORTON ------------------
@@ -131,23 +133,35 @@ FetchContent_GetProperties(libmorton)
 FetchContent_MakeAvailable(libmorton)
 
 
+FetchContent_Declare(
+        glm
+        GIT_REPOSITORY https://github.com/g-truc/glm
+		GIT_SHALLOW TRUE
+		GIT_TAG 0.9.9.8
+)
+FetchContent_GetProperties(glm)
+if(NOT glm_POPULATED)
+	FetchContent_Populate(glm)
+	add_subdirectory("${glm_SOURCE_DIR}" "${glm_BINARY_DIR}")
+endif()
+
 if (MSVC)
 	target_link_libraries(tv
 		glfw		
 		spdlog::spdlog	
 		glad
-		Eigen3::Eigen
 		imgui
 		libmorton 
+		glm
 	)
 else()
 	target_link_libraries(tv
 		glfw		
 		spdlog::spdlog	
 		glad
-		Eigen3::Eigen
 		imgui
 		dl
 		libmorton 
+		glm
 	)
 endif()

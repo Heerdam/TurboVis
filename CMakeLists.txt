@@ -8,7 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if (MSVC)
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /DNDEBUG")
 else()
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -mavx -march=haswell -march=icelake-client")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -mavx -mavx2")
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -ggdb" )
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -DNDEBUG -flto")
 endif()
@@ -25,26 +25,8 @@ add_executable(tv
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 # ------------------ Eigen ------------------
-find_package (Eigen3 3.3.9 QUIET ) 
+find_package (Eigen3 3.3.9 QUIET REQUIRED) 
 target_include_directories(tv PUBLIC "${EIGEN3_INCLUDE_DIR}")
-if (NOT EIGEN3_FOUND)
-	message(STATUS "Fetching Eigen...")
-	FetchContent_Declare(
-	Eigen
-	GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git 
-	GIT_TAG master
-	GIT_SHALLOW TRUE
-	GIT_PROGRESS TRUE)
-	set(EIGEN_BUILD_DOC OFF CACHE)
-	# note: To disable eigen tests,
-	# you should put this code in a add_subdirectory to avoid to change
-	# BUILD_TESTING for your own project too since variables are directory
-	# scoped
-	set(BUILD_TESTING OFF CACHE)
-	set(EIGEN_BUILD_PKGCONFIG OFF CACHE)
-	set( OFF)
-	FetchContent_MakeAvailable(Eigen)
-endif ()
 
 # ------------------ GLFW ------------------
 message(STATUS "Fetching GLFW...")

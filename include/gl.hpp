@@ -74,6 +74,7 @@ namespace GL {
         uint32_t currIdx = 0;
 
         std::vector<std::optional<std::pair<Vector_af32, Vector_aui16>>> spheres;
+        std::vector<std::optional<std::pair<std::vector<float>, std::vector<uint16_t>>>> cylinders;
 
     public:
         ShapeRenderer(uint32_t /*_maxVertices*/);
@@ -82,6 +83,7 @@ namespace GL {
         void drawLine(const Vec3& /*_p1*/, const Vec3& /*_p2*/, uint32_t /*_segments*/, float /*_thickness*/, const Vec4& /*_col*/);        
         void drawAABB(const Vec3&, const Vec3&, float, const Vec4&);
         void drawSphere(const Vec3& /*_centre*/, float /*_radius*/, uint32_t /*_subdivisions*/, const Vec4& /*_col*/);
+        void drawWidget(const Vec3& /*_centre*/);
     };
 
     namespace util {
@@ -103,9 +105,10 @@ namespace GL {
         };
         struct Geometry {
 	        static std::pair<Vector_af32, Vector_aui16>Icosahedron(uint16_t /*_subdivisions*/);
-            static std::pair<Vector_af32, Vector_aui16>Zylinder(uint16_t /*_subdivisions*/);
+            static std::pair<std::vector<float>, std::vector<uint16_t>>Zylinder(uint16_t /*_subdivisions*/);
         };
-    }
-}
+    } //namespace util
+
+}  // namespace GL
 
 #endif /* GLL_HPP */

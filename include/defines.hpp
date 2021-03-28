@@ -18,8 +18,11 @@
 #include <utility>
 #include <optional>
 #include <array>
+#include <random>
+#include <algorithm>
 
 #include <Eigen/Eigen>
+#include <Eigen/Core>
 
 #include <immintrin.h>
 #include <spdlog/spdlog.h>

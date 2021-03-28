@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.16)
 
 project(TurboVis)
 
@@ -25,7 +25,7 @@ add_executable(tv
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 # ------------------ Eigen ------------------
-find_package (Eigen3 3.3.9 QUIET REQUIRED) 
+find_package (Eigen3 3.4.99 QUIET REQUIRED) 
 target_include_directories(tv PUBLIC "${EIGEN3_INCLUDE_DIR}")
 
 # ------------------ GLFW ------------------
@@ -135,6 +135,7 @@ if (MSVC)
 		imgui
 		libmorton 
 		glm
+		#mc
 	)
 else()
 	target_link_libraries(tv
@@ -145,5 +146,6 @@ else()
 		dl
 		libmorton 
 		glm
+		#mc
 	)
 endif()

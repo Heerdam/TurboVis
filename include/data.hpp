@@ -94,106 +94,144 @@ namespace Data {
         public:
 
             template<class Iterator>
-            void build(Iterator _begin, Iterator _end) {
+            void build(Iterator _begin, Iterator _end) noexcept {
                 std::sort(_begin, _end, [&](const Vector& _v1, const Vector& _v2){
                     return _v1[k] > _v2[k];
                 });
                 root = insert(_begin, _end, 0);
-
             }         
 
-            [[nodiscard]] Vector* nn(const Vector& _in) const noexcept {
-                const float dist2 = (root->location - _in).squaredNorm();
-                return nn(root.get()->location[0] >= _in[0] = root->leftChild : root->rightChild, root.get(), dist2, _in, 0);
+            [[nodiscard]] const Vector* nn(const Vector& _in) const noexcept {
+                const float dist2 = (*root->location - _in).squaredNorm();
+                return nn((root->location->operator[](0) >= _in[0] ? root->leftChild.get() : root->rightChild.get()), root.get(), dist2, _in, 0);
             }
 
         private:
             template<class Iterator>
             [[nodiscard]] std::unique_ptr<Node> insert(Iterator _begin, Iterator _end, size_t _depth) noexcept {
-                constexpr size_t axis = _depth % k;
+                const size_t axis = _depth % k;
                 Iterator median = (_begin + (_end - _begin) / 2);
                 std::unique_ptr<Node> node = std::make_unique<Node>();
                 node->location = &(*median);
-                node->leftChild = insert(_begin, median, _depth + 1);
-                node->rightChild = insert(median, _end, _depth + 1);
+                node->leftChild = insert(_begin, median-1, _depth + 1);
+                node->rightChild = insert(median+1, _end, _depth + 1);
                 return node;
             }
 
-            [[nodiscard]] Vector* nn(const Node* _node, const Node* best, float _dist2, const Vector& _in, size_t _depth) const noexcept {
-                if(_node == nullptr) return best;
-                constexpr size_t axis = _depth % k;
-                const float dist2 = (_node->location - _in).squaredNorm();
-                return nn(_node.get()->location[k] >= _in[k] = _node->leftChild : root->rightChild, dist2 < _dist2 ? _node : best, dist2, _in, _depth + 1);
+            [[nodiscard]] const Vector* nn(const Node* _node, const Node* best, float _dist2, const Vector& _in, size_t _depth) const noexcept {
+                if(_node == nullptr) return best->location;
+                const size_t axis = _depth % k;
+                const float dist2 = (*_node->location - _in).squaredNorm();
+                return nn((_node->location->operator[](k) >= _in[k] ? _node->leftChild.get() : root->rightChild.get()), dist2 < _dist2 ? _node : best, dist2, _in, _depth + 1);
             }
             
         };
 
         /*
             Vector Quantizer to create clusters from an input signal
-
+            iterativly use means for VQ until no points are switched or iteration count is reached
+            compute means of clusters
         */
         template<class Signal>
-        [[nodiscard]] inline std::vector<std::vector<Eigen::Matrix<float, Signal::RowsAtCompileTime, 1>>> VQ(const Signal& _signal, size_t _clusters) {
+        [[nodiscard]] inline std::pair<Eigen::Matrix<float, 1, Signal::RowsAtCompileTime>,std::vector<std::vector<Eigen::Matrix<float, 1, Signal::RowsAtCompileTime>>>> 
+            VQ(const Signal& _signal, size_t _clusters, size_t _maxIterations = 3) {
 
-            using Vector = Eigen::Matrix<float, _signal::RowsAtCompileTime, 1>;
+            using Vector = Eigen::Matrix<float, 1, Signal::RowsAtCompileTime>;
 
-            std::mt19937_64 gen;
-            std::uniform_int_distribution<size_t> dist (0, _signal.cols() - 1);
-
-            std::vector<bool> map(_signal.cols());
-            std::fill(map.begin(), map.end(), false);
-
-            std::vector<Vector> words (_signal.cols());
-
-            std::unordered_map<Vector*, size_t> lookUpTable;
-
-            for(size_t i = 0; i <_clusters; ++i){
-                const size_t c = dist(gen);
-                if(map[c]){
-                    --i;
-                    continue;
-                }
-                map[c] = true;
-                Vector v = _signal.col(c);
-                words.push_back(v);
-                lookUpTable[&v] = i; //falsch
-            }
-
-            KD_TREE<Vector, _signal::RowsAtCompileTime> tree;
-            tree.insert(words);
-
+            std::unordered_map<std::uintptr_t , size_t> clusterMap(_signal.cols());
             std::vector<std::vector<Vector>> out (_clusters);
+            std::vector<Vector> words (_clusters);
+            std::vector<Vector> means_old (_clusters);
+            std::vector<Vector> means (_clusters);
 
-            for(size_t i = 0; i < _signal.cols(); ++i){
-                if(!map[i]){
+            for(size_t it = 0; it < _maxIterations; ++it){
 
-                    auto word = tree.nn(_signal.row(i));
-                    assert(lookUpTable.count(word) != 0); //falsch
-                    size_t index = lookUpTable[word]; //falsch
-                    out[index].push_back(words[index]); //semnatisch falsch will words sortiert wird
+                for(auto& v : out)
+                        v.clear();
+                bool hasChanged = false;
+
+                //rebuild tree
+                KD_TREE<Vector, Signal::RowsAtCompileTime> tree;
+
+                //create words
+                if(it == 0){
+                    std::mt19937_64 gen;
+                    std::uniform_int_distribution<size_t> dist(0, _signal.cols() - 1);
+
+                    std::vector<bool> map(_signal.cols());
+                    std::fill(map.begin(), map.end(), false);
+
+                    for (size_t i = 0; i < _clusters; ++i) {
+                        const size_t c = dist(gen);
+                        //avoid inserting twice the same
+                        if (map[c]) {
+                            --i;
+                            continue;
+                        }
+                        map[c] = true;
+                        Vector v = _signal.col(c);
+                        words[i] = v;
+                        means_old[i] = v;
+                    }
+
+                    tree.build(words.begin(), words.end());
+
+                } else {
+
+                    for(size_t i = 0; i < _clusters; ++i){
+                        means_old[i] = means[i];
+                        means[i].setZero();
+                    }
+
+                    tree.build(means_old.begin(), means_old.end());
                 }
-            }
-            
 
-            return out;
+                //insert signal into the clusters (including words)
+                for(Eigen::Index i = 0; i < _signal.cols(); ++i){
+                    bool isSet = false;
+                    auto word = tree.nn(_signal.row(i));
+                    
+                    //find cluster
+                    for(size_t idx = 0; idx < _clusters; ++i){
+                        if(word == &means_old[i]) {
+                            isSet = true;
+
+                            //check if cluster has changed
+                            if(clusterMap.count(reinterpret_cast<std::uintptr_t>(&word)))
+                                clusterMap[reinterpret_cast<std::uintptr_t>(&word)] = idx;
+                            else{
+                                const bool ch = clusterMap[reinterpret_cast<std::uintptr_t>(&word)] != idx;
+                                if(ch){
+                                    clusterMap[reinterpret_cast<std::uintptr_t>(&word)] = idx;
+                                    hasChanged = true;
+                                }
+                            }
+
+                            out[idx].push_back(*word);
+                            means[idx] += word;
+                        }
+                    }
+                    assert(isSet);
+                }
+
+                for(size_t i = 0; i < _clusters; ++i)
+                    means[i] /= _clusters;
+
+                //early out if no change
+                if(!hasChanged)
+                    break;
+            }
+ 
+            return { means, out };
             
         };
 
-        inline void staticPCA(const Eigen::Matrix<float, 3, 3>& _signal, size_t _clusters){
-
-            //first pick of vectors for VQ
+        template <class Signal>
+        inline void staticPCA(const Signal& _signal, size_t _clusters){
+            
             
 
-            Eigen::Matrix<float, 3, 3> words = _signal(Eigen::all, clusterIndicies);
-            Eigen::Vector2f f;
             
-
-            //calc first vq
-            auto clusters = VQ(_signal, clusterIndicies);
-
-            //calc mean of cluster
-
-            //iterativly use means for VQ until no points are switched or iteration count is reached
 
             /*
                 for every cluster
@@ -203,6 +241,26 @@ namespace Data {
                     PCA vecs: first n rows of V
                     projection weight of point j: first n columns of row j of UD
             */
+
+            using Vector = Eigen::Matrix<float, 1, Signal::RowsAtCompileTime>;
+            const auto clusters = VQ(_signal, _clusters);
+            
+            for(const auto& c : clusters){
+                //mean
+                Vector x_0;
+                for(const auto& v : c)
+                    x_0 += v;
+                x_0 /= c.size();
+
+                Eigen::Matrix<float, c.size(), Signal::RowsAtCompileTime> C; //residiual matrix
+                for(size_t i = 0; i < c.size(); ++i)   
+                    C.col(i) = c[i] - x_0;
+
+                Eigen::JacobiSVD<decltype(C)> solver (C, Eigen::ComputeThinU | Eigen::ComputeThinV);
+                const auto PCA = solver.matrixV().transpose().block(0, c.size(), 0, Signal::RowsAtCompileTime);
+                const auto UD = solver.matrixU() * solver.singularValues().block(0, c.size(), 0, Signal::RowsAtCompileTime);;
+            }
+
         };
 
         /*

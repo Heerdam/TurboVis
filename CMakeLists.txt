@@ -9,8 +9,9 @@ if (MSVC)
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /DNDEBUG")
 else()
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -mavx -mavx2")
-	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -ggdb" )
-	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -DNDEBUG -flto")
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g3 -ggdb -fsanitize=address -fsanitize=undefined -D_GLIBCXX_DEBUG" )
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Os -march=native -DNDEBUG -flto -fomit-frame-pointer")
+	set(CMAKE_CXX_FLAGS_SCHRENZSPEED "-Ofast -funroll-loops -s -DNDEBUG -flto -fomit-frame-pointer -march=native")
 endif()
 
 include(FetchContent)
@@ -127,25 +128,55 @@ if(NOT glm_POPULATED)
 	add_subdirectory("${glm_SOURCE_DIR}" "${glm_BINARY_DIR}")
 endif()
 
+set(TV_LIBS 
+		"glfw"	
+		"spdlog::spdlog"	
+		"glad"
+		"imgui"
+		"libmorton" 
+		"glm"
+)
+
+set(TV_LIBS_LINUX "${TV_LIBS}")
+list(APPEND TV_LIBS_LINUX "dl")
+
 if (MSVC)
-	target_link_libraries(tv
-		glfw		
-		spdlog::spdlog	
-		glad
-		imgui
-		libmorton 
-		glm
-		#mc
-	)
+	target_link_libraries(tv "${TV_LIBS}" )
 else()
-	target_link_libraries(tv
-		glfw		
-		spdlog::spdlog	
-		glad
-		imgui
-		dl
-		libmorton 
-		glm
-		#mc
-	)
+	target_link_libraries(tv "${TV_LIBS_LINUX}"	)
 endif()
+
+#if(TURBOVIS_BUILD_TESTS)
+
+	add_executable(VQ 
+		tests/VQ/main.cpp
+	)
+
+# ------------------ GnuPlot ------------------
+	message(STATUS "Fetching gnuplot...")
+	FetchContent_Declare(
+		gp
+		GIT_REPOSITORY https://github.com/sciplot/sciplot.git
+		GIT_SHALLOW TRUE
+		GIT_TAG v0.2.2
+	)
+
+	option(SCIPLOT_BUILD_EXAMPLES "Build examples" OFF)
+	option(SCIPLOT_BUILD_TESTS "Build tests" OFF)
+	option(SCIPLOT_BUILD_DOCS "Build documentation" OFF)
+
+	FetchContent_GetProperties(gp)
+	if(NOT gp_POPULATED)
+		FetchContent_Populate(gp)
+		add_subdirectory("${gp_SOURCE_DIR}" "${gp_BINARY_DIR}")
+	endif()	
+
+	target_include_directories(VQ PUBLIC "${EIGEN3_INCLUDE_DIR}")
+	target_include_directories(VQ PUBLIC "${imgui_SOURCE_DIR}")
+
+	if (MSVC)
+		target_link_libraries(VQ "${TV_LIBS}" sciplot )
+	else()
+		target_link_libraries(VQ "${TV_LIBS_LINUX}" sciplot )
+	endif()
+#endif()

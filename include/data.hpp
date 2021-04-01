@@ -93,10 +93,14 @@ namespace Data {
 
         public:
 
+            KD_TREE() {}
+
             template<class Iterator>
             void build(Iterator _begin, Iterator _end) noexcept {
+                static_assert(Vector::RowsAtCompileTime == k);
+                static_assert(Vector::ColsAtCompileTime == 1);
                 std::sort(_begin, _end, [&](const Vector& _v1, const Vector& _v2){
-                    return _v1[k] > _v2[k];
+                    return _v1(k-1, 0) > _v2(k-1, 0);
                 });
                 root = insert(_begin, _end, 0);
             }         
@@ -110,7 +114,9 @@ namespace Data {
             template<class Iterator>
             [[nodiscard]] std::unique_ptr<Node> insert(Iterator _begin, Iterator _end, size_t _depth) noexcept {
                 const size_t axis = _depth % k;
-                Iterator median = (_begin + (_end - _begin) / 2);
+                const int64_t range = (_end - _begin) / 2;
+                if(range <= 0) return nullptr;
+                Iterator median = _begin + range;
                 std::unique_ptr<Node> node = std::make_unique<Node>();
                 node->location = &(*median);
                 node->leftChild = insert(_begin, median-1, _depth + 1);
@@ -122,7 +128,7 @@ namespace Data {
                 if(_node == nullptr) return best->location;
                 const size_t axis = _depth % k;
                 const float dist2 = (*_node->location - _in).squaredNorm();
-                return nn((_node->location->operator[](k) >= _in[k] ? _node->leftChild.get() : root->rightChild.get()), dist2 < _dist2 ? _node : best, dist2, _in, _depth + 1);
+                return nn((_node->location->operator[](k-1) >= _in[k-1] ? _node->leftChild.get() : root->rightChild.get()), dist2 < _dist2 ? _node : best, dist2, _in, _depth + 1);
             }
             
         };
@@ -132,13 +138,10 @@ namespace Data {
             iterativly use means for VQ until no points are switched or iteration count is reached
             compute means of clusters
         */
-        template<class Signal>
-        [[nodiscard]] inline std::pair<Eigen::Matrix<float, 1, Signal::RowsAtCompileTime>,std::vector<std::vector<Eigen::Matrix<float, 1, Signal::RowsAtCompileTime>>>> 
-            VQ(const Signal& _signal, size_t _clusters, size_t _maxIterations = 3) {
+        template<class Vector>
+        [[nodiscard]] std::pair<std::vector<Vector>, std::vector<std::vector<Vector>>> VQ(const std::vector<Vector>& _signal, size_t _clusters, size_t _maxIterations = 3) {
 
-            using Vector = Eigen::Matrix<float, 1, Signal::RowsAtCompileTime>;
-
-            std::unordered_map<std::uintptr_t , size_t> clusterMap(_signal.cols());
+            std::unordered_map<std::uintptr_t , size_t> clusterMap(_signal.size());
             std::vector<std::vector<Vector>> out (_clusters);
             std::vector<Vector> words (_clusters);
             std::vector<Vector> means_old (_clusters);
@@ -151,14 +154,15 @@ namespace Data {
                 bool hasChanged = false;
 
                 //rebuild tree
-                KD_TREE<Vector, Signal::RowsAtCompileTime> tree;
+                KD_TREE<Vector, Vector::RowsAtCompileTime> tree;
 
                 //create words
                 if(it == 0){
                     std::mt19937_64 gen;
-                    std::uniform_int_distribution<size_t> dist(0, _signal.cols() - 1);
+                    gen.seed(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+                    std::uniform_int_distribution<size_t> dist(0, _signal.size() - 1);
 
-                    std::vector<bool> map(_signal.cols());
+                    std::vector<bool> map(_signal.size());
                     std::fill(map.begin(), map.end(), false);
 
                     for (size_t i = 0; i < _clusters; ++i) {
@@ -169,7 +173,7 @@ namespace Data {
                             continue;
                         }
                         map[c] = true;
-                        Vector v = _signal.col(c);
+                        Vector v = _signal[c];
                         words[i] = v;
                         means_old[i] = v;
                     }
@@ -187,9 +191,9 @@ namespace Data {
                 }
 
                 //insert signal into the clusters (including words)
-                for(Eigen::Index i = 0; i < _signal.cols(); ++i){
+                for(Eigen::Index i = 0; i < _signal.size(); ++i){
                     bool isSet = false;
-                    auto word = tree.nn(_signal.row(i));
+                    auto word = tree.nn(_signal[i]);
                     
                     //find cluster
                     for(size_t idx = 0; idx < _clusters; ++i){
@@ -208,14 +212,14 @@ namespace Data {
                             }
 
                             out[idx].push_back(*word);
-                            means[idx] += word;
+                            means[idx] += *word;
                         }
                     }
                     assert(isSet);
                 }
 
                 for(size_t i = 0; i < _clusters; ++i)
-                    means[i] /= _clusters;
+                    means[i] /= static_cast<float>(_clusters);
 
                 //early out if no change
                 if(!hasChanged)
@@ -226,40 +230,40 @@ namespace Data {
             
         };
 
+        /*
+            for every cluster
+            calc mean x0
+            compute residual matrix C = X - x0
+            SVD(C)
+            PCA vecs: first n rows of V
+            projection weight of point j: first n columns of row j of UD
+        */
         template <class Signal>
-        inline void staticPCA(const Signal& _signal, size_t _clusters){
-            
-            
+        std::pair<std::vector<Eigen::Matrix<float, -1, Signal::RowsAtCompileTime>>, std::vector<Eigen::Matrix<float, -1, Signal::RowsAtCompileTime>>> PCA(const Signal& _signal, size_t _clusters){
 
-            
+            constexpr size_t n = Signal::RowsAtCompileTime;
 
-            /*
-                for every cluster
-                    calc mean x0
-                    compute residual matrix C = X - x0
-                    SVD(C)
-                    PCA vecs: first n rows of V
-                    projection weight of point j: first n columns of row j of UD
-            */
+            using Matrix = Eigen::Matrix<float, -1, Signal::RowsAtCompileTime>;
+            using Vector = Eigen::Matrix<float, 1, n>;
 
-            using Vector = Eigen::Matrix<float, 1, Signal::RowsAtCompileTime>;
             const auto clusters = VQ(_signal, _clusters);
-            
-            for(const auto& c : clusters){
-                //mean
-                Vector x_0;
-                for(const auto& v : c)
-                    x_0 += v;
-                x_0 /= c.size();
 
-                Eigen::Matrix<float, c.size(), Signal::RowsAtCompileTime> C; //residiual matrix
-                for(size_t i = 0; i < c.size(); ++i)   
+            std::vector<Matrix> pca (_clusters);
+            std::vector<Matrix> weights (_clusters);
+
+            for(size_t k = 0; k < clusters.size(); ++k){ 
+                const auto& c = clusters[k];
+                constexpr size_t m = c.size();
+                Eigen::Matrix<float, m, n> C; //residiual matrix m x n
+                for(size_t i = 0; i < m; ++i)   
                     C.col(i) = c[i] - x_0;
 
                 Eigen::JacobiSVD<decltype(C)> solver (C, Eigen::ComputeThinU | Eigen::ComputeThinV);
-                const auto PCA = solver.matrixV().transpose().block(0, c.size(), 0, Signal::RowsAtCompileTime);
-                const auto UD = solver.matrixU() * solver.singularValues().block(0, c.size(), 0, Signal::RowsAtCompileTime);;
+                pca[k] = solver.matrixV().transpose().block(0, m, 0, n);
+                weights[k] = solver.matrixU() * solver.singularValues().block(0, m, 0, n);
             }
+
+            return { pca, weights };
 
         };
 
@@ -271,9 +275,9 @@ namespace Data {
         eta_0, mu and xsi: tuning parameter
         */
         template <class M>
-        [[nodiscard]] inline M KHA_SMD(const M& _REM, size_t _iterations, float _etc_0 = 0.1f, float _mu = 1.f, float _xsi = 0.99f) {
+        [[nodiscard]] M KHA_SMD(const M& _REM, size_t _iterations, float _etc_0 = 0.1f, float _mu = 1.f, float _xsi = 0.99f) {
             constexpr size_t n = _REM::RowsAtCompileTime;
-            constexpr size_t m = _REM::ColsAtCompileTime;
+            constexpr size_t m = _REM::ColsAtCompileTime; //TODO: kritisch
 
             using Vector = Eigen::Matrix<float, 1, m>;
             using Matrix = Eigen::Matrix<float, n, m>;

@@ -21,6 +21,8 @@
 #include <random>
 #include <algorithm>
 
+#define _SILENCE_CXX17_ADAPTOR_TYPEDEFS_DEPRECATION_WARNING
+#define _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
 #include <Eigen/Eigen>
 #include <Eigen/Core>
 

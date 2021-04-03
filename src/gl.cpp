@@ -407,7 +407,7 @@ void GL::ShapeRenderer::drawLine(const Vec3& _p1, const Vec3& _p2, uint32_t _seg
                     (static_cast<int>(_col[2] * 255.f) << 16) |
                     (static_cast<int>(_col[1] * 255.f) << 8) |
                     static_cast<int>(_col[0] * 255.f);
-    std::memset(VBO_ptr_col[currIndex] + currVert, col, cpos.size());
+    std::memset(VBO_ptr_col[currIndex] + currVert, col, cpos.size() * sizeof(int));
 
     //indices
 

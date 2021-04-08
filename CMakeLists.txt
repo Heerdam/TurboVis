@@ -103,6 +103,29 @@ if(NOT imgui_POPULATED)
 	target_include_directories(tv PUBLIC "${imgui_SOURCE_DIR}")
 endif()
 
+# ------------------ LODEPNG ------------------
+message(STATUS "Fetching lodepng...")
+FetchContent_Declare(
+	lodepng
+	GIT_REPOSITORY https://github.com/lvandeve/lodepng.git
+	GIT_SHALLOW TRUE
+)
+FetchContent_GetProperties(lodepng)
+
+if(NOT lodepng_POPULATED)
+	FetchContent_Populate(lodepng)
+
+	message(STATUS "Preparing lodepng...")
+
+	set(LODEPNG_FILES
+		"${lodepng_SOURCE_DIR}/lodepng.cpp"	
+	)
+
+	add_library(lodepng "${LODEPNG_FILES}")
+
+	target_include_directories(tv PUBLIC "${lodepng_SOURCE_DIR}")
+endif()
+
 # ------------------ LIBMORTON ------------------
 message(STATUS "Fetching LIBMORTON...")
 FetchContent_Declare(
@@ -133,6 +156,7 @@ set(TV_LIBS
 		"spdlog::spdlog"	
 		"glad"
 		"imgui"
+		"lodepng"
 		"libmorton" 
 		"glm"
 )
@@ -147,10 +171,6 @@ else()
 endif()
 
 #if(TURBOVIS_BUILD_TESTS)
-
-	add_executable(VQ 
-		tests/VQ/main.cpp
-	)
 
 # ------------------ GnuPlot ------------------
 	message(STATUS "Fetching gnuplot...")
@@ -171,12 +191,22 @@ endif()
 		add_subdirectory("${gp_SOURCE_DIR}" "${gp_BINARY_DIR}")
 	endif()	
 
+	# ------------------ Targets ------------------
+	add_executable(VQ tests/VQ/main.cpp	)
+	add_executable(SHAPES tests/SHAPES/main.cpp	)
+
 	target_include_directories(VQ PUBLIC "${EIGEN3_INCLUDE_DIR}")
 	target_include_directories(VQ PUBLIC "${imgui_SOURCE_DIR}")
 
+	target_include_directories(SHAPES PUBLIC "${EIGEN3_INCLUDE_DIR}")
+	target_include_directories(SHAPES PUBLIC "${imgui_SOURCE_DIR}")
+	target_include_directories(SHAPES PUBLIC "${lodepng_SOURCE_DIR}")
+
 	if (MSVC)
 		target_link_libraries(VQ "${TV_LIBS}" sciplot )
+		target_link_libraries(SHAPES "${TV_LIBS}" sciplot )
 	else()
 		target_link_libraries(VQ "${TV_LIBS_LINUX}" sciplot )
+		target_link_libraries(SHAPES "${TV_LIBS_LINUX}" sciplot )
 	endif()
 #endif()

@@ -45,9 +45,13 @@ struct Zylinder {
 
 bool sphere(const Sphere& _s, const vec3& _ray_o, const vec3& _ray_d, vec3& _intersect, vec3& _normal) {
     const vec3 oc = _ray_o - _s.centre;
-    const float d = -dot(_ray_d, oc);
-    const float delta = sqr(d) - (dist2(oc) - sqr(_s.radius));
-    const float t = d - sqrt(delta);
+    const float d = dot(oc, _ray_d);
+    const float c = (dot(oc, oc) - _s.radius * _s.radius);
+    if (c > 0.f && d > 0.f) return false;
+    const float delta = d * d - c;
+    if(delta < 0.f) return false;
+    float t = -d - sqrt(delta);
+    if (t < 0.0f) t = 0.0f;
     _intersect = _ray_o + t*_ray_d;
     _normal = normalize(vec3(_intersect - _s.centre));
     return delta >= 0.f;
@@ -63,14 +67,17 @@ bool plane(const Plane& _p, const vec3& _ray_o, const vec3& _ray_d, vec3& _inter
     return d != 0.f && dist <= _p.hs[0] && dist <= _p.hs[1];
 };
 
-bool zylinder(const Zylinder& _p, const vec3& _ray_o, const vec3& _ray_d, vec3& _intersect, vec3& _normal){
+// A + t*(sb-A) -> t:[0,1]
+bool zylinder(const Zylinder& _p, const vec3& _ray_o, const vec3& _ray_d, vec3& _intersect, vec3& _normal){   
+    const vec3 sa = _ray_o;
+    const vec3 sb = _ray_d * 100000.f;
+    const vec3 n = sb - sa;
     const vec3 P = _p.p1;
     const vec3 Q = _p.p2;
-    const float r = _p.radius;
-    const vec3 n = _ray_d;
+    const vec3 d = Q - P;
+    const float r = _p.radius;  
     const vec3 A = _ray_o;
     const vec3 m = A - P;
-    const vec3 d = normalize(vec3(Q-P));
 
     const float md = dot(m, d);
     const float nd = dot(n, d);
@@ -91,9 +98,11 @@ bool zylinder(const Zylinder& _p, const vec3& _ray_o, const vec3& _ray_d, vec3& 
         // Segment runs parallel to cylinder axis
         if (c > 0.f) return false; // ‘a’ and thus the segment lie outside cylinder
         // Now known that segment intersects cylinder; figure out how it intersects
+
         if (md < 0.f) t = -mn / nn; // Intersect segment against ‘p’ endcap
         else if (md > dd) t = (nd - mn) / nn; // Intersect segment against ‘q’ endcap
         else t = 0.f; // ‘a’ lies inside cylinder
+
         return true;
     }
 
@@ -121,15 +130,16 @@ bool zylinder(const Zylinder& _p, const vec3& _ray_o, const vec3& _ray_d, vec3& 
     }
 
     // Segment intersects cylinder between the end-caps; t is correct
+    
     return true; 
 };
 
 void cameraRay(vec3& _ray_o, vec3& _ray_d, int64_t _w, int64_t _h, int64_t _u, int64_t _v, float _fovX, float _fovY, const mat4& _cam, const vec3& _camPos) {
     const float x = (static_cast<float>(2*_u - _w)/static_cast<float>(_w))*std::tan(_fovX);
     const float y = (static_cast<float>(2*_v - _h)/static_cast<float>(_h))*std::tan(_fovY);
-    _ray_o = _camPos;
-    const vec4 t = normalize(_cam * vec4(x, y, -1.f, -1.f));
-    _ray_d = vec3(t.x, t.y, t.z);
+    _ray_o = vec3(0.f);
+    //const vec4 t = _cam * vec4(x, y, -1.f, 1.f);
+    _ray_d = normalize(vec3(x, y, -1.f));
 };
 
 vec3 mul(const mat4& _cam, const vec3& _vec){
@@ -142,7 +152,7 @@ int main() {
     const int64_t w = 1000;
     const int64_t h = 1000;
 
-    const float fovX = M_PI / 4;
+    const float fovX = glm::radians(65.f);
     const float fovY = w / h * fovX;
 
     const vec3 camPos = vec3(0.f, 0.f, -500.f);
@@ -150,18 +160,18 @@ int main() {
     const mat4 cami = inverse(cam);
     
     std::vector<Zylinder> zyls;
-    zyls.push_back({500.f, vec3(0.f, -250.f, 0.f), vec3(0.f, 250.f, 0.f)});
+    zyls.push_back({100.f,  mul(cam, vec3(0.f, -250.f, 0.f)),  mul(cam, vec3(0.f, 250.f, 0.f)) });
 
     std::vector<Sphere> spheres;
-    spheres.push_back({1.3f, vec3(0.f)});
+    //spheres.push_back({400.f, mul(cam, vec3(0.f))});
 
     std::vector<Plane> planes;
 
     std::vector<float> depth (w * h);
     std::vector<unsigned char> col (w * h * 4);
-    std::memset(col.data(), 200, col.size());
+    //std::memset(col.data(), 200, col.size());
 
-    const vec3 lightDir = normalize(vec3(-1.f, -1.f, -1.f));
+    const vec3 lightDir = -normalize(vec3(-1.f));
     float ambientStrength = 0.4;
     const vec3 ambient = ambientStrength * vec3(0.f, 0.5f, 1.f);
     
@@ -173,10 +183,10 @@ int main() {
             const size_t idx_d = v * w + u;
             const size_t idx_c = 4*idx_d;
 
-            for(size_t k = 0; k < spheres.size(); ++k){
+            for(size_t k = 0; k < zyls.size(); ++k){
                 vec3 inter;
                 vec3 normal;
-                if(sphere(spheres[k], ray_o, ray_d, inter, normal)){
+                if(zylinder(zyls[k], ray_o, ray_d, inter, normal)){
                     const float diff = std::max(dot(normal, lightDir), 0.f);
                     const vec3 diffl = diff * vec3(1.f);
                     const vec3 res = (ambient + diffl) * vec3(65.f / 255.f, 178.f / 255.f , 210.f / 255.f);
@@ -187,11 +197,16 @@ int main() {
                     col[idx_c + 1] = (unsigned char)(std::clamp(resg.y * 255.f, 0.f, 255.f));
                     col[idx_c + 2] = (unsigned char)(std::clamp(resg.z * 255.f, 0.f, 255.f));
 
+                   // col[idx_c] = (unsigned char)(std::clamp(std::abs(normal.x) * 255.f, 0.f, 255.f));
+                    //col[idx_c + 1] = (unsigned char)(std::clamp(std::abs(normal.y) * 255.f, 0.f, 255.f));
+                    //col[idx_c + 2] = (unsigned char)(std::clamp(std::abs(normal.z) * 255.f, 0.f, 255.f));
+
+
                     col[idx_c + 3] = 255;
                 } else {
-                    col[idx_c] = 255;
-                    col[idx_c + 1] = 255;
-                    col[idx_c + 2] = 255;
+                    col[idx_c] = 0;
+                    col[idx_c + 1] = 0;
+                    col[idx_c + 2] = 0;
                     col[idx_c + 3] = 255;
                 }
             }

@@ -126,65 +126,122 @@ bool sphere(const Sphere& _s, const Ray& _ray, vec3& _intersect, vec3& _normal, 
     const float delta = d * d - c;
     if(delta < 0.f) return false;
     _t = -d - sqrt(delta);
-    if (_t < 0.0f) _t = 0.0f;
+    if (_t < 0.f) _t = 0.f;
     _intersect = _ray.orig + _t*_ray.dir;
     _normal = normalize(vec3(_intersect - _s.centre));
     return delta >= 0.f;
 };
 
+bool sphere_bl(const Sphere& _s, const Ray& _ray, vec3& _intersect, vec3& _normal, float& _t) {
+    const vec3 oc = _ray.orig - _s.centre;
+    const float d = dot(oc, _ray.dir);
+    const float c = (dot(oc, oc) - _s.radius * _s.radius);
+    const int e1 = int(c > 0.f && d > 0.f);
+    const float delta = d * d - c;
+    const int e2 = int(delta < 0.f);
+    _t = -d - sqrt(delta);
+    const int e3 = int((_t < 0.f));
+    _t = (1 - e3) * _t;
+    _intersect = _ray.orig + _t*_ray.dir;
+    _normal = normalize(vec3(_intersect - _s.centre));
+    const int e4 = int(delta >= 0.f);
+    const int out = (1 - e1)*(1 - e2)*e4;
+    return bool(out);
+};
+
 bool plane(const Plane& _p, const Ray& _ray, vec3& _intersect, vec3& _normal, float& _t){
     const float s = dot(_p.n, vec3(_p.p0 - _ray.orig));
     _t = dot(_ray.dir, _p.n);
-    const float d = _t != 0.f ? s / _t : 0.f; //todo 
+    const float d = _t != 0.f ? s / _t : 0.f;
     _intersect = _ray.orig + d * _ray.dir;
     _normal = _p.n;
     const vec3 dist = _intersect - _p.p0;
     return d != 0.f && abs(dist.x) <= _p.hw && abs(dist.y) <= _p.hh;
 };
 
-// cylinder defined by extremes pa and pb, and radious ra
+bool plane_bl(const Plane& _p, const Ray& _ray, vec3& _intersect, vec3& _normal, float& _t){
+    const float s = dot(_p.n, vec3(_p.p0 - _ray.orig));
+    _t = dot(_ray.dir, _p.n);
+    const int e1 = int(_t != 0.f);
+    const float d = e1 * (s / _t);
+    _intersect = _ray.orig + d * _ray.dir;
+    _normal = _p.n;
+    const vec3 dist = _intersect - _p.p0;
+    return d != 0.f && abs(dist.x) <= _p.hw && abs(dist.y) <= _p.hh;
+};
+
 bool zylinder(const Zylinder& _p, const Ray& _ray, vec3& _intersect, vec3& _normal, float& _t){   
 
-    const vec3 ro = _ray.orig;
-    const vec3 rd = _ray.dir;
-    const vec3 pa = _p.p1;
-    const vec3 pb = _p.p2;
-    const float ra = _p.radius;
-
-    const vec3 ba = pb-pa;
-
-    const vec3  oc = ro - pa;
+    const vec3 ba = _p.p2 - _p.p1;
+    const vec3  oc = _ray.orig - _p.p1;
 
     const float baba = dot(ba,ba);
-    const float bard = dot(ba,rd);
+    const float bard = dot(ba,_ray.dir);
     const float baoc = dot(ba,oc);
     
-    const float k2 = baba            - bard*bard;
-    const float k1 = baba*dot(oc,rd) - baoc*bard;
-    const float k0 = baba*dot(oc,oc) - baoc*baoc - ra*ra*baba;
-    float h = k1*k1 - k2*k0;
+    const float k2 = baba - bard * bard;
+    const float k1 = baba * dot(oc,_ray.dir) - baoc * bard;
+    const float k0 = baba * dot(oc,oc) - baoc * baoc - _p.radius * _p.radius * baba;
+    float h = k1 * k1 - k2 * k0;
 
-    if( h<0.0 ) return false;
+    if(h < 0.f) return false;
     h = sqrt(h);
-    _t = (-k1-h)/k2;
+    _t = (-k1 - h) / k2;
 
     if(_t < 0.f) return false;
+
     // body
-    const float y = baoc + _t*bard;
-    if( y>0.0 && y<baba ){ 
-        _intersect = ro + _t*rd;
-        _normal = normalize((oc+_t*rd - ba*y/baba)/ra);
+    const float y = baoc + _t * bard;
+    if(y > 0.f && y < baba){ 
+        _intersect = _ray.orig + _t * _ray.dir;
+        _normal = normalize((oc + _t * _ray.dir - ba * y / baba) / _p.radius);
         return true;
     }
 
     // caps
-    _t = ( ((y<0.0) ? 0.0 : baba) - baoc)/bard;
-    if( abs(k1+k2*_t) < h){ 
-        _intersect = ro + _t*rd;
-        _normal = normalize(ba*sign(y)/baba);
+    _t = ( ((y < 0.f) ? 0.f : baba) - baoc)/bard;
+    if( abs(k1 + k2 * _t) < h){ 
+        _intersect = _ray.orig + _t * _ray.dir;
+        _normal = normalize(ba * sign(y) / baba);
         return true;
     }
+
     return false; //no intersection
+};
+
+bool zylinder_bl(const Zylinder& _p, const Ray& _ray, vec3& _intersect, vec3& _normal, float& _t){   
+
+    const vec3 ba = _p.p2 - _p.p1;
+    const vec3  oc = _ray.orig - _p.p1;
+
+    const float baba = dot(ba,ba);
+    const float bard = dot(ba,_ray.dir);
+    const float baoc = dot(ba,oc);
+    
+    const float k2 = baba - bard * bard;
+    const float k1 = baba * dot(oc,_ray.dir) - baoc * bard;
+    const float k0 = baba * dot(oc,oc) - baoc * baoc - _p.radius * _p.radius * baba;
+    float h = k1 * k1 - k2 * k0;
+
+    const int e1 = int(h < 0.f);
+    h = sqrt(h);
+    _t = (-k1 - h) / k2;
+    const int e2 = int(_t < 0.f);
+
+    // body
+    const float y = baoc + _t * bard;
+    const int e3 = int(y > 0.f && y < baba);
+
+    // caps
+    const int e5 = int((y < 0.f));
+    _t = ((1-e5) * baba - baoc)/bard; 
+    const int e4 = int(abs(k1 + k2 * _t) < h);
+
+    _intersect = _ray.orig + _t * _ray.dir;
+    _normal = e3 * (normalize((oc + _t * _ray.dir - ba * y / baba) / _p.radius)) + (1-e3) * e4 * (normalize(ba * sign(y) / baba));
+
+    const int out = bool((1 - e1) * (1 - e2) * (e3 + e4));
+    return bool(out); 
 };
 
 [[nodiscard]] Ray cameraRay(const Camera& _cam, int64_t _u, int64_t _v) noexcept {
@@ -240,13 +297,13 @@ int main() {
     
     // ------------------- SHAPES -------------------
     std::vector<Zylinder> zyls;
-    zyls.push_back( {100.f, vec3(0.f, -200.f, 300.f), vec3(0.f, 200.f, -300.f), Material(vec3(0.9f, 0.25f, 1.f)) });
+    //zyls.push_back( {100.f, vec3(0.f, -200.f, 300.f), vec3(0.f, 200.f, -300.f), Material(vec3(0.9f, 0.25f, 1.f)) });
 
     std::vector<Sphere> spheres;
-    spheres.push_back( {250.f, vec3(0.f), Material(vec3(0.3f, 0.25f, 0.3f)) });
+    //spheres.push_back( {250.f, vec3(0.f), Material(vec3(0.3f, 0.25f, 0.3f)) });
 
     std::vector<Plane> planes;
-    planes.push_back( { normalize(vec3(0.f, -1.f, 1.f)), vec3(0.f), 100.f, 50.f, Material(vec3(0.1f, 0.25f, 1.f)) } );
+    planes.push_back( { normalize(vec3(0.f, -1.f, 1.f)), vec3(0.f), 200.f, 100.f, Material(vec3(0.1f, 0.25f, 1.f)) } );
 
     // ------------------- BUFFERS -------------------
     std::vector<float> depth (cam.w * cam.h);
@@ -273,16 +330,14 @@ int main() {
 
                 Ray ray = cameraRay(cam, u, v);
 
-                render(col, depth, zyls, zylinder, ray, ambiente, light, cam, idx_c, idx_d);
-                render(col, depth, planes, plane, ray, ambiente, light, cam, idx_c, idx_d);
-                render(col, depth, spheres, sphere, ray, ambiente, light, cam, idx_c, idx_d);
+                render(col, depth, zyls, zylinder_bl, ray, ambiente, light, cam, idx_c, idx_d);
+                render(col, depth, planes, plane_bl, ray, ambiente, light, cam, idx_c, idx_d);
+                render(col, depth, spheres, sphere_bl, ray, ambiente, light, cam, idx_c, idx_d);
 
             }
 
         } 
     }
-
-    
 
     std::string filename = "result_col.png";
     lodepng::encode(filename, col.data(), cam.w, cam.h);

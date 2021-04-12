@@ -53,7 +53,7 @@ int main() {
         return EXIT_FAILURE;
     }
 
-	glDebugMessageCallback(MessageCallback, 0);
+	//glDebugMessageCallback(MessageCallback, 0);
 
     glEnable(GL_STENCIL_TEST);
     glEnable(GL_DEBUG_OUTPUT);
@@ -78,10 +78,12 @@ int main() {
     size_t frames = 0, fps = 0;
 
     // -------------- CAMERA --------------
-    GL::Camera camera;
-    camera.position = { 250.f, 0.f, 0.f };
-    camera.combined = glm::perspective(65.f, 1920.f / 1080.f, 0.1f, 1000.f);
-    camera.combined *= glm::lookAt(camera.position, {0.f, 0.f, 0.f}, {0.f, 0.f, 1.f});
+    GL::Camera camera = GL::Camera(int64_t(WIDTH), int64_t(HEIGHT), glm::radians(55.f), 0.1f, 1000.f);
+    camera.position = { 0.f, 0.f, -500.f };
+    camera.target = { 0.f, 0.f, 0.f };
+    camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
+    camera.combined *= glm::lookAt(camera.position, camera.target, camera.upAxis);
+    camera.update();
 
     bool RMB_down = false;
 
@@ -103,9 +105,11 @@ int main() {
         if(RMB_down){
             const auto rot = GL::Camera::trackball_shoemake(oldPosition, newPosition, 250.f);
             const glm::mat4 RotationMatrix = glm::toMat4(rot);
-            camera.combined *= RotationMatrix;
+            //camera.combined *= RotationMatrix;
         }
     });
+
+    /*
 
     // -------------- SHADER --------------
     GL::ShaderProgram shader;
@@ -142,27 +146,35 @@ int main() {
 	
 
     glBindVertexArray(0);
+    */
 
-
-
+    GL::ShapeRenderer shape (100);
 
     while (!glfwWindowShouldClose(window)) {
         const double ctime = glfwGetTime();
 
-        glClearColor(0.f, 0.f, 0.f, 1.f);
+        glClearColor(0.1f, 0.f, 0.25f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
         glfwPollEvents();
         gui.ImGui_ImplGlfw_UpdateMousePosAndButtons(window);
 
+        //shape.drawSphere(Vec3(0.f), 350.f, Vec3(0.2f, 0.4f, 0.6));
+        shape.drawAxisWidget();
+        //shape.drawLine(Vec3(0.f), Vec3(0.f, 200.f, 0.f), 50.f, Vec4(0.f, 1.f, 0.f, 1.f)); //y
+        shape.render(camera);
+
+        /*
         // -------------- GEOMETRY PASS --------------
         shader.bind();
         glBindVertexArray(vao);
         glUniformMatrix4fv(1, 1, false, glm::value_ptr(camera.combined));
         glDrawElements(GL_POINTS, (GLsizei)indices.size(), GL_UNSIGNED_INT, nullptr);   
         shader.unbind();
+        */
 
         // -------------- GUI --------------
+        
         gui.begin();
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
@@ -171,6 +183,7 @@ int main() {
 
         gui.draw();
         gui.sync();
+        
 
         glfwSwapBuffers(window);
 

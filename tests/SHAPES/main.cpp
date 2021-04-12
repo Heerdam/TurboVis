@@ -184,23 +184,23 @@ bool zylinder(const Zylinder& _p, const Ray& _ray, vec3& _intersect, vec3& _norm
     const float k0 = baba * dot(oc,oc) - baoc * baoc - _p.radius * _p.radius * baba;
     float h = k1 * k1 - k2 * k0;
 
-    if(h < 0.f) return false;
+    if(h < 0.f) return false; //e1
     h = sqrt(h);
     _t = (-k1 - h) / k2;
 
-    if(_t < 0.f) return false;
+    if(_t < 0.f) return false;//e2
 
     // body
     const float y = baoc + _t * bard;
-    if(y > 0.f && y < baba){ 
+    if(y > 0.f && y < baba){ //e3
         _intersect = _ray.orig + _t * _ray.dir;
         _normal = normalize((oc + _t * _ray.dir - ba * y / baba) / _p.radius);
         return true;
     }
 
     // caps
-    _t = ( ((y < 0.f) ? 0.f : baba) - baoc)/bard;
-    if( abs(k1 + k2 * _t) < h){ 
+    _t = ( ( (y < 0.f) ? 0.f : baba) - baoc)/bard;
+    if( abs(k1 + k2 * _t) < h){ //e4
         _intersect = _ray.orig + _t * _ray.dir;
         _normal = normalize(ba * sign(y) / baba);
         return true;

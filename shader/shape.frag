@@ -90,27 +90,30 @@ int zylinder(in Zylinder _p, in Ray _ray, out vec3 _intersect, out vec3 _normal,
     float h = k1 * k1 - k2 * k0;
 
     const int e1 = int(h < 0.f);
+
     h = sqrt(h);
     _t = (-k1 - h) / k2;
-    const int e2 = int(_t < 0.f);
+    const int e2 = int(e1 == 0 && _t < 0.f);
 
     // body
     const float y = baoc + _t * bard;
-    const int e3 = int(y > 0.f && y < baba);
+    const int e3 = int(e1 == 0 && e2 == 0 && y > 0.f && y < baba);
 
-    // caps
-    const int e5 = int((y < 0.f));
+    // caps !e1 && !e2 && !e3
+    const int e5 = int(y < 0.f);
     const float t = ( ( (1-e5) * baba) - baoc) / bard;
-    const int e4 = int(abs(k1 + k2 * _t) < h);
+
+    const int e4 = int(e1 == 0 && e2 == 0 && e3 == 0 && abs(k1 + k2 * t) < h);
     _t = (1-e3)*t + e3*_t;
 
     _intersect = _ray.orig + _t * _ray.dir;
     _normal = e3 * (normalize((oc + _t * _ray.dir - ba * y / baba) / _p.radius)) + (1-e3) * e4 * (normalize(ba * sign(y) / baba));
 
-    const int res = int((1 - e1) * (1 - e2) * ((e3 + e4)%2));
+    const int res = int((e1 == 0 && e2 == 0) && (e3 == 1 || e4 == 1));
     return res;
 }
 
+/*
 int zylinder_b(in Zylinder _p, in Ray _ray, out vec3 _intersect, out vec3 _normal, out float _t) {
     const vec3 p1 = vec3(_p.p1X, _p.p1Y, _p.p1Z);
     const vec3 p2 = vec3(_p.p2X, _p.p2Y, _p.p2Z);
@@ -150,6 +153,7 @@ int zylinder_b(in Zylinder _p, in Ray _ray, out vec3 _intersect, out vec3 _norma
 
     return 0; //no intersection
 }
+*/
 
 // ------------------- UNIFORMS -------------------
 
@@ -170,7 +174,7 @@ layout (location = 18) uniform int plane_size;
 //optional
 layout (location = 31) uniform float fovX = 0.785398f; //45°
 
-layout (location = 32) uniform vec3 light_dir = -normalize(vec3(1.f));
+layout (location = 32) uniform vec3 light_dir = normalize(vec3(1.f));
 layout (location = 33) uniform vec3 light_col = vec3(1.f);
 layout (location = 34) uniform float light_strength = 0.75f;
 
@@ -260,7 +264,6 @@ void main() {
         
         col = e1 * tcol + (1 - e1) * col;
     }
-
 
     for(int i = 0; i < plane_size; ++i){
         float tt;

@@ -32,7 +32,7 @@ int main() {
     const int WIDTH = 1920;
     const int HEIGHT = 1080;
     const float HALFWIDTH = WIDTH * 0.5f;
-    const float HALFHEIGHTH = HEIGHT * 0.5f;
+    const float HALFHEIGHT = HEIGHT * 0.5f;
 
     auto window = glfwCreateWindow(WIDTH, HEIGHT, "TurboVis 0.1a", NULL, NULL);
     if (!window) {
@@ -53,7 +53,7 @@ int main() {
         return EXIT_FAILURE;
     }
 
-	//glDebugMessageCallback(MessageCallback, 0);
+	glDebugMessageCallback(MessageCallback, 0);
 
     glEnable(GL_STENCIL_TEST);
     glEnable(GL_DEBUG_OUTPUT);
@@ -79,7 +79,7 @@ int main() {
 
     // -------------- CAMERA --------------
     GL::Camera camera = GL::Camera(int64_t(WIDTH), int64_t(HEIGHT), glm::radians(55.f), 0.1f, 1000.f);
-    camera.position = { 0.f, 0.f, -500.f };
+    camera.position = { 0.f, 0.f, -250.f };
     camera.target = { 0.f, 0.f, 0.f };
     camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
     camera.combined *= glm::lookAt(camera.position, camera.target, camera.upAxis);
@@ -89,7 +89,7 @@ int main() {
 
     double mX, mY;
     glfwGetCursorPos(window, &mX, &mY);
-    Vec2 oldPosition = Vec2((float)mY - HALFHEIGHTH, (float)mX - HALFWIDTH);
+    Vec2 oldPosition = Vec2((float)mY - HALFHEIGHT, (float)mX - HALFWIDTH);
     Vec2 newPosition = oldPosition;
 
     Gui::InputMultiplexer::mouseButtonCallback([&](GLFWwindow*, int _button, int _action, int _mods)-> void{
@@ -100,12 +100,16 @@ int main() {
 
     Gui::InputMultiplexer::cursorPosCallback([&](GLFWwindow*, double _xpos, double _ypos)-> void{
         oldPosition = newPosition;
-        newPosition = Vec2((HEIGHT - (float)_ypos - HALFHEIGHTH), (float)_xpos - HALFWIDTH);
+        newPosition = Vec2((float)_xpos - HALFWIDTH, ((float)_ypos - HALFHEIGHT));
 
         if(RMB_down){
-            const auto rot = GL::Camera::trackball_shoemake(oldPosition, newPosition, 250.f);
+            const auto rot = GL::Camera::trackball_holroyd(oldPosition, newPosition, 250.f);
             const glm::mat4 RotationMatrix = glm::toMat4(rot);
-            //camera.combined *= RotationMatrix;
+            camera.combined *= RotationMatrix;
+            camera.inverse = glm::inverse(camera.combined);
+            camera.position = Vec3(camera.inverse[3][0], camera.inverse[3][1], camera.inverse[3][2]);
+            std::cout << glm::to_string(camera.position) << std::endl;
+            camera.update();
         }
     });
 

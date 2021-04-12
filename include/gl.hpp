@@ -50,6 +50,9 @@ namespace GL {
         : width(_width), height(_height), fov(_fov), near(_near), far(_far) {}
 
         void update() noexcept{
+
+
+
             dir = normalize(target - position);
             right = normalize(cross(dir, upAxis));
             up = normalize(cross(right, dir));
@@ -61,7 +64,7 @@ namespace GL {
         const float near, far, fov;
         const int64_t width, height;
 
-        Mat4 combined;
+        Mat4 combined, inverse;
 
         static Vec3 shoemake_projection(const Vec2&, float);
         static Vec3 holroyd_projection(const Vec2&, float);

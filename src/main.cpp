@@ -83,12 +83,17 @@ int main() {
 
     // -------------- CAMERA --------------
     GL::Camera camera = GL::Camera(int64_t(WIDTH), int64_t(HEIGHT), glm::radians(55.f), 0.1f, 1500.f);
-    camera.position = { 0.f, 0.f, -1000.f };
+    camera.position = { 0.f, 0.f, -100.f };
     camera.target = { 0.f, 0.f, 0.f };
     camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
     camera.combined *= glm::lookAt(camera.position, camera.target, camera.upAxis);
-
     camera.update();
+
+    // -------------- GIMBEL CAMERA --------------
+    GL::Camera gCamera = GL::Camera(int64_t(250), int64_t(250), glm::radians(55.f), 0.1f, 1500.f);
+    gCamera.position = { 0.f, 0.f, -100.f };
+    gCamera.target = { 0.f, 0.f, 0.f };
+    gCamera.update();
 
     bool RMB_down = false;
 
@@ -118,45 +123,6 @@ int main() {
         }
     });
 
-    /*
-
-    // -------------- SHADER --------------
-    GL::ShaderProgram shader;
-    shader.compileFromFile("shader/shader");
-
-    // -------------- DATA --------------
-    Data::FunctionData data;
-	data.createDataFromFunction([](int16_t _x, int16_t _y, int16_t _z)-> float {
-		return 1.f;
-	}, Data::Gridsize::x4);
-
-	auto vals = data.toBuffer();
-	auto verts = data.createBuffers();
-
-	std::vector<uint32_t> indices (vals.size());
-	for(size_t i = 0; i < vals.size(); ++i)
-		indices[i] = (uint32_t)i;
-
-	GLuint vao, vbo, ebo;
-
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(float), verts.data(), GL_STATIC_DRAW);
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-	glGenBuffers(1, &ebo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(uint32_t), indices.data(), GL_STATIC_DRAW);
-	
-
-    glBindVertexArray(0);
-    */
-
     GL::ShapeRenderer shape (100);
     GL::DepthBufferVisualizer depthr(camera);
 
@@ -171,32 +137,21 @@ int main() {
 
         glEnable(GL_DEPTH_TEST);
 
-        //shape.drawSphere(Vec3(0.f), 350.f, Vec3(0.2f, 0.4f, 0.6));
-        //shape.drawAxisWidget();
-        
-        //shape.drawLine(Vec3(0.f), Vec3(0.f, 200.f, 0.f), 50.f, Vec4(0.f, 1.f, 0.f, 1.f)); //y
-        camera.drawTrackball(shape);
-        shape.render(camera);
+        // -------------- FUNCTION --------------  
 
+
+        // -------------- GIMBEL --------------  
+        glViewport(0, 0, gCamera.width, gCamera.height);
+        shape.drawAxisWidget();
+        shape.render(gCamera);
+        glViewport(0, 0, WIDTH, HEIGHT);
         //depthr.render();
 
-        /*
-        // -------------- GEOMETRY PASS --------------
-        shader.bind();
-        glBindVertexArray(vao);
-        glUniformMatrix4fv(1, 1, false, glm::value_ptr(camera.combined));
-        glDrawElements(GL_POINTS, (GLsizei)indices.size(), GL_UNSIGNED_INT, nullptr);   
-        shader.unbind();
-        */
-
-        // -------------- GUI --------------
-        
+        // -------------- GUI --------------       
         gui.begin();
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
-
         gui.drawStatsWindow((uint32_t)fps);
-
         gui.draw();
         gui.sync();
         
@@ -204,13 +159,11 @@ int main() {
         glfwSwapBuffers(window);
 
         frame++;
-
         if (ctime - time >= 1.0) {
             fps = frame;
             frame = 0;
             time = ctime;
         }
-
         deltaTime = glfwGetTime() - ctime;
     }
     glfwTerminate();

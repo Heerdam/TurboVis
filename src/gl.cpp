@@ -4,6 +4,8 @@
 #include "../include/util.hpp"
 #include "../include/camera.hpp"
 
+using namespace Math::Intersector;
+
 // -------------- SHADERPROGRAM -------------- 
 
 void GL::ShaderProgram::print(std::string _id, ShaderProgram::Status _compComp, ShaderProgram::Status _compVert,
@@ -280,35 +282,42 @@ GL::ShapeRenderer::ShapeRenderer(uint32_t _maxShapesPerType) noexcept : maxShape
         glGenBuffers(2, SSBO_lines);
         glGenBuffers(2, SSBO_wheels);
 
+
         for (size_t i = 0; i < 2; ++i) {
             //spheres
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBO_spheres[i]);
-            glBufferStorage(GL_SHADER_STORAGE_BUFFER, _maxShapesPerType * sizeof(Sphere), nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_CLIENT_STORAGE_BIT);
-            SSBO_ptr_spheres[i] = reinterpret_cast<Sphere*>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, _maxShapesPerType * sizeof(Sphere), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
+            glBufferStorage(GL_SHADER_STORAGE_BUFFER, _maxShapesPerType * sizeof(Sphere<float>), nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_CLIENT_STORAGE_BIT);
+            SSBO_ptr_spheres[i] = reinterpret_cast<Sphere<float>*>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, _maxShapesPerType * sizeof(Sphere<float>), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
             //zylinders
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBO_zyls[i]);
-            glBufferStorage(GL_SHADER_STORAGE_BUFFER, _maxShapesPerType * sizeof(Zylinder), nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_CLIENT_STORAGE_BIT);
-            SSBO_ptr_zyls[i] = reinterpret_cast<Zylinder*>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, _maxShapesPerType * sizeof(Zylinder), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
+            glBufferStorage(GL_SHADER_STORAGE_BUFFER, _maxShapesPerType * sizeof(Zylinder<float>), nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_CLIENT_STORAGE_BIT);
+            SSBO_ptr_zyls[i] = reinterpret_cast<Zylinder<float>*>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, _maxShapesPerType * sizeof(Zylinder<float>), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+            //lines
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBO_lines[i]);
+            glBufferStorage(GL_SHADER_STORAGE_BUFFER, _maxShapesPerType * sizeof(Zylinder<float>), nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_CLIENT_STORAGE_BIT);
+            SSBO_ptr_lines[i] = reinterpret_cast<Zylinder<float>*>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, _maxShapesPerType * sizeof(Zylinder<float>), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
             //planes
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBO_planes[i]);
-            glBufferStorage(GL_SHADER_STORAGE_BUFFER, _maxShapesPerType * sizeof(Plane), nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_CLIENT_STORAGE_BIT);
-            SSBO_ptr_planes[i] = reinterpret_cast<Plane*>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, _maxShapesPerType * sizeof(Plane), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
+            glBufferStorage(GL_SHADER_STORAGE_BUFFER, _maxShapesPerType * sizeof(Plane<float>), nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_CLIENT_STORAGE_BIT);
+            SSBO_ptr_planes[i] = reinterpret_cast<Plane<float>*>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, _maxShapesPerType * sizeof(Plane<float>), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);    
 
             //circles
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBO_circles[i]);
-            glBufferStorage(GL_SHADER_STORAGE_BUFFER, _maxShapesPerType * sizeof(Circle), nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_CLIENT_STORAGE_BIT);
-            SSBO_ptr_circles[i] = reinterpret_cast<Circle*>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, _maxShapesPerType * sizeof(Circle), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
+            glBufferStorage(GL_SHADER_STORAGE_BUFFER, _maxShapesPerType * sizeof(Circle<float>), nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_CLIENT_STORAGE_BIT);
+            SSBO_ptr_circles[i] = reinterpret_cast<Circle<float>*>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, _maxShapesPerType * sizeof(Circle<float>), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);    
 
-            //capless zylinders
+            //wheels
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBO_wheels[i]);
-            glBufferStorage(GL_SHADER_STORAGE_BUFFER, _maxShapesPerType * sizeof(Wheel), nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_CLIENT_STORAGE_BIT);
-            SSBO_ptr_wheels[i] = reinterpret_cast<Wheel*>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, _maxShapesPerType * sizeof(Wheel), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
+            glBufferStorage(GL_SHADER_STORAGE_BUFFER, _maxShapesPerType * sizeof(Wheel<float>), nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_CLIENT_STORAGE_BIT);
+            SSBO_ptr_wheels[i] = reinterpret_cast<Wheel<float>*>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, _maxShapesPerType * sizeof(Wheel<float>), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
         
@@ -362,33 +371,41 @@ void GL::ShapeRenderer::render(const GL::Camera& _cam) noexcept {
 
 void GL::ShapeRenderer::drawZylinder(const Vec3& _p1, const Vec3& _p2, float _radius, const Vec3& _col) noexcept {
     assert(zyls < maxShapes);
-    Zylinder zyl { _radius, _p1, _p2, _col };
-    std::memcpy(SSBO_ptr_zyls[currIndex] + zyls++, &zyl, sizeof(Zylinder));
+    Zylinder<float> zyl( _radius, _p1, _p2, _col );
+    std::memcpy(SSBO_ptr_zyls[currIndex] + zyls++, &zyl, sizeof(Math::Intersector::Zylinder<float>));
 }
 
 void GL::ShapeRenderer::drawLine(const Vec3& _p1, const Vec3& _p2, float _radius, const Vec3& _col) noexcept {
     assert(lines < maxShapes);
-    Zylinder zyl { _radius, _p1, _p2, _col };
-    std::memcpy(SSBO_ptr_lines[currIndex] + lines++, &zyl, sizeof(Zylinder));
+    Zylinder<float> zyl( _radius, _p1, _p2, _col );
+    std::memcpy(SSBO_ptr_lines[currIndex] + lines++, &zyl, sizeof(Math::Intersector::Zylinder<float>));
 }
 
 void GL::ShapeRenderer::drawSphere(const Vec3& _centre, float _radius, const Vec3& _col) noexcept {
     assert(spheres < maxShapes);
-    Sphere s { _radius, _centre, _col };
-    std::memcpy(SSBO_ptr_spheres[currIndex] + spheres++, &s, sizeof(Sphere));
+    Sphere<float> s ( _radius, _centre, _col );
+    std::memcpy(SSBO_ptr_spheres[currIndex] + spheres++, &s, sizeof(Math::Intersector::Sphere<float>));
 }
 
 void GL::ShapeRenderer::drawWheel(const Vec3& _centre, float _r, float _R, float _thickness, const Vec3& _col, const Mat3& _rot) noexcept {
     assert(wheels < maxShapes);
-    Wheel s { _centre, _r, _R, _thickness, _rot, _col };
-    std::memcpy(SSBO_ptr_wheels[currIndex] + wheels++, &s, sizeof(Wheel));
+    Wheel<float> s ( _centre, _r, _R, _thickness, _rot, _col );
+    std::memcpy(SSBO_ptr_wheels[currIndex] + wheels++, &s, sizeof(Math::Intersector::Wheel<float>));
 }
 
 void GL::ShapeRenderer::drawAxisWidget() noexcept {
-    drawSphere(Vec3(0.f), 20.f, Vec4(0.f, 1.f, 0.f, 1.f));
-    drawLine(Vec3(0.f), Vec3(300.f, 0.f, 0.f), 20.f, Vec4(1.f, 0.f, 0.f, 1.f)); //x
-    drawLine(Vec3(0.f), Vec3(0.f, 300.f, 0.f), 20.f, Vec4(0.f, 1.f, 0.f, 1.f)); //y
-    drawLine(Vec3(0.f), Vec3(0.f, 0.f, 300.f), 20.f, Vec4(0.f, 0.f, 1.f, 1.f)); //z
+    const Mat3 rotR = Mat3(glm::rotate(glm::radians(90.f), Vec3(0.f, 0.f, 1.f)));
+    const Mat3 rotG = Mat3(glm::rotate(glm::radians(90.f), Vec3(0.f, 1.f, 0.f)));
+    const Mat3 rotB = Mat3(glm::rotate(glm::radians(90.f), Vec3(1.f, 0.f, 0.f)));
+
+    drawWheel(Vec3(0.f), 1.f, 50.f, 3.f, RED, rotR);
+    drawWheel(Vec3(0.f), 1.f, 48.f, 3.f, GREEN, rotG);
+    drawWheel(Vec3(0.f), 1.f, 47.f, 3.f, BLUE, rotB);
+
+
+    drawLine(Vec3(0.f), 35.f * Vec3(1.f, 0.f, 0.f), 2.f, RED);
+    drawLine(Vec3(0.f), 35.f * Vec3(0.f, 1.f, 0.f), 2.f, GREEN);
+    drawLine(Vec3(0.f), 35.f * Vec3(0.f, 0.f, 1.f), 2.f, BLUE);
 }
 
 GL::DepthBufferVisualizer::DepthBufferVisualizer(const Camera& _cam) : w(_cam.width), h(_cam.height) {

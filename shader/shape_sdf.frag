@@ -82,8 +82,8 @@ layout(std430, binding = 6) readonly buffer wheel_buf {
 float zylinder(in Zylinder _p, in vec3 _pos) {
     const vec3 p1 = vec3(_p.p1X, _p.p1Y, _p.p1Z);
     const vec3 p2 = vec3(_p.p2X, _p.p2Y, _p.p2Z);
-    const vec3  ba = p2 - p1;
-    const vec3  pa = _pos - p1;
+    const vec3 ba = p2 - p1;
+    const vec3 pa = _pos - p1;
     const float baba = dot(ba, ba);
     const float paba = dot(pa, ba);
     const float x = length(pa * baba - ba * paba) - _p.radius * baba;
@@ -148,8 +148,8 @@ layout (location = 35) uniform vec3 ambiente_col = vec3(1.f);
 layout (location = 36) uniform float ambiente_strength = 0.4;
 
 layout (location = 37) uniform uint AA = 2;
-layout (location = 38) uniform float tmax = 1500.f;
-layout (location = 39) uniform uint steps = 128;
+layout (location = 38) uniform float tmax = 150.f;
+layout (location = 39) uniform uint steps = 64;
 
 // --------------------------------------
 
@@ -261,7 +261,7 @@ void main() {
     const vec2 uv = vec2(gl_FragCoord.x, gl_FragCoord.y);
 
     vec3 col = vec3(0.f);
-
+    int hasHit = 0;
     for(uint m = 0; m < AA; m++ ){
         for(uint n = 0; n < AA; n++ ){
 
@@ -274,12 +274,12 @@ void main() {
             //ray marching
             float t = 0.f;
             Hit hit;
-            bool hasHit = false;
+            
             for( int i = 0; i < steps; ++i ) {
                 const vec3 pos = camPosWorld + t * r_d;
                 const float h = map(pos, hit);
                 if( h < 0.0001f || t > tmax ) {
-                    hasHit = true;
+                    hasHit = int(h < 0.0001f);
                     break;
                 } 
                  t += h;
@@ -304,7 +304,7 @@ void main() {
     //gamma
     col /= float(AA*AA);
     const float expy = 1.f / 2.2f;
-    const vec4 resg = vec4(pow(col.x, expy), pow(col.y, expy), pow(col.z, expy), 1.f);
+    const vec4 resg = vec4(pow(col.x, expy), pow(col.y, expy), pow(col.z, expy), hasHit);
     fragColor = resg;
 
 }

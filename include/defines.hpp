@@ -32,6 +32,7 @@
 #include <imgui.h>
 
 #define GLM_ENABLE_EXPERIMENTAL
+//#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/ext.hpp>

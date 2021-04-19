@@ -20,8 +20,6 @@ namespace GL {
             up = normalize(cross(right, dir));
         }
 
-        void drawTrackball(ShapeRenderer&);
-
         Vec3 position, target;
         Vec3 up, right, dir;
 

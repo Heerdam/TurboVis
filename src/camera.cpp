@@ -2,27 +2,6 @@
 #include "../include/camera.hpp"
 #include "../include/gl.hpp"
 
-void GL::Camera::drawTrackball(GL::ShapeRenderer& _shape){
-    //_shape.drawCircle(Vec3(0.f), Vec3(1.f, 0.f, 0.f), 490.f, 500.f, RED);
-    //_shape.drawCircle(Vec3(0.f), Vec3(0.f, 1.f, 0.f), 490.f, 500.f, GREEN);
-    //_shape.drawCircle(Vec3(0.f), Vec3(0.f, 0.f, 1.f), 490.f, 500.f, BLUE);
-    //_shape.drawSphere(Vec3(-100.f), 300.f, RED);
-    //_shape.drawSphere(Vec3(0.f), 150.f, BLUE);
-    //_shape.drawSphere(Vec3(100.f), 300.f, GREEN);
-
-    //_shape.drawZylinder(Vec3(-250, 0.f, 0.f), Vec3(250.f, 0.f, 0.f), 50.f, RED);
-    //_shape.drawLine(Vec3(0.f, -250.f, 0.f), Vec3(0.f, 250.f, 0.f), 50.f, GREEN);
-
-    const Mat3 rotR = Mat3(glm::rotate(glm::radians(90.f), Vec3(0.f, 0.f, 1.f)));
-    const Mat3 rotG = Mat3(glm::rotate(glm::radians(90.f), Vec3(0.f, 1.f, 0.f)));
-    const Mat3 rotB = Mat3(glm::rotate(glm::radians(90.f), Vec3(1.f, 0.f, 0.f)));
-
-    _shape.drawWheel(Vec3(0.f), 3.f, 600.f, 10.f, RED, rotR);
-    _shape.drawWheel(Vec3(0.f), 3.f, 595.f, 10.f, GREEN, rotG);
-    _shape.drawWheel(Vec3(0.f), 3.f, 590.f, 10.f, BLUE, rotB);
-    
-}
-
 /*
     code taken and adapted from https://github.com/Pascal-So/turbotrack
     with permission by Pascal Sommer, 2021

@@ -2,6 +2,7 @@
 #define GLL_HPP
 
 #include "defines.hpp"
+#include "math.hpp"
 
 namespace GL {
 
@@ -42,41 +43,7 @@ namespace GL {
         void unbind() const;
     };
 
-    class ShapeRenderer{
-
-        struct Sphere {
-            float radius;
-            Vec3 centre;
-            Vec3 col;
-        };
-
-        struct Plane {
-            Vec3 n;
-            Vec3 p0;  //assumed the centre of the plane
-            float hh, hw;
-            Vec3 col;
-        };
-
-        struct Circle {
-            Vec3 n;
-            Vec3 centre;  //assumed the centre of the plane
-            float radius_outer, radius_inner;
-            Vec3 col;
-        };
-
-        struct Zylinder {
-            float radius;
-            Vec3 p1;
-            Vec3 p2;
-            Vec3 col;
-        };
-
-        struct Wheel {
-            Vec3 centre;
-            float r, R, thickness;
-            Mat3 rot;
-            Vec3 col;
-        };
+    class ShapeRenderer {
 
         ShaderProgram shader;
 
@@ -91,12 +58,12 @@ namespace GL {
         GLuint SSBO_lines[2];
         GLuint SSBO_wheels[2];
 
-        Sphere* SSBO_ptr_spheres[2];
-        Zylinder* SSBO_ptr_zyls[2];
-        Plane* SSBO_ptr_planes[2];
-        Circle* SSBO_ptr_circles[2];
-        Zylinder* SSBO_ptr_lines[2];
-        Wheel* SSBO_ptr_wheels[2];
+        Math::Intersector::Sphere<float>* SSBO_ptr_spheres[2];
+        Math::Intersector::Zylinder<float>* SSBO_ptr_zyls[2];
+        Math::Intersector::Plane<float>* SSBO_ptr_planes[2];
+        Math::Intersector::Circle<float>* SSBO_ptr_circles[2];
+        Math::Intersector::Zylinder<float>* SSBO_ptr_lines[2];
+        Math::Intersector::Wheel<float>* SSBO_ptr_wheels[2];
 
         size_t currIndex = 0;
 
@@ -106,15 +73,14 @@ namespace GL {
     public:
         ShapeRenderer(uint32_t /*_maxShapesPerType*/) noexcept;
         void render(const Camera& /*_cam*/) noexcept;
-        //Lines
+        //draw
         void drawLine(const Vec3& /*_p1*/, const Vec3& /*_p2*/, float /*_radius*/, const Vec3& /*_col*/) noexcept;  
         void drawZylinder(const Vec3& /*_p1*/, const Vec3& /*_p2*/, float /*_radius*/, const Vec3& /*_col*/) noexcept; 
         void drawSphere(const Vec3& /*_centre*/, float /*_radius*/, const Vec3& /*_col*/) noexcept;
         void drawWheel(const Vec3& /*_centre*/, float /*_r*/, float /*_R*/, float /*_thickness*/, const Vec3& /*_col*/, const Mat3& /*_rot*/) noexcept;
-
-        //void drawPlane(const Vec3& /*_centre*/, const Vec3& /*_normal*/, float /*_halfwidth*/, float /*_halfheight*/, const Vec4& /*_color*/) noexcept;
-        //void drawCircle(const Vec3& /*_centre*/, const Vec3& /*_normal*/, float /*_innerRadius*/, float /*_outerRadius*/, const Vec4& /*_color*/) noexcept;
         void drawAxisWidget() noexcept;
+        //
+        [[nodiscard]] bool cameraRayIntersect(const Math::Intersector::Ray<float>&) const noexcept;
     };
 
     class DepthBufferVisualizer {

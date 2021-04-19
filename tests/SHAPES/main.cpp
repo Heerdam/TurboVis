@@ -86,7 +86,6 @@ public:
 struct Ray {
     vec3 orig;
     vec3 dir;
-    vec3 end;
 };
 
 struct Sphere {

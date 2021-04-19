@@ -1,6 +1,7 @@
 #ifndef DEFINES_HPP
 #define DEFINES_HPP
 
+#define GLFW_INCLUDE_NONE
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -36,6 +37,7 @@
 #include <glm/ext.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtx/transform.hpp>
 
 #include "allocator.hpp"
 
@@ -51,6 +53,11 @@ using Mat3 = glm::mat3x3;
 using Mat4 = glm::mat4x4;
 
 using Quat = glm::quat;
+
+// ------------------- COLORS -------------------
+const Vec4 RED = Vec4(1.f, 0.f, 0.f, 1.f);
+const Vec4 GREEN = Vec4(0.f, 1.f, 0.f, 1.f);
+const Vec4 BLUE = Vec4(0.f, 0.f, 1.f, 1.f);
 
 
 #endif /* DEFINES_HPP */

@@ -4,6 +4,8 @@
 #include "../include/data.hpp"
 #include "../include/gl.hpp"
 #include "../include/bench.hpp"
+#include "../include/util.hpp"
+#include "../include/camera.hpp"
 
 void GLAPIENTRY MessageCallback(GLenum /*source*/, GLenum type, GLuint /*id*/, GLenum severity, GLsizei /*length*/, const GLchar* message, const void* /*userParam*/) {
 	if (type != GL_DEBUG_TYPE_ERROR) return;
@@ -12,6 +14,8 @@ void GLAPIENTRY MessageCallback(GLenum /*source*/, GLenum type, GLuint /*id*/, G
 		type, severity, message);
 }
 int main() {
+
+    FilePathResolver::resolve();
 
     spdlog::set_level(spdlog::level::trace);
     if (!glfwInit()) {
@@ -34,7 +38,7 @@ int main() {
     const float HALFWIDTH = WIDTH * 0.5f;
     const float HALFHEIGHT = HEIGHT * 0.5f;
 
-    auto window = glfwCreateWindow(WIDTH, HEIGHT, "TurboVis 0.1a", NULL, NULL);
+    auto window = glfwCreateWindow(WIDTH, HEIGHT, "TurboVis", NULL, NULL);
     if (!window) {
         spdlog::error("Failed to create window. Shutting down...", true);
         return EXIT_FAILURE;
@@ -53,7 +57,7 @@ int main() {
         return EXIT_FAILURE;
     }
 
-	glDebugMessageCallback(MessageCallback, 0);
+	//glDebugMessageCallback(MessageCallback, 0);
 
     glEnable(GL_STENCIL_TEST);
     glEnable(GL_DEBUG_OUTPUT);
@@ -78,11 +82,12 @@ int main() {
     size_t frames = 0, fps = 0;
 
     // -------------- CAMERA --------------
-    GL::Camera camera = GL::Camera(int64_t(WIDTH), int64_t(HEIGHT), glm::radians(55.f), 0.1f, 1000.f);
-    camera.position = { 0.f, 0.f, -250.f };
+    GL::Camera camera = GL::Camera(int64_t(WIDTH), int64_t(HEIGHT), glm::radians(55.f), 0.1f, 1500.f);
+    camera.position = { 0.f, 0.f, -1000.f };
     camera.target = { 0.f, 0.f, 0.f };
     camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
     camera.combined *= glm::lookAt(camera.position, camera.target, camera.upAxis);
+
     camera.update();
 
     bool RMB_down = false;
@@ -100,16 +105,16 @@ int main() {
 
     Gui::InputMultiplexer::cursorPosCallback([&](GLFWwindow*, double _xpos, double _ypos)-> void{
         oldPosition = newPosition;
-        newPosition = Vec2((float)_xpos - HALFWIDTH, ((float)_ypos - HALFHEIGHT));
+        newPosition = Vec2((float)_xpos - HALFWIDTH, (HEIGHT - (float)_ypos - HALFHEIGHT));
 
         if(RMB_down){
-            const auto rot = GL::Camera::trackball_holroyd(oldPosition, newPosition, 250.f);
-            const glm::mat4 RotationMatrix = glm::toMat4(rot);
-            camera.combined *= RotationMatrix;
-            camera.inverse = glm::inverse(camera.combined);
-            camera.position = Vec3(camera.inverse[3][0], camera.inverse[3][1], camera.inverse[3][2]);
-            std::cout << glm::to_string(camera.position) << std::endl;
+            const auto rot = GL::Camera::trackball_holroyd(oldPosition, newPosition, 200.f);
+            const glm::mat3 RotationMatrix = glm::toMat3(rot);
+            const Vec3 rpos = camera.position - camera.target;
+            camera.position = RotationMatrix * rpos  + camera.target;
             camera.update();
+            camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
+            camera.combined *= glm::lookAt(camera.position, camera.target, camera.upAxis);
         }
     });
 
@@ -153,6 +158,7 @@ int main() {
     */
 
     GL::ShapeRenderer shape (100);
+    GL::DepthBufferVisualizer depthr(camera);
 
     while (!glfwWindowShouldClose(window)) {
         const double ctime = glfwGetTime();
@@ -163,10 +169,16 @@ int main() {
         glfwPollEvents();
         gui.ImGui_ImplGlfw_UpdateMousePosAndButtons(window);
 
+        glEnable(GL_DEPTH_TEST);
+
         //shape.drawSphere(Vec3(0.f), 350.f, Vec3(0.2f, 0.4f, 0.6));
-        shape.drawAxisWidget();
+        //shape.drawAxisWidget();
+        
         //shape.drawLine(Vec3(0.f), Vec3(0.f, 200.f, 0.f), 50.f, Vec4(0.f, 1.f, 0.f, 1.f)); //y
+        camera.drawTrackball(shape);
         shape.render(camera);
+
+        //depthr.render();
 
         /*
         // -------------- GEOMETRY PASS --------------

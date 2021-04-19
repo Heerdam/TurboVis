@@ -1,5 +1,9 @@
 #include "../include/gl.hpp"
 
+#include "../include/math.hpp"
+#include "../include/util.hpp"
+#include "../include/camera.hpp"
+
 // -------------- SHADERPROGRAM -------------- 
 
 void GL::ShaderProgram::print(std::string _id, ShaderProgram::Status _compComp, ShaderProgram::Status _compVert,
@@ -19,14 +23,14 @@ void GL::ShaderProgram::print(std::string _id, ShaderProgram::Status _compComp, 
 
 }
 
-bool GL::ShaderProgram::compileFromFile(const std::string& _path) {
+bool GL::ShaderProgram::compileFromFile(const std::string& _filename) {
     bool cExists = true;
     bool vExists = true;
     bool gExists = true;
     bool fExists = true;
 
     std::stringstream p;
-    p << std::filesystem::current_path().string() << "/../../" << _path;
+    p << FilePathResolver::SHADERDIR() << _filename;
     const std::string path = p.str();
 
     std::ifstream compB(path + ".comp");
@@ -42,11 +46,11 @@ bool GL::ShaderProgram::compileFromFile(const std::string& _path) {
     fExists = fragB.good();
 
     if(!cExists && !vExists && !gExists && !fExists){
-        spdlog::error("no valid path for shader: {}", path);
+        spdlog::error("no valid path for shader: {}", _filename);
         return false;
     }
 
-    id = _path;
+    id = _filename;
 
     bool success = compile(
         (cExists ? std::string{ std::istreambuf_iterator<char>(compB), std::istreambuf_iterator<char>() } : "").c_str(),
@@ -226,66 +230,11 @@ void GL::ShaderProgram::unbind() const{
     glUseProgram(0);
 }
 
-// -------------- Camera -------------- \\
 
-/*
-    code taken and adapted from https://github.com/Pascal-So/turbotrack
-    with permission by Pascal Sommer, 2021
-*/
-Vec3 GL::Camera::shoemake_projection(const Vec2& _mousePos, float _radius) {
-    const float r2 = _radius * _radius;
-    const float d2 = glm::dot(_mousePos, _mousePos);
 
-    if (d2 <= r2) {
-        // sphere
-        return {_mousePos[0], _mousePos[1], std::sqrt(r2 - d2)};
-    } else {
-        // scaled sphere
-        const float factor = _radius / std::sqrt(d2);
-        return {factor * _mousePos[0], factor *  _mousePos[1], 0};
-    }
-}
-
-/*
-    code taken and adapted from https://github.com/Pascal-So/turbotrack
-    with permission by Pascal Sommer, 2021
-*/
-Vec3 GL::Camera::holroyd_projection(const Vec2& _mousePos, float _radius) {
-    const float r2 = _radius * _radius;
-    const float d2 = glm::dot(_mousePos, _mousePos);
-
-    if (d2 <= r2 / 2) {
-        // sphere
-        return {_mousePos[0], _mousePos[1], std::sqrt(r2 - d2)};
-    } else {
-        // hyperbola
-        return {_mousePos[0], _mousePos[1], r2 / 2 / std::sqrt(d2)};
-    }
-}
-
-/*
-    code taken and adapted from https://github.com/Pascal-So/turbotrack
-    with permission by Pascal Sommer, 2021
-*/
-Quat GL::Camera::trackball_shoemake(const Vec2& _oldPos, const Vec2& _newPos, float _radius){
-    const Vec3 p1 = glm::normalize(shoemake_projection(_oldPos, _radius));
-    const Vec3 p2 = glm::normalize(shoemake_projection(_newPos, _radius));
-    return glm::rotation(p1, p2);
-}
-
-/*
-    code taken and adapted from https://github.com/Pascal-So/turbotrack
-    with permission by Pascal Sommer, 2021
-*/
-Quat GL::Camera::trackball_holroyd(const Vec2& _oldPos, const Vec2& _newPos, float _radius){
-    const Vec3 p1 = glm::normalize(holroyd_projection(_oldPos, _radius));
-    const Vec3 p2 = glm::normalize(holroyd_projection(_newPos, _radius));
-    return glm::rotation(p1, p2);
-}
-
-GL::ShapeRenderer::ShapeRenderer(uint32_t _maxShapesPerType) : maxShapes(_maxShapesPerType) { 
+GL::ShapeRenderer::ShapeRenderer(uint32_t _maxShapesPerType) noexcept : maxShapes(_maxShapesPerType) { 
     {
-        spheres = zyls = planes = 0;
+        spheres = zyls = planes = circles = lines = wheels = 0;
 
         // ------------------- FULL SCREEN QUAD -------------------
 
@@ -327,6 +276,9 @@ GL::ShapeRenderer::ShapeRenderer(uint32_t _maxShapesPerType) : maxShapes(_maxSha
         glGenBuffers(2, SSBO_spheres);
         glGenBuffers(2, SSBO_zyls);
         glGenBuffers(2, SSBO_planes);
+        glGenBuffers(2, SSBO_circles);
+        glGenBuffers(2, SSBO_lines);
+        glGenBuffers(2, SSBO_wheels);
 
         for (size_t i = 0; i < 2; ++i) {
             //spheres
@@ -345,25 +297,38 @@ GL::ShapeRenderer::ShapeRenderer(uint32_t _maxShapesPerType) : maxShapes(_maxSha
             glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBO_planes[i]);
             glBufferStorage(GL_SHADER_STORAGE_BUFFER, _maxShapesPerType * sizeof(Plane), nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_CLIENT_STORAGE_BIT);
             SSBO_ptr_planes[i] = reinterpret_cast<Plane*>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, _maxShapesPerType * sizeof(Plane), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);       
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);    
+
+            //circles
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBO_circles[i]);
+            glBufferStorage(GL_SHADER_STORAGE_BUFFER, _maxShapesPerType * sizeof(Circle), nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_CLIENT_STORAGE_BIT);
+            SSBO_ptr_circles[i] = reinterpret_cast<Circle*>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, _maxShapesPerType * sizeof(Circle), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);    
+
+            //capless zylinders
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBO_wheels[i]);
+            glBufferStorage(GL_SHADER_STORAGE_BUFFER, _maxShapesPerType * sizeof(Wheel), nullptr, GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_CLIENT_STORAGE_BIT);
+            SSBO_ptr_wheels[i] = reinterpret_cast<Wheel*>(glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, _maxShapesPerType * sizeof(Wheel), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_UNSYNCHRONIZED_BIT));
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         }
         
     }
 
     //compile shaders
-    shader.compileFromFile("shader/shape");
+    shader.compileFromFile("shape_sdf");
 }
 
-void GL::ShapeRenderer::render(const Camera& _cam) {
+void GL::ShapeRenderer::render(const GL::Camera& _cam) noexcept {
 
     shader.bind();
-
-    
-    
+ 
     //buffers
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, SSBO_spheres[currIndex]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, SSBO_zyls[currIndex]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, SSBO_planes[currIndex]);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, SSBO_circles[currIndex]);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, SSBO_lines[currIndex]);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, SSBO_wheels[currIndex]);
 
     //uniforms
     glUniform3fv(10, 1, glm::value_ptr(_cam.position));
@@ -378,6 +343,9 @@ void GL::ShapeRenderer::render(const Camera& _cam) {
     glUniform1i(16, spheres);
     glUniform1i(17, zyls);
     glUniform1i(18, planes);
+    glUniform1i(19, circles);
+    glUniform1i(20, lines);
+    glUniform1i(21, wheels);
 
     //glUniform1f(31, _cam.fov);
 
@@ -389,28 +357,139 @@ void GL::ShapeRenderer::render(const Camera& _cam) {
     shader.unbind();
 
     currIndex = (currIndex + 1) % 2;
-    spheres = zyls = planes = 0;
+    spheres = zyls = planes = circles = lines = wheels = 0;
 }
 
-void GL::ShapeRenderer::drawLine(const Vec3& _p1, const Vec3& _p2, float _radius, const Vec3& _col) {
+void GL::ShapeRenderer::drawZylinder(const Vec3& _p1, const Vec3& _p2, float _radius, const Vec3& _col) noexcept {
     assert(zyls < maxShapes);
     Zylinder zyl { _radius, _p1, _p2, _col };
     std::memcpy(SSBO_ptr_zyls[currIndex] + zyls++, &zyl, sizeof(Zylinder));
 }
 
-void GL::ShapeRenderer::drawAABB(const Vec3& _low, const Vec3& _high, float _thickness, const Vec3& _col) {
-  
+void GL::ShapeRenderer::drawLine(const Vec3& _p1, const Vec3& _p2, float _radius, const Vec3& _col) noexcept {
+    assert(lines < maxShapes);
+    Zylinder zyl { _radius, _p1, _p2, _col };
+    std::memcpy(SSBO_ptr_lines[currIndex] + lines++, &zyl, sizeof(Zylinder));
 }
 
-void GL::ShapeRenderer::drawSphere(const Vec3& _centre, float _radius, const Vec3& _col) {
+void GL::ShapeRenderer::drawSphere(const Vec3& _centre, float _radius, const Vec3& _col) noexcept {
     assert(spheres < maxShapes);
     Sphere s { _radius, _centre, _col };
     std::memcpy(SSBO_ptr_spheres[currIndex] + spheres++, &s, sizeof(Sphere));
 }
 
-void GL::ShapeRenderer::drawAxisWidget(){
+void GL::ShapeRenderer::drawWheel(const Vec3& _centre, float _r, float _R, float _thickness, const Vec3& _col, const Mat3& _rot) noexcept {
+    assert(wheels < maxShapes);
+    Wheel s { _centre, _r, _R, _thickness, _rot, _col };
+    std::memcpy(SSBO_ptr_wheels[currIndex] + wheels++, &s, sizeof(Wheel));
+}
+
+void GL::ShapeRenderer::drawAxisWidget() noexcept {
     drawSphere(Vec3(0.f), 20.f, Vec4(0.f, 1.f, 0.f, 1.f));
     drawLine(Vec3(0.f), Vec3(300.f, 0.f, 0.f), 20.f, Vec4(1.f, 0.f, 0.f, 1.f)); //x
     drawLine(Vec3(0.f), Vec3(0.f, 300.f, 0.f), 20.f, Vec4(0.f, 1.f, 0.f, 1.f)); //y
     drawLine(Vec3(0.f), Vec3(0.f, 0.f, 300.f), 20.f, Vec4(0.f, 0.f, 1.f, 1.f)); //z
+}
+
+GL::DepthBufferVisualizer::DepthBufferVisualizer(const Camera& _cam) : w(_cam.width), h(_cam.height) {
+
+    // -------------- BUFFERS --------------
+
+    const float quad[] = {
+        1.f, 1.f, 1.f, 1.f,    // top right
+        1.f, -1.f, 1.f, 0.f,   // bottom right
+        -1.f, -1.f, 0.f, 0.f,  // bottom left
+        -1.f, 1.f, 0.f, 1.f   // top left
+    };
+
+    const int16_t quadI[] = {
+        0, 1, 2,
+        2, 3, 0};
+
+    GLuint VBO, EBO;
+
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    glBindVertexArray(VAO);
+
+    //vbo
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2*sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    //ebo
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadI), quadI, GL_STATIC_DRAW);
+
+    glBindVertexArray(0);
+
+    // -------------- SHADER --------------
+
+    const char* vertex =
+        "#version 430 core\n"
+        "layout (location = 0) in vec2 pos;\n"
+        "layout (location = 1) in vec2 uvs;\n"
+        "out vec2 uv;\n"
+        "void main() {\n"
+            "uv = uvs;\n"
+            "gl_Position = vec4(pos.xy, 0.f, 1.f);\n"
+        "};\n";
+
+    const char* frag =
+        "#version 430 core\n"
+        "in vec2 uv;\n"
+        "out vec4 fragColor;\n"
+        "layout (location = 2) uniform sampler2D depth;\n"
+        "void main() {\n"
+            "fragColor = vec4(texture(depth, uv).xyz, 1.f);\n"
+        "};\n";
+
+    shader.compile("", vertex, "", frag);
+
+    // -------------- FRAMEBUFFER --------------
+
+    glGenTextures(1, &TEX);
+    glBindTexture(GL_TEXTURE_2D, TEX);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, _cam.width, _cam.height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glGenFramebuffers(1, &FB);
+    glBindFramebuffer(GL_FRAMEBUFFER, FB);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, TEX, 0);
+
+    GLuint status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (GL_FRAMEBUFFER_COMPLETE != status) {
+        spdlog::error("couldn't create depth render target");
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void GL::DepthBufferVisualizer::render(){
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FB);
+    glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glDisable(GL_DEPTH_TEST);
+    shader.bind();
+    glUniform1i(2, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, TEX);
+    glBindVertexArray(VAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0);
+    glBindVertexArray(0);
+    shader.unbind();
+    glEnable(GL_DEPTH_TEST);
 }

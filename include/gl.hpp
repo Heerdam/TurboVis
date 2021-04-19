@@ -5,6 +5,8 @@
 
 namespace GL {
 
+    class Camera;
+
     using Vector_af32 = std::vector<__m256, aligned_allocator<__m256, sizeof(__m256)>>;
     using Vector_aui16 = std::vector<__m256i, aligned_allocator<__m256i, sizeof(__m256i)>>;
 
@@ -28,54 +30,16 @@ namespace GL {
 
         /*
 	        assumes the following extensions:
-	        compute shader: [PATH_TO_FILE].comp
-	        vertex shader: [PATH_TO_FILE].ver
-	        geometry shader: [PATH_TO_FILE].geo
-	        fragment shader: [PATH_TO_FILE].frag
+	        compute shader: [FILENAME].comp
+	        vertex shader: [FILENAME].ver
+	        geometry shader: [FILENAME].geo
+	        fragment shader: [FILENAME].frag
 	    */
         bool compileFromFile(const std::string&);
         bool compile(const char*, const char*, const char*, const char*);
         GLuint getHandle() const;
         void bind() const;
         void unbind() const;
-    };
-
-    class Camera {
-
-    public:
-
-        const Vec3 upAxis = Vec3(0.f, 1.f, 0.f);
-
-        Camera(int64_t _width, int64_t _height, float _fov, float _near, float _far) noexcept
-        : width(_width), height(_height), fov(_fov), near(_near), far(_far) {}
-
-        void update() noexcept{
-
-
-
-            dir = normalize(target - position);
-            right = normalize(cross(dir, upAxis));
-            up = normalize(cross(right, dir));
-        }
-
-        Vec3 position, target;
-        Vec3 up, right, dir;
-
-        const float near, far, fov;
-        const int64_t width, height;
-
-        Mat4 combined, inverse;
-
-        static Vec3 shoemake_projection(const Vec2&, float);
-        static Vec3 holroyd_projection(const Vec2&, float);
-        static Quat trackball_shoemake(const Vec2&, const Vec2&, float);
-        static Quat trackball_holroyd(const Vec2&, const Vec2&, float);
-
-        [[nodiscard]] Vec3& operator*(Vec3& _in) const noexcept {
-            _in = normalize(_in.x*right + _in.y*up + _in.z*dir);
-            return _in;
-        };
-
     };
 
     class ShapeRenderer{
@@ -93,10 +57,24 @@ namespace GL {
             Vec3 col;
         };
 
+        struct Circle {
+            Vec3 n;
+            Vec3 centre;  //assumed the centre of the plane
+            float radius_outer, radius_inner;
+            Vec3 col;
+        };
+
         struct Zylinder {
             float radius;
             Vec3 p1;
             Vec3 p2;
+            Vec3 col;
+        };
+
+        struct Wheel {
+            Vec3 centre;
+            float r, R, thickness;
+            Mat3 rot;
             Vec3 col;
         };
 
@@ -109,24 +87,43 @@ namespace GL {
         GLuint SSBO_spheres[2];
         GLuint SSBO_zyls[2];
         GLuint SSBO_planes[2];
+        GLuint SSBO_circles[2];
+        GLuint SSBO_lines[2];
+        GLuint SSBO_wheels[2];
 
         Sphere* SSBO_ptr_spheres[2];
         Zylinder* SSBO_ptr_zyls[2];
         Plane* SSBO_ptr_planes[2];
+        Circle* SSBO_ptr_circles[2];
+        Zylinder* SSBO_ptr_lines[2];
+        Wheel* SSBO_ptr_wheels[2];
 
         size_t currIndex = 0;
 
-        size_t spheres, zyls, planes;
+        size_t spheres, zyls, planes, circles, lines, wheels;
         const size_t maxShapes;
 
     public:
-        ShapeRenderer(uint32_t /*_maxShapesPerType*/);
-        void render(const Camera& /*_cam*/);
+        ShapeRenderer(uint32_t /*_maxShapesPerType*/) noexcept;
+        void render(const Camera& /*_cam*/) noexcept;
         //Lines
-        void drawLine(const Vec3& /*_p1*/, const Vec3& /*_p2*/, float /*_radius*/, const Vec3& /*_col*/);        
-        void drawAABB(const Vec3&, const Vec3&, float, const Vec3&);
-        void drawSphere(const Vec3& /*_centre*/, float /*_radius*/, const Vec3& /*_col*/);
-        void drawAxisWidget();
+        void drawLine(const Vec3& /*_p1*/, const Vec3& /*_p2*/, float /*_radius*/, const Vec3& /*_col*/) noexcept;  
+        void drawZylinder(const Vec3& /*_p1*/, const Vec3& /*_p2*/, float /*_radius*/, const Vec3& /*_col*/) noexcept; 
+        void drawSphere(const Vec3& /*_centre*/, float /*_radius*/, const Vec3& /*_col*/) noexcept;
+        void drawWheel(const Vec3& /*_centre*/, float /*_r*/, float /*_R*/, float /*_thickness*/, const Vec3& /*_col*/, const Mat3& /*_rot*/) noexcept;
+
+        //void drawPlane(const Vec3& /*_centre*/, const Vec3& /*_normal*/, float /*_halfwidth*/, float /*_halfheight*/, const Vec4& /*_color*/) noexcept;
+        //void drawCircle(const Vec3& /*_centre*/, const Vec3& /*_normal*/, float /*_innerRadius*/, float /*_outerRadius*/, const Vec4& /*_color*/) noexcept;
+        void drawAxisWidget() noexcept;
+    };
+
+    class DepthBufferVisualizer {
+        ShaderProgram shader;
+        GLuint VAO, FB, TEX;
+        const size_t w, h;
+    public:
+        DepthBufferVisualizer(const Camera&);
+        void render();
     };
 
     namespace util {
@@ -147,6 +144,8 @@ namespace GL {
             uint32_t operator[](size_t _index){ return v[_index]; }
         };
     } //namespace util
+
+
 
 }  // namespace GL
 

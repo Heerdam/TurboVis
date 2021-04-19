@@ -17,10 +17,13 @@ endif()
 include(FetchContent)
 
 add_executable(tv
-	src/main.cpp
-	src/data.cpp
-	src/gl.cpp
-	src/gui.cpp
+	"src/main.cpp"
+	"src/data.cpp"
+	"src/gl.cpp"
+	"src/gui.cpp"
+	"src/math.cpp"
+	"src/util.cpp"
+	"src/camera.cpp"
 )
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
@@ -138,7 +141,7 @@ option(BUILD_TESTING "Build unit tests for libmorton" OFF)
 FetchContent_GetProperties(libmorton)
 FetchContent_MakeAvailable(libmorton)
 
-
+# ------------------ GLM ------------------
 FetchContent_Declare(
         glm
         GIT_REPOSITORY https://github.com/g-truc/glm
@@ -146,10 +149,8 @@ FetchContent_Declare(
 		GIT_TAG 0.9.9.8
 )
 FetchContent_GetProperties(glm)
-if(NOT glm_POPULATED)
-	FetchContent_Populate(glm)
-	add_subdirectory("${glm_SOURCE_DIR}" "${glm_BINARY_DIR}")
-endif()
+FetchContent_MakeAvailable(glm)
+
 
 set(TV_LIBS 
 		"glfw"	

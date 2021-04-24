@@ -43,7 +43,7 @@ void toPlot(Plot& _plot, const std::vector<std::vector<Vector>>& data) {
     _plot.autoclean(true);
 };
 
-template<class Vector>
+template <class Vector>
 void plot(
         std::vector<std::vector<float>> _time, 
         std::vector<std::vector<size_t>> _iterations,

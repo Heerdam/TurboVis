@@ -83,7 +83,7 @@ int main() {
 
     // -------------- CAMERA --------------
     GL::Camera camera = GL::Camera(int64_t(WIDTH), int64_t(HEIGHT), glm::radians(55.f), 0.1f, 1500.f);
-    camera.position = { 0.f, 0.f, -100.f };
+    camera.position = { 0.f, 0.f, 100.f };
     camera.target = { 0.f, 0.f, 0.f };
     camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
     camera.combined *= glm::lookAt(camera.position, camera.target, camera.upAxis);
@@ -91,7 +91,7 @@ int main() {
 
     // -------------- GIMBEL CAMERA --------------
     GL::Camera gCamera = GL::Camera(int64_t(250), int64_t(250), glm::radians(55.f), 0.1f, 1500.f);
-    gCamera.position = { 0.f, 0.f, -100.f };
+    gCamera.position = { 0.f, 0.f, 100.f };
     gCamera.target = { 0.f, 0.f, 0.f };
     gCamera.update();
 
@@ -108,6 +108,18 @@ int main() {
         }
     });
 
+    bool camKeys[] = {false, false, false};
+
+    Gui::InputMultiplexer::keyCallback([&](GLFWwindow* _window, int _key, int _scancode, int _action, int _mods)-> void {
+        if(_key == GLFW_KEY_X)
+            camKeys[0] = _action == GLFW_PRESS ? true :  _action == GLFW_RELEASE ? false : camKeys[0];
+        if(_key == GLFW_KEY_Y)
+            camKeys[1] = _action == GLFW_PRESS ? true :  _action == GLFW_RELEASE ? false : camKeys[1];
+        if(_key == GLFW_KEY_Z)
+            camKeys[2] = _action == GLFW_PRESS ? true :  _action == GLFW_RELEASE ? false : camKeys[2];
+         
+    });
+
     Gui::InputMultiplexer::cursorPosCallback([&](GLFWwindow*, double _xpos, double _ypos)-> void{
         oldPosition = newPosition;
         newPosition = Vec2((float)_xpos - HALFWIDTH, (HEIGHT - (float)_ypos - HALFHEIGHT));
@@ -115,9 +127,28 @@ int main() {
         if(RMB_down){
             const auto rot = GL::Camera::trackball_holroyd(oldPosition, newPosition, 200.f);
             const glm::mat3 RotationMatrix = glm::toMat3(rot);
-            const Vec3 rpos = camera.position - camera.target;
-            camera.position = RotationMatrix * rpos  + camera.target;
-            camera.update();
+
+            //rotation around x axis
+            if(camKeys[0]){
+                camera.right = normalize(rot * camera.right);
+                camera.up = normalize(glm::cross(camera.dir, camera.right));
+            }
+
+            //rotation around y axis
+            if(camKeys[1]){
+                camera.dir = normalize(rot * camera.dir);
+                camera.right = normalize(glm::cross(camera.dir, camera.up));
+            }
+
+            //rotation around z axis
+            if(camKeys[2]){
+                camera.up = normalize(rot * camera.up);
+                camera.dir = normalize(glm::cross(camera.up, camera.right));
+            }
+
+            //const Vec3 rpos = camera.position - camera.target;
+            //camera.position = RotationMatrix * rpos  + camera.target;
+            //camera.update();
             camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
             camera.combined *= glm::lookAt(camera.position, camera.target, camera.upAxis);
         }
@@ -142,7 +173,8 @@ int main() {
 
         // -------------- GIMBEL --------------  
         glViewport(0, 0, gCamera.width, gCamera.height);
-        shape.drawAxisWidget();
+        const Mat3 rot = Mat3(camera.dir, camera.up, camera.right);
+        shape.drawAxisWidget(rot);
         shape.render(gCamera);
         glViewport(0, 0, WIDTH, HEIGHT);
         //depthr.render();

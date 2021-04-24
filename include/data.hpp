@@ -4,104 +4,188 @@
 #include "defines.hpp"
 
 namespace Data {
+
+    //deprecated
     using Triplet = std::tuple<float, uint16_t, uint16_t, uint16_t>;
-    using Iterator = std::vector<Triplet>::iterator;
-
-    enum class Gridsize : uint16_t {
-        x2      =   2, 
-        x4      =   4, 
-        x16     =   16, 
-        x32     =   32, 
-        x64     =   64, 
-        x128    =   128,
-        x256    =   256, 
-        x512    =   512, 
-        x1024   =   1024, 
-        x2048   =   2048, 
-        x4096   =   4096
-    };
-
-    template<class T>
-    inline constexpr size_t operator*(T _v1, Gridsize _v2){
-        return _v1 * static_cast<size_t>(_v2);
-    }
-
-    template<class T>
-    inline constexpr size_t operator*(Gridsize _v2, T _v1){
-        return _v1 * static_cast<size_t>(_v2);
-    }
-
-    inline constexpr size_t operator*(Gridsize _v1, Gridsize _v2){
-        return static_cast<size_t>(_v1) * static_cast<size_t>(_v2);
-    }
-
-    class SparseGrid {
-
-        std::mutex mutex;
-        std::unordered_map<size_t, float> map;
-        Gridsize size;
-
-    public:
-        SparseGrid();
-        void init(Gridsize);
-        void downsample(Gridsize);
-        Gridsize getSize() const;
-        size_t getSizeOfMapInBytes() const;
-
-        void insert(float, uint16_t, uint16_t, uint16_t);
-        void insertBulk(Iterator, Iterator);
-
-        void insert_async(float, uint16_t, uint16_t, uint16_t);
-        void insertBulk_async(Iterator, Iterator);
-
-        std::vector<float> toBuffer() const;
-        std::vector<float> createBuffers(float) const;
-    };
-
-    class FunctionData {
-
-        std::mutex mutex;
-        SparseGrid grid;
-
-        static void eval(std::function<float(int16_t, int16_t, int16_t)>, SparseGrid&, bool, int16_t, int16_t, int16_t, int16_t, int16_t, int16_t);
-        
-    public:
-
-        void createDataFromFunction(std::function<float(int16_t, int16_t, int16_t)>, Gridsize);
-        void downsample(Gridsize);
-
-        std::vector<float> toBuffer() const;
-        std::vector<float> createBuffers() const;
-
-        size_t getDataSizeinBytes() const;
-        Gridsize currentGridSize() const;
-
-    };
 
     namespace PCA {
 
-        template<class Vector>
-        [[nodiscard]] size_t nn(const std::vector<Vector>& _vals, const Vector& _e){
-            size_t idx = 0;
-            float dist2_best = std::numeric_limits<float>::max();
-            for(size_t i = 0; i < _vals.size(); ++i){
-                const float dist2 = (_vals[i] - _e).squaredNorm();
-                if(dist2 < dist2_best){
-                    dist2_best = dist2;
-                    idx = i;
+        namespace detail {
+
+            template<class Vector, class Iterator, class T>
+            [[nodiscard]] size_t nn(Iterator _begin, Iterator _end, const Vector& _e) noexcept {
+                size_t idx = 0;
+                T dist2_best = std::numeric_limits<T>::infinity();
+                for (size_t i = 0; _begin != _end; ++_begin, ++i) {
+                    const T dist2 = (*_begin - _e).squaredNorm();
+                    if (dist2 < dist2_best) {
+                        dist2_best = dist2;
+                        idx = i;
+                    }
                 }
-            }
-            return idx;
-        };
+                return idx;
+            };
+
+            template <class Vector>
+            struct VQResult {
+                const std::vector<Vector> means;
+                const std::vector<std::vector<size_t>> clusters;
+                const std::vector<size_t> words;
+                const size_t iterations;
+                const std::vector<size_t> time;
+
+                VQResult(
+                    std::vector<Vector>&& _means, 
+                    std::vector<std::vector<size_t>>&& _clusters,
+                    std::vector<size_t>&& _words,
+                    size_t _iterations,
+                    std::vector<size_t>&& _time ) : 
+                    iterations(_iterations), 
+                    means(std::forward<std::vector<Vector>>(_means)), 
+                    clusters(std::forward<std::vector<std::vector<size_t>>>(_clusters)), 
+                    words(std::forward<std::vector<size_t>>(_words)), 
+                    time(std::forward<std::vector<size_t>>(_time)) {}
+            };
+
+            template <class Vector, class Matrix>
+            struct PCAResult {
+                const std::unique_ptr<VQResult<Vector>> vq;
+                const std::vector<Matrix> pca;
+                const std::vector<Matrix> weights;
+                const size_t time;
+
+                PCAResult(std::unique_ptr<VQResult<Vector>>&& _vq, std::vector<Matrix>&& _pca, std::vector<Matrix>&& _weights, size_t _time) : 
+                    vq(std::forward<std::unique_ptr<VQResult<Vector>>>(_vq)), 
+                    pca(std::forward<std::vector<Matrix>>(_pca)), 
+                    weights(std::forward<std::vector<Matrix>>(_weights)), 
+                    time(_time) {}
+            };
+
+        }
 
         /*
             Vector Quantizer to create clusters from an input signal
             iterativly use means for VQ until no points are switched or iteration count is reached
             compute means of clusters
         */
-        template<class Vector>
-        [[nodiscard]] std::pair<std::vector<Vector>, std::vector<std::vector<Vector>>> VQ(const std::vector<Vector>& _signal, size_t _clusters, size_t& _iterations) {
+        template<class Vector, class Iterator, class T>
+        [[nodiscard]] std::unique_ptr<detail::VQResult<Vector>> VQ(Iterator _begin, Iterator _end, size_t _ccount, size_t _iterations = 100, T _epsilon2 = T(0.5), size_t _threads = 4) {
 
+            const size_t ssize = _end - _begin;
+
+            // ------------------- OUT -------------------
+            std::vector<Vector> means (_ccount);
+            std::vector<std::vector<size_t>> clusters (_ccount);
+            std::vector<size_t> words (_ccount);
+            size_t iterations = 0;
+            std::vector<size_t> time;
+
+            // ------------------- TEMP -------------------
+            std::vector<Vector> oldMeans (_ccount);
+            std::vector<size_t> count (_ccount);
+
+            for(size_t it = 0; it < _iterations; ++it){
+                auto now = std::chrono::high_resolution_clock::now();
+                for(auto& v : clusters)
+                    v.clear();
+
+                //create words
+                if(it == 0){
+                    std::mt19937_64 gen;
+                    gen.seed(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+                    std::uniform_int_distribution<size_t> dist(0, ssize - 1);
+
+                    std::vector<bool> map(ssize);
+                    std::fill(map.begin(), map.end(), false);
+
+                    for (size_t i = 0; i < _ccount; ++i) {
+                        const size_t c = dist(gen);
+                        //avoid inserting twice the same
+                        if (map[c]) {
+                            --i;
+                            continue;
+                        }
+                        map[c] = true;
+                        words[i] = c;
+                    }
+
+                } else {
+
+                    for(size_t i = 0; i < _ccount; ++i){;
+                        oldMeans[i] = means[i];
+                        means[i].setZero();
+                    }
+
+                }
+
+                //insert signal into the clusters (including words)
+                std::memset(count.data(), 0, _ccount * sizeof(size_t));
+
+                for(Eigen::Index i = 0; i < ssize; ++i){
+                    bool isSet = false;                
+                    const size_t idx = detail::nn<Vector, Iterator, T>(_begin, _end, *(_begin + i)); //cluster idx
+                    clusters[idx].push_back(i);
+                    means[idx] = means[idx] + (*(_begin + i) - means[idx]) / ++count[idx];
+                }
+
+                bool done = true;
+                for(size_t i = 0; i < _ccount; ++i){
+                    const T dist2 = (means[i] - *(_begin + words[i])).squaredNorm();
+                     if(dist2 > _epsilon2)
+                        done = false;
+                }
+
+                time.push_back((std::chrono::high_resolution_clock::now() - now).count());
+
+                if(done) break;
+
+            }
+            return std::make_unique<detail::VQResult<Vector>>(std::move(means), std::move(clusters), std::move(words), iterations, std::move(time));
+        };
+
+        /*
+            for every cluster
+            calc mean x0
+            compute residual matrix C = X - x0
+            SVD(C)
+            PCA vecs: first n rows of V
+            projection weight of point j: first n columns of row j of UD
+        */
+        template <class Vector, class Iterator, class T>
+        [[nodiscard]] std::unique_ptr<detail::PCAResult<Vector, Eigen::Matrix<T, -1, Vector::RowsAtCompileTime>>> PCA(Iterator _begin, Iterator _end, size_t _ccount){
+            auto now = std::chrono::high_resolution_clock::now();
+            constexpr size_t n = Vector::RowsAtCompileTime;
+
+            using Matrix = Eigen::Matrix<T, -1, n>;
+
+            size_t it = 0;
+            auto vq = VQ<Vector, Iterator, T>(_begin, _end, _ccount);
+
+            std::vector<Matrix> pca (_ccount);
+            std::vector<Matrix> weights (_ccount);
+
+            for(size_t k = 0; k < vq->clusters.size(); ++k){ 
+                const auto& cluster = vq->clusters[k];
+                const size_t m = cluster.size();
+
+                Eigen::Matrix<T, n, -1> C (n, m); //residiual matrix m x n
+
+                std::vector<Vector> res (cluster.size());
+                for(size_t i = 0; i < m; ++i)   
+                    C.col(i) = *(_begin + cluster[i]) - vq->means[k];
+
+                Eigen::JacobiSVD<decltype(C)> solver (C, Eigen::ComputeThinU | Eigen::ComputeThinV);
+                pca[k] = solver.matrixV().transpose().block(0, m, 0, n);
+                weights[k] = solver.matrixU() * solver.singularValues().block(0, m, 0, n);
+
+            }          
+            return std::make_unique<detail::PCAResult<Vector, Matrix>>(std::move(vq), std::move(pca), std::move(weights), size_t((std::chrono::high_resolution_clock::now() - now).count()));
+        };
+
+        
+        //template<class Vector>
+        //[[nodiscard]] std::pair<std::vector<Vector> /*means*/, std::vector<std::vector<Vector>> /*clusters*/> VQ(const std::vector<Vector>& _signal, size_t _clusters, size_t& _iterations) {
+/*
             std::unordered_map<std::uintptr_t , size_t> clusterMap(_signal.size());
             std::vector<std::vector<Vector>> out (_clusters);
             std::vector<Vector> words (_clusters);
@@ -172,44 +256,9 @@ namespace Data {
             return { means, out };
             
         };
+*/
 
-        /*
-            for every cluster
-            calc mean x0
-            compute residual matrix C = X - x0
-            SVD(C)
-            PCA vecs: first n rows of V
-            projection weight of point j: first n columns of row j of UD
-        */
-        template <class Signal>
-        std::pair<std::vector<Eigen::Matrix<float, -1, Signal::RowsAtCompileTime>>, std::vector<Eigen::Matrix<float, -1, Signal::RowsAtCompileTime>>> PCA(const Signal& _signal, size_t _clusters){
-
-            constexpr size_t n = Signal::RowsAtCompileTime;
-
-            using Matrix = Eigen::Matrix<float, -1, Signal::RowsAtCompileTime>;
-            using Vector = Eigen::Matrix<float, 1, n>;
-
-            const auto clusters = VQ(_signal, _clusters);
-
-            std::vector<Matrix> pca (_clusters);
-            std::vector<Matrix> weights (_clusters);
-
-            for(size_t k = 0; k < clusters.size(); ++k){ 
-                const auto& c = clusters[k];
-                constexpr size_t m = c.size();
-                Eigen::Matrix<float, m, n> C; //residiual matrix m x n
-                for(size_t i = 0; i < m; ++i)   
-                    C.col(i) = c[i] - x_0;
-
-                Eigen::JacobiSVD<decltype(C)> solver (C, Eigen::ComputeThinU | Eigen::ComputeThinV);
-                pca[k] = solver.matrixV().transpose().block(0, m, 0, n);
-                weights[k] = solver.matrixU() * solver.singularValues().block(0, m, 0, n);
-            }
-
-            return { pca, weights };
-
-        };
-
+       
         /*
         performs a principal component analysis utlising the kernel Hebbian algorithm with stochastic meta-descent
         From: Fast Iterative Kernel Principal Component Analysis, 2007, Günter el al.

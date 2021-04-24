@@ -195,19 +195,28 @@ endif()
 	# ------------------ Targets ------------------
 	add_executable(VQ tests/VQ/main.cpp	)
 	add_executable(SHAPES tests/SHAPES/main.cpp	)
+	add_executable(PCA_STATIC tests/PCA_STATIC/main.cpp	)
 
+	#VQ
 	target_include_directories(VQ PUBLIC "${EIGEN3_INCLUDE_DIR}")
 	target_include_directories(VQ PUBLIC "${imgui_SOURCE_DIR}")
 
+	#SHAPES
 	target_include_directories(SHAPES PUBLIC "${EIGEN3_INCLUDE_DIR}")
 	target_include_directories(SHAPES PUBLIC "${imgui_SOURCE_DIR}")
 	target_include_directories(SHAPES PUBLIC "${lodepng_SOURCE_DIR}")
 
+	#PCA_STATIC
+	target_include_directories(PCA_STATIC PUBLIC "${EIGEN3_INCLUDE_DIR}")
+	target_include_directories(PCA_STATIC PUBLIC "${imgui_SOURCE_DIR}")
+
 	if (MSVC)
 		target_link_libraries(VQ "${TV_LIBS}" sciplot )
 		target_link_libraries(SHAPES "${TV_LIBS}" sciplot )
+		target_link_libraries(PCA_STATIC "${TV_LIBS}" sciplot )
 	else()
 		target_link_libraries(VQ "${TV_LIBS_LINUX}" sciplot )
 		target_link_libraries(SHAPES "${TV_LIBS_LINUX}" sciplot )
+		target_link_libraries(PCA_STATIC "${TV_LIBS_LINUX}" sciplot )
 	endif()
 #endif()

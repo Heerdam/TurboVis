@@ -393,19 +393,15 @@ void GL::ShapeRenderer::drawWheel(const Vec3& _centre, float _r, float _R, float
     std::memcpy(SSBO_ptr_wheels[currIndex] + wheels++, &s, sizeof(Math::Intersector::Wheel<float>));
 }
 
-void GL::ShapeRenderer::drawAxisWidget() noexcept {
-    const Mat3 rotR = Mat3(glm::rotate(glm::radians(90.f), Vec3(0.f, 0.f, 1.f)));
-    const Mat3 rotG = Mat3(glm::rotate(glm::radians(90.f), Vec3(0.f, 1.f, 0.f)));
-    const Mat3 rotB = Mat3(glm::rotate(glm::radians(90.f), Vec3(1.f, 0.f, 0.f)));
+void GL::ShapeRenderer::drawAxisWidget(const Mat3& _rot) noexcept {
+    const float length = 55.f;
+    const Vec3 x = length * Vec3(1.f, 0.f, 0.f);
+    const Vec3 y = length * Vec3(0.f, 1.f, 0.f);
+    const Vec3 z = length * Vec3(0.f, 0.f, 1.f);
 
-    drawWheel(Vec3(0.f), 1.f, 50.f, 3.f, RED, rotR);
-    drawWheel(Vec3(0.f), 1.f, 48.f, 3.f, GREEN, rotG);
-    drawWheel(Vec3(0.f), 1.f, 47.f, 3.f, BLUE, rotB);
-
-
-    drawLine(Vec3(0.f), 35.f * Vec3(1.f, 0.f, 0.f), 2.f, RED);
-    drawLine(Vec3(0.f), 35.f * Vec3(0.f, 1.f, 0.f), 2.f, GREEN);
-    drawLine(Vec3(0.f), 35.f * Vec3(0.f, 0.f, 1.f), 2.f, BLUE);
+    drawLine(Vec3(0.f), _rot*x, 2.f, RED);
+    drawLine(Vec3(0.f), _rot*y, 2.f, GREEN);
+    drawLine(Vec3(0.f), _rot*z, 2.f, BLUE);
 }
 
 GL::DepthBufferVisualizer::DepthBufferVisualizer(const Camera& _cam) : w(_cam.width), h(_cam.height) {

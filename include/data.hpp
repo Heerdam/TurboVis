@@ -13,11 +13,12 @@ namespace Data {
         namespace detail {
 
             template<class Vector, class Iterator, class T>
-            [[nodiscard]] size_t nn(Iterator _begin, Iterator _end, const Vector& _e) noexcept {
+            [[nodiscard]] size_t nn(Iterator _begin, const Iterator _end, const Iterator _signal, const Vector& _e) noexcept {
                 size_t idx = 0;
-                T dist2_best = std::numeric_limits<T>::infinity();
+                T dist2_best = std::numeric_limits<T>::max();
                 for (size_t i = 0; _begin != _end; ++_begin, ++i) {
-                    const T dist2 = (*_begin - _e).squaredNorm();
+                    const Vector& w = *_begin;
+                    const T dist2 = (w - _e).squaredNorm();
                     if (dist2 < dist2_best) {
                         dist2_best = dist2;
                         idx = i;
@@ -32,32 +33,32 @@ namespace Data {
                 const std::vector<std::vector<size_t>> clusters;
                 const std::vector<size_t> words;
                 const size_t iterations;
-                const std::vector<size_t> time;
+                const std::vector<double> time;
 
                 VQResult(
                     std::vector<Vector>&& _means, 
                     std::vector<std::vector<size_t>>&& _clusters,
                     std::vector<size_t>&& _words,
                     size_t _iterations,
-                    std::vector<size_t>&& _time ) : 
+                    std::vector<double>&& _time ) : 
                     iterations(_iterations), 
                     means(std::forward<std::vector<Vector>>(_means)), 
                     clusters(std::forward<std::vector<std::vector<size_t>>>(_clusters)), 
                     words(std::forward<std::vector<size_t>>(_words)), 
-                    time(std::forward<std::vector<size_t>>(_time)) {}
+                    time(std::forward<std::vector<double>>(_time)) {}
             };
 
-            template <class Vector, class Matrix>
+            template <class Vector, class Matrix_PCA, class Matrix_Weights>
             struct PCAResult {
                 const std::unique_ptr<VQResult<Vector>> vq;
-                const std::vector<Matrix> pca;
-                const std::vector<Matrix> weights;
+                const std::vector<Matrix_PCA> pca;
+                const std::vector<Matrix_Weights> weights;
                 const size_t time;
 
-                PCAResult(std::unique_ptr<VQResult<Vector>>&& _vq, std::vector<Matrix>&& _pca, std::vector<Matrix>&& _weights, size_t _time) : 
+                PCAResult(std::unique_ptr<VQResult<Vector>>&& _vq, std::vector<Matrix_PCA>&& _pca, std::vector<Matrix_Weights>&& _weights, size_t _time) : 
                     vq(std::forward<std::unique_ptr<VQResult<Vector>>>(_vq)), 
-                    pca(std::forward<std::vector<Matrix>>(_pca)), 
-                    weights(std::forward<std::vector<Matrix>>(_weights)), 
+                    pca(std::forward<std::vector<Matrix_PCA>>(_pca)), 
+                    weights(std::forward<std::vector<Matrix_Weights>>(_weights)), 
                     time(_time) {}
             };
 
@@ -72,13 +73,14 @@ namespace Data {
         [[nodiscard]] std::unique_ptr<detail::VQResult<Vector>> VQ(Iterator _begin, Iterator _end, size_t _ccount, size_t _iterations = 100, T _epsilon2 = T(0.5), size_t _threads = 4) {
 
             const size_t ssize = _end - _begin;
+            spdlog::debug("[VQ] Started. Signal size: {}, clusters: {}, max iterations: {}, epsilon2: {}, max threads: {}", ssize, _ccount, _iterations, _epsilon2, _threads);
 
             // ------------------- OUT -------------------
             std::vector<Vector> means (_ccount);
             std::vector<std::vector<size_t>> clusters (_ccount);
             std::vector<size_t> words (_ccount);
             size_t iterations = 0;
-            std::vector<size_t> time;
+            std::vector<double> time;
 
             // ------------------- TEMP -------------------
             std::vector<Vector> oldMeans (_ccount);
@@ -86,6 +88,8 @@ namespace Data {
 
             for(size_t it = 0; it < _iterations; ++it){
                 auto now = std::chrono::high_resolution_clock::now();
+                spdlog::debug("[VQ] Iteration {} start.", it);
+
                 for(auto& v : clusters)
                     v.clear();
 
@@ -109,12 +113,17 @@ namespace Data {
                         words[i] = c;
                     }
 
+                    for(size_t i = 0; i < _ccount; ++i)
+                        oldMeans[i] = *(_begin + words[i]);
+
                 } else {
 
+                    
                     for(size_t i = 0; i < _ccount; ++i){;
                         oldMeans[i] = means[i];
                         means[i].setZero();
                     }
+                    
 
                 }
 
@@ -122,20 +131,24 @@ namespace Data {
                 std::memset(count.data(), 0, _ccount * sizeof(size_t));
 
                 for(Eigen::Index i = 0; i < ssize; ++i){
-                    bool isSet = false;                
-                    const size_t idx = detail::nn<Vector, Iterator, T>(_begin, _end, *(_begin + i)); //cluster idx
+                    //bool isSet = false;                
+                    const size_t idx = detail::nn<Vector, Iterator, T>(oldMeans.begin(), oldMeans.end(), _begin, *(_begin + i)); //cluster idx
                     clusters[idx].push_back(i);
                     means[idx] = means[idx] + (*(_begin + i) - means[idx]) / ++count[idx];
                 }
 
                 bool done = true;
                 for(size_t i = 0; i < _ccount; ++i){
-                    const T dist2 = (means[i] - *(_begin + words[i])).squaredNorm();
+                    //std::cout << means[i] << std::endl << std::endl;
+                    //std::cout << words[i] << std::endl;
+                    const T dist2 = (means[i] - oldMeans[i]).squaredNorm();
+                    //std::cout << dist2 << std::endl << std::endl << std::endl;
                      if(dist2 > _epsilon2)
                         done = false;
                 }
-
-                time.push_back((std::chrono::high_resolution_clock::now() - now).count());
+                const std::chrono::duration<double, std::milli> dtime = (std::chrono::high_resolution_clock::now() - now);
+                spdlog::debug("[VQ] Iteration {} ended. ({} ms)", it, dtime.count());
+                time.push_back(dtime.count());
 
                 if(done) break;
 
@@ -152,34 +165,49 @@ namespace Data {
             projection weight of point j: first n columns of row j of UD
         */
         template <class Vector, class Iterator, class T>
-        [[nodiscard]] std::unique_ptr<detail::PCAResult<Vector, Eigen::Matrix<T, -1, Vector::RowsAtCompileTime>>> PCA(Iterator _begin, Iterator _end, size_t _ccount){
+        [[nodiscard]] auto PCA(Iterator _begin, Iterator _end, size_t _ccount){
             auto now = std::chrono::high_resolution_clock::now();
+
             constexpr size_t n = Vector::RowsAtCompileTime;
 
-            using Matrix = Eigen::Matrix<T, -1, n>;
+            using Matrix_MxN = Eigen::Matrix<T, -1, n>;
+            using Matrix_NxM = Eigen::Matrix<T, n, -1>;
 
-            size_t it = 0;
             auto vq = VQ<Vector, Iterator, T>(_begin, _end, _ccount);
 
-            std::vector<Matrix> pca (_ccount);
-            std::vector<Matrix> weights (_ccount);
+            std::vector<Matrix_MxN> pca (_ccount);
+            std::vector<Matrix_NxM> weights (_ccount);
 
             for(size_t k = 0; k < vq->clusters.size(); ++k){ 
                 const auto& cluster = vq->clusters[k];
                 const size_t m = cluster.size();
 
-                Eigen::Matrix<T, n, -1> C (n, m); //residiual matrix m x n
+                Matrix_NxM C (n, m); //residiual matrix m x n
 
-                std::vector<Vector> res (cluster.size());
                 for(size_t i = 0; i < m; ++i)   
                     C.col(i) = *(_begin + cluster[i]) - vq->means[k];
 
-                Eigen::JacobiSVD<decltype(C)> solver (C, Eigen::ComputeThinU | Eigen::ComputeThinV);
-                pca[k] = solver.matrixV().transpose().block(0, m, 0, n);
-                weights[k] = solver.matrixU() * solver.singularValues().block(0, m, 0, n);
+                Matrix_MxN CC (m, n);
+                CC = C.transpose();
+
+                //std::cout << CC << std::endl;
+
+                Eigen::BDCSVD<Matrix_MxN> solver (CC, Eigen::ComputeFullU | Eigen::ComputeFullV);
+                pca[k] = solver.matrixV(); //n x n
+                
+                Matrix_MxN D (m, n);
+                D.setZero();
+                const auto SV = solver.singularValues();
+                //std::cout << SV.cols() << " " << SV.rows() << std::endl;
+                for(Eigen::Index i = 0; i < SV.rows(); ++i)
+                    D(i, i) = SV(i);
+            
+                const auto UD = (solver.matrixU() * D).transpose();
+                //std::cout << UD.cols() << " " << UD.rows() << std::endl;
+                weights[k] = UD;
 
             }          
-            return std::make_unique<detail::PCAResult<Vector, Matrix>>(std::move(vq), std::move(pca), std::move(weights), size_t((std::chrono::high_resolution_clock::now() - now).count()));
+            return std::make_unique<detail::PCAResult<Vector, Matrix_MxN, Matrix_NxM>>(std::move(vq), std::move(pca), std::move(weights), size_t((std::chrono::high_resolution_clock::now() - now).count()));
         };
 
         

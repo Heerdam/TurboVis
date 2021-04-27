@@ -6,10 +6,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 if (MSVC)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od ")
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /DNDEBUG")
 else()
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -mavx -mavx2")
-	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g3 -ggdb -fsanitize=address -fsanitize=undefined -D_GLIBCXX_DEBUG" )
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g3 -ggdb -fsanitize=address -fsanitize=undefined -D_GLIBCXX_DEBUG" )
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Os -march=native -DNDEBUG -flto -fomit-frame-pointer")
 	set(CMAKE_CXX_FLAGS_SCHRENZSPEED "-Ofast -funroll-loops -s -DNDEBUG -flto -fomit-frame-pointer -march=native")
 endif()
@@ -151,6 +153,26 @@ FetchContent_Declare(
 FetchContent_GetProperties(glm)
 FetchContent_MakeAvailable(glm)
 
+# ------------------ OMP ------------------
+find_package(OpenMP REQUIRED)
+
+# ------------------ MRPT ------------------
+message(STATUS "Fetching mrpt...")
+FetchContent_Declare(
+	mrpt
+	GIT_REPOSITORY https://github.com/vioshyvo/mrpt.git
+	GIT_SHALLOW TRUE
+)
+FetchContent_GetProperties(mrpt)
+
+if(NOT mrpt_POPULATED)
+	FetchContent_Populate(mrpt)
+
+	message(STATUS "Preparing mrpt...")
+	target_include_directories(tv PUBLIC "${mrpt_SOURCE_DIR}/cpp")
+endif()
+
+# ------------------------------------
 
 set(TV_LIBS 
 		"glfw"	
@@ -160,6 +182,7 @@ set(TV_LIBS
 		"lodepng"
 		"libmorton" 
 		"glm"
+		"OpenMP::OpenMP_CXX"
 )
 
 set(TV_LIBS_LINUX "${TV_LIBS}")
@@ -209,6 +232,7 @@ endif()
 	#PCA_STATIC
 	target_include_directories(PCA_STATIC PUBLIC "${EIGEN3_INCLUDE_DIR}")
 	target_include_directories(PCA_STATIC PUBLIC "${imgui_SOURCE_DIR}")
+	target_include_directories(PCA_STATIC PUBLIC "${mrpt_SOURCE_DIR}/cpp")
 
 	if (MSVC)
 		target_link_libraries(VQ "${TV_LIBS}" sciplot )

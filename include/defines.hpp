@@ -21,6 +21,7 @@
 #include <array>
 #include <random>
 #include <algorithm>
+#include <iostream>
 
 #define _SILENCE_CXX17_ADAPTOR_TYPEDEFS_DEPRECATION_WARNING
 #define _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS

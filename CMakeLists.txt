@@ -2,15 +2,16 @@ cmake_minimum_required(VERSION 3.16)
 
 project(TurboVis)
 
+set(CMAKE_GENERATOR_PLATFORM x64)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 if (MSVC)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /openmp")
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od ")
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /DNDEBUG")
 else()
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -mavx -mavx2")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -mavx -mavx2 -fopenmp")
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g3 -ggdb -fsanitize=address -fsanitize=undefined -D_GLIBCXX_DEBUG" )
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Os -march=native -DNDEBUG -flto -fomit-frame-pointer")
 	set(CMAKE_CXX_FLAGS_SCHRENZSPEED "-Ofast -funroll-loops -s -DNDEBUG -flto -fomit-frame-pointer -march=native")
@@ -154,7 +155,7 @@ FetchContent_GetProperties(glm)
 FetchContent_MakeAvailable(glm)
 
 # ------------------ OMP ------------------
-find_package(OpenMP REQUIRED)
+#find_package(OpenMP REQUIRED)
 
 # ------------------ MRPT ------------------
 message(STATUS "Fetching mrpt...")
@@ -182,7 +183,7 @@ set(TV_LIBS
 		"lodepng"
 		"libmorton" 
 		"glm"
-		"OpenMP::OpenMP_CXX"
+		#"OpenMP::OpenMP_CXX"
 )
 
 set(TV_LIBS_LINUX "${TV_LIBS}")

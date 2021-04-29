@@ -70,14 +70,15 @@ namespace Data {
             compute means of clusters
         */
         template<class Vector, class Iterator, class T>
-        [[nodiscard]] std::unique_ptr<detail::VQResult<Vector>> VQ(Iterator _begin, Iterator _end, size_t _ccount, size_t _iterations = 100, T _epsilon2 = T(0.5), size_t _threads = 4) {
+        [[nodiscard]] std::unique_ptr<detail::VQResult<Vector>> VQ(Iterator _begin, Iterator _end, size_t _ccount, size_t _iterations = 100, T _epsilon2 = T(0.5)) {
 
             const size_t ssize = _end - _begin;
-            spdlog::debug("[VQ] Started. Signal size: {}, clusters: {}, max iterations: {}, epsilon2: {}, max threads: {}", ssize, _ccount, _iterations, _epsilon2, _threads);
+            spdlog::debug("[VQ] Started. Signal size: {}, clusters: {}, max iterations: {}, epsilon2: {}", ssize, _ccount, _iterations, _epsilon2);
 
             // ------------------- OUT -------------------
             std::vector<Vector> means (_ccount);
             std::vector<std::vector<size_t>> clusters (_ccount);
+            std::mutex mutex;
             std::vector<size_t> words (_ccount);
             size_t iterations = 0;
             std::vector<double> time;
@@ -130,24 +131,28 @@ namespace Data {
                 //insert signal into the clusters (including words)
                 std::memset(count.data(), 0, _ccount * sizeof(size_t));
 
-                for(Eigen::Index i = 0; i < ssize; ++i){
-                    //bool isSet = false;                
-                    const size_t idx = detail::nn<Vector, Iterator, T>(oldMeans.begin(), oldMeans.end(), _begin, *(_begin + i)); //cluster idx
-                    clusters[idx].push_back(i);
-                    means[idx] = means[idx] + (*(_begin + i) - means[idx]) / ++count[idx];
+                #pragma omp parallel 
+                {
+                    #pragma omp for //schedule(dynamic)
+                    for(Eigen::Index i = 0; i < ssize; ++i){               
+                        const size_t idx = detail::nn<Vector, Iterator, T>(oldMeans.begin(), oldMeans.end(), _begin, *(_begin + i)); //cluster idx
+                        std::lock_guard<std::mutex> lock(mutex);
+                        clusters[idx].push_back(i);
+                        means[idx] = means[idx] + (*(_begin + i) - means[idx]) / ++count[idx];
+                    }
                 }
 
-                bool done = true;
+                bool done = false;
+                T tmean = T(0.);
                 for(size_t i = 0; i < _ccount; ++i){
-                    //std::cout << means[i] << std::endl << std::endl;
-                    //std::cout << words[i] << std::endl;
                     const T dist2 = (means[i] - oldMeans[i]).squaredNorm();
-                    //std::cout << dist2 << std::endl << std::endl << std::endl;
-                     if(dist2 > _epsilon2)
-                        done = false;
+                    tmean = tmean + (dist2 - tmean) / (i+1);              
                 }
+                if(tmean <= _epsilon2)
+                    done = true;
+
                 const std::chrono::duration<double, std::milli> dtime = (std::chrono::high_resolution_clock::now() - now);
-                spdlog::debug("[VQ] Iteration {} ended. ({} ms)", it, dtime.count());
+                spdlog::debug("[VQ] Iteration {} ended. ({} ms) [total mean distance: {}]", it, dtime.count(), tmean);
                 time.push_back(dtime.count());
 
                 if(done) break;
@@ -165,48 +170,52 @@ namespace Data {
             projection weight of point j: first n columns of row j of UD
         */
         template <class Vector, class Iterator, class T>
-        [[nodiscard]] auto PCA(Iterator _begin, Iterator _end, size_t _ccount){
-            auto now = std::chrono::high_resolution_clock::now();
+        [[nodiscard]] auto PCA(Iterator _begin, Iterator _end, size_t _ccount, size_t _VQ_iterations = 100, T _VQ_epsilon2 = T(0.5)){
+            const auto now = std::chrono::high_resolution_clock::now();
 
             constexpr size_t n = Vector::RowsAtCompileTime;
+            std::mutex mutex;
 
             using Matrix_MxN = Eigen::Matrix<T, -1, n>;
             using Matrix_NxM = Eigen::Matrix<T, n, -1>;
 
-            auto vq = VQ<Vector, Iterator, T>(_begin, _end, _ccount);
+            auto vq = VQ<Vector, Iterator, T>(_begin, _end, _ccount, _VQ_iterations, _VQ_epsilon2);
 
             std::vector<Matrix_MxN> pca (_ccount);
             std::vector<Matrix_NxM> weights (_ccount);
 
-            for(size_t k = 0; k < vq->clusters.size(); ++k){ 
-                const auto& cluster = vq->clusters[k];
-                const size_t m = cluster.size();
+            #pragma omp parallel 
+            {
+                #pragma omp for //schedule(dynamic)
+                for(int64_t k = 0; k < vq->clusters.size(); ++k){     
+                    const auto now2 = std::chrono::high_resolution_clock::now();          
+                    const auto& cluster = vq->clusters[k];
+                    const size_t m = cluster.size();
 
-                Matrix_NxM C (n, m); //residiual matrix m x n
+                    Matrix_NxM C (n, m); //residiual matrix m x n
 
-                for(size_t i = 0; i < m; ++i)   
-                    C.col(i) = *(_begin + cluster[i]) - vq->means[k];
+                    for(size_t i = 0; i < m; ++i)   
+                        C.col(i) = *(_begin + cluster[i]) - vq->means[k];
 
-                Matrix_MxN CC (m, n);
-                CC = C.transpose();
+                    Eigen::Matrix<T, -1, -1> CC (m, n);
+                    CC = C.transpose();
 
-                //std::cout << CC << std::endl;
-
-                Eigen::BDCSVD<Matrix_MxN> solver (CC, Eigen::ComputeFullU | Eigen::ComputeFullV);
-                pca[k] = solver.matrixV(); //n x n
+                    Eigen::BDCSVD<Matrix_MxN> solver (CC, Eigen::ComputeThinU | Eigen::ComputeThinV);              
+                    
+                    Matrix_MxN D (m, n);
+                    D.setZero();
+                    const auto SV = solver.singularValues();
+                    for(Eigen::Index i = 0; i < SV.rows(); ++i)
+                        D(i, i) = SV(i);
                 
-                Matrix_MxN D (m, n);
-                D.setZero();
-                const auto SV = solver.singularValues();
-                //std::cout << SV.cols() << " " << SV.rows() << std::endl;
-                for(Eigen::Index i = 0; i < SV.rows(); ++i)
-                    D(i, i) = SV(i);
-            
-                const auto UD = (solver.matrixU() * D).transpose();
-                //std::cout << UD.cols() << " " << UD.rows() << std::endl;
-                weights[k] = UD;
-
-            }          
+                    const auto UD = (solver.matrixU() * D).transpose();
+                    std::lock_guard<std::mutex> lock(mutex);
+                    weights[k] = UD;
+                    pca[k] = solver.matrixV(); //n x n
+                    const std::chrono::duration<double, std::milli> dtime = (std::chrono::high_resolution_clock::now() - now2);
+                    spdlog::debug("[PCA STATIC] Cluster {} (size: {}) finished. ({} ms)", k, cluster.size(), dtime.count());
+                }  
+            }        
             return std::make_unique<detail::PCAResult<Vector, Matrix_MxN, Matrix_NxM>>(std::move(vq), std::move(pca), std::move(weights), size_t((std::chrono::high_resolution_clock::now() - now).count()));
         };
 

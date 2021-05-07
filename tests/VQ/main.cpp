@@ -7,8 +7,8 @@
 
 using namespace sciplot;
 
-template <class Vector>
-void toPlot(Plot& _plot, const std::vector<std::vector<Vector>>& data) {
+template <class Vector, class Iterator>
+void toPlot(Plot& _plot, Iterator _begin, const Iterator _end) {
 
     std::string cols[] = {
         "black", "dark-grey", "red", "web-green", "web-blue", "dark-magenta", "dark-cyan", "dark-orange", "dark-yellow", "royalblue", 
@@ -19,10 +19,9 @@ void toPlot(Plot& _plot, const std::vector<std::vector<Vector>>& data) {
         "dark-khaki", "dark-goldenrod", "beige", "olive", "orange", "violet" 
     };
 
-
     _plot.legend().hide();
 
-    for (size_t k = 0; k < data.size(); ++k) {
+    for (;_begin != _end, ++_begin) {
         const auto& cl = data[k];
         std::vector<float> x(cl.size());
         std::vector<float> y(cl.size());
@@ -43,15 +42,25 @@ void toPlot(Plot& _plot, const std::vector<std::vector<Vector>>& data) {
     _plot.autoclean(true);
 };
 
-template <class Vector>
-void plot(
-        std::vector<std::vector<float>> _time, 
-        std::vector<std::vector<size_t>> _iterations,
-        std::vector<std::vector<std::string>> _testName,
-        std::vector<std::vector<std::vector<std::vector<Vector>>>> _clusters)
-    {
+template <class Vector, class Iterator>
+void plotClustering(const std::vector<std::unique_ptr<Data::PCA::detail::VQResult<Vector>>>& _res, const Iterator _signal) {
 
-    const size_t n = _time.size();
+
+    for(const auto& v : _res){
+
+
+
+
+
+
+
+
+
+    }
+
+
+
+
 
 
 
@@ -169,68 +178,61 @@ void plot(
     }
 }
 
-/*
-
-*/
 int main() {
 
-    using Vector = Eigen::Matrix<float, 2, 1>; //rows, cols
+    constexpr size_t n = 2;
+
+    using Vector = Eigen::Matrix<float, n, 1>; //rows, cols
     using namespace std::chrono_literals;
 
     spdlog::set_level(spdlog::level::trace);
     
-
     std::mt19937_64 gen;
     gen.seed(std::chrono::high_resolution_clock::now().time_since_epoch().count());
 
-    //uniform distributed signal 
+    // -------------- uniform distributed signal --------------
     {
         const std::string testName = "small normal distributed cluster";
         spdlog::info("Test: {}", testName);
 
-        constexpr size_t samples = 1000;
+        constexpr size_t samples = 100000;
 
-        //create the signal
-        std::vector <Vector> signal(samples);
-        std::uniform_real_distribution<float> distf(-100.f, 100.f);
-        for(size_t i = 0; i < samples; ++i)
-            signal[i] = { distf(gen), distf(gen) };
-
-        constexpr size_t tests = 10;
-
-        std::vector<std::vector<float>> time (2);
-        time[0].reserve(tests);
-        time[1].resize(tests);
-        std::vector<std::vector<size_t>> iterations(2);
-        iterations[0].reserve(tests);
-        iterations[1].reserve(tests);
-        std::vector<std::vector<std::string>> testNames (2);
-        testNames[0].reserve(tests);
-        testNames[1].reserve(tests);
-        std::vector<std::vector<std::vector<std::vector<Vector>>>> clusters (2); // meta - tests - #clusters - clusters
-        clusters[0].resize(tests);
-        clusters[1].resize(tests);
-
-        for(size_t c = 0; c < tests; ++c){
-            const size_t cs = 5+c*5;
-            auto start = std::chrono::high_resolution_clock::now();
-            size_t it;
-            const auto res = Data::PCA::VQ(signal, cs, it);
-            auto end = std::chrono::high_resolution_clock::now() - start;
-            
-            time[0].push_back(static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(end).count()) / 1000.f);
-            testNames[0].push_back(std::to_string(cs));         
-            iterations[0].push_back(it);
-
-            clusters[0][c].resize(res.second.size()); //# clusters
-            for(size_t i = 0; i < res.second.size(); ++i){      
-                clusters[0][c][i].resize(res.second[i].size());        
-                const size_t s = res.second[i].size() * sizeof(Vector);
-                std::memcpy(clusters[0][c][i].data(), res.second[i].data(), s);             
-            }
+        // -------------- creat signal --------------
+        std::vector <Vector> signal;
+        spdlog::debug("Signal size: {} (max size: {}) (diff: {})", samples, signal.max_size(), int64_t(signal.max_size()) - int64_t(samples));
+        assert(samples < signal.max_size() && "too many samples");
+        try {
+            signal.resize(samples);
+        } catch(const std::exception& _e){
+            spdlog::error(_e.what());
+            return 1;
         }
 
-        plot(time, iterations, testNames, clusters);
+        std::uniform_real_distribution<float> distf(-1000.f, 1000.f);
+        for(size_t i = 0; i < samples; ++i){
+            Vector v;
+            for(size_t d = 0; d < n; ++d)
+                v[d] = distf(gen);
+            signal[i] = v;
+        }   
+
+        // -------------- visual clustering test --------------
+        {
+            std::vector<std::unique_ptr<Data::PCA::detail::VQResult<Vector>>> tests;
+            for(size_t c = 0; c < 4; ++c){
+                const size_t ccount = 5 + c*5;
+                const size_t iterations = 100;
+                const float epsilon2 = 250.f;
+                auto res = Data::PCA::VQ<Vector, decltype(signal.begin()), float>(signal.begin(), signal.end(), ccount, iterations, epsilon2);
+                tests.emplace_back(std::move(res));             
+            }
+            plotClustering(tests);
+        }
+
+        // -------------- scaling iterations for clusters --------------
+
+
+        // -------------- scaling iterations for epsilon --------------
 
     }
 

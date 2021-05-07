@@ -56,11 +56,10 @@ namespace Math {
 
         template <class T>
         struct Circle {
-            Circle(const glm::vec<3, T, glm::defaultp>& _p0, const glm::vec<3, T, glm::defaultp>& radius_inner, T _hw, T radius_outer, glm::vec<3, T, glm::defaultp> _col) :
-                n(_n), p0(_p0), radius_inner(_radius_inner), radius_outer(_radius_outer), color(_col) {}
-            glm::vec<3, T, glm::defaultp> n;
-            glm::vec<3, T, glm::defaultp> p0;  //assumed the centre of the plane
-            T radius_outer, radius_inner;
+            Circle(const glm::vec<3, T, glm::defaultp>& _centre, T _radius, glm::vec<3, T, glm::defaultp> _col) :
+                centre(_centre), radius(_radius), color(_col) {}
+            glm::vec<3, T, glm::defaultp> centre;
+            T radius;
             glm::vec<3, T, glm::defaultp> color;
         };
 
@@ -76,7 +75,7 @@ namespace Math {
             _t = -d - sqrt(delta);
             if (_t < T(0.)) _t = T(0);
             _intersect = _ray.orig + _t*_ray.dir;
-            _normal = glm::normalizevec3(_intersect - _s.centre);
+            _normal = glm::normalize(_intersect - _s.centre);
             return delta >= T(0.);
         };
 
@@ -152,11 +151,11 @@ namespace Math {
                 using vec3 = glm::vec<3, T, glm::defaultp>;
                 using vec4 = glm::vec<4, T, glm::defaultp>;
                 const vec3 pos = _wheel.rot * _pos;
-                const vec3 q = glm::max(glm::abs(pos) - vec3(T(0.), _w.thickness, T(0.)), T(0.));
+                const vec3 q = glm::max(glm::abs(pos) - vec3(T(0.), _wheel.thickness, T(0.)), T(0.));
                 const vec3 v = vec4( glm::max(q, T(0.)), glm::min( glm::max(q.x, glm::max(q.y, q.z)), T(0.) ) );
-                const vec3 C = vec3(_w.cX, _w.cY, _w.cZ);
-                const vec2 t = vec2(glm::length(v.xz - C.xz) - _w.R, v.y - C.y);
-                return glm::length(t) - _w.r;
+                const vec3 C = vec3(_wheel.cX, _wheel.cY, _wheel.cZ);
+                const vec2 t = vec2(glm::length(v.xz - C.xz) - _wheel.R, v.y - C.y);
+                return glm::length(t) - _wheel.r;
             };
 
             template <class T>

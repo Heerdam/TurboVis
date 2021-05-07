@@ -5,8 +5,6 @@
 
 namespace GL {
 
-    class ShapeRenderer;
-
     class Camera {
     public:
         const Vec3 upAxis = Vec3(0.f, 1.f, 0.f);
@@ -36,7 +34,7 @@ namespace GL {
         [[nodiscard]] Vec3& operator*(Vec3& _in) const noexcept {
             _in = normalize(_in.x * right + _in.y * up + _in.z * dir);
             return _in;
-        };
+        }
     };
 
 }

@@ -133,7 +133,7 @@ namespace Data {
 
                 #pragma omp parallel 
                 {
-                    #pragma omp for //schedule(dynamic)
+                    #pragma omp for schedule(guided) collapse(2)
                     for(Eigen::Index i = 0; i < ssize; ++i){               
                         const size_t idx = detail::nn<Vector, Iterator, T>(oldMeans.begin(), oldMeans.end(), _begin, *(_begin + i)); //cluster idx
                         std::lock_guard<std::mutex> lock(mutex);
@@ -218,83 +218,6 @@ namespace Data {
             }        
             return std::make_unique<detail::PCAResult<Vector, Matrix_MxN, Matrix_NxM>>(std::move(vq), std::move(pca), std::move(weights), size_t((std::chrono::high_resolution_clock::now() - now).count()));
         };
-
-        
-        //template<class Vector>
-        //[[nodiscard]] std::pair<std::vector<Vector> /*means*/, std::vector<std::vector<Vector>> /*clusters*/> VQ(const std::vector<Vector>& _signal, size_t _clusters, size_t& _iterations) {
-/*
-            std::unordered_map<std::uintptr_t , size_t> clusterMap(_signal.size());
-            std::vector<std::vector<Vector>> out (_clusters);
-            std::vector<Vector> words (_clusters);
-            std::vector<Vector> means (_clusters);
-
-            for(size_t it = 0; it < 100; ++it){
-
-                for(auto& v : out)
-                    v.clear();
-                bool hasChanged = false;
-
-                //create words
-                if(it == 0){
-                    std::mt19937_64 gen;
-                    gen.seed(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-                    std::uniform_int_distribution<size_t> dist(0, _signal.size() - 1);
-
-                    std::vector<bool> map(_signal.size());
-                    std::fill(map.begin(), map.end(), false);
-
-                    for (size_t i = 0; i < _clusters; ++i) {
-                        const size_t c = dist(gen);
-                        //avoid inserting twice the same
-                        if (map[c]) {
-                            --i;
-                            continue;
-                        }
-                        map[c] = true;
-                        Vector v = _signal[c];
-                        words[i] = v;
-                    }
-
-                } else {
-
-                    for(size_t i = 0; i < _clusters; ++i){
-                        //std::cout << means[i] << std::endl;
-                        words[i] = means[i];
-                        means[i].setZero();
-                    }
-
-                    //std::cout << std::endl;
-
-                }
-
-                //insert signal into the clusters (including words)
-                std::vector<size_t> count (_clusters);
-                std::memset(count.data(), 0, _clusters * sizeof(size_t));
-                for(Eigen::Index i = 0; i < _signal.size(); ++i){
-                    bool isSet = false;                
-                    const size_t idx = nn(words, _signal[i]); //cluster idx
-                    out[idx].push_back(_signal[i]);
-                    means[idx] = means[idx] + (_signal[i] - means[idx]) / ++count[idx];
-                }
-
-                bool done = true;
-                    for(size_t i = 0; i < _clusters; ++i){
-                        const float dist2 = (means[i] - words[i]).squaredNorm();
-                        if(dist2 > 0.5f)
-                            done = false;
-                    }
-                    if(done) {
-                        _iterations = it;
-                        break;
-                    }
-
-            }
- 
-            return { means, out };
-            
-        };
-*/
-
        
         /*
         performs a principal component analysis utlising the kernel Hebbian algorithm with stochastic meta-descent
@@ -303,10 +226,11 @@ namespace Data {
         iterations: #of steps it should do
         eta_0, mu and xsi: tuning parameter
         */
-        template <class M>
-        [[nodiscard]] M KHA_SMD(const M& _REM, size_t _iterations, float _etc_0 = 0.1f, float _mu = 1.f, float _xsi = 0.99f) {
-            constexpr size_t n = _REM::RowsAtCompileTime;
-            constexpr size_t m = _REM::ColsAtCompileTime; //TODO: kritisch
+       /*
+        template <class Matrix>
+        [[nodiscard]] Matrix KHA_SMD(const Matrix& _REM, size_t _iterations, float _etc_0 = 0.1f, float _mu = 1.f, float _xsi = 0.99f) {
+            constexpr size_t n = Matrix::RowsAtCompileTime;
+            constexpr size_t m = Matrix::ColsAtCompileTime; //TODO: kritisch
 
             using Vector = Eigen::Matrix<float, 1, m>;
             using Matrix = Eigen::Matrix<float, n, m>;
@@ -399,6 +323,7 @@ namespace Data {
             }
             return A;
         }
+        */
     }  // namespace PCA
 
 }

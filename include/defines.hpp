@@ -23,6 +23,9 @@
 #include <algorithm>
 #include <iostream>
 
+#define _USE_MATH_DEFINES
+#include <math.h>
+
 #define _SILENCE_CXX17_ADAPTOR_TYPEDEFS_DEPRECATION_WARNING
 #define _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
 #include <Eigen/Eigen>

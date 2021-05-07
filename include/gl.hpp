@@ -1,15 +1,13 @@
-#ifndef GLL_HPP
-#define GLL_HPP
+#ifndef GL_HPP
+#define GL_HPP
 
 #include "defines.hpp"
 #include "math.hpp"
+#include <lodepng.h>
 
 namespace GL {
 
     class Camera;
-
-    using Vector_af32 = std::vector<__m256, aligned_allocator<__m256, sizeof(__m256)>>;
-    using Vector_aui16 = std::vector<__m256i, aligned_allocator<__m256i, sizeof(__m256i)>>;
 
     class ShaderProgram {
         enum class Status {
@@ -94,6 +92,153 @@ namespace GL {
         void render();
     };
 
+    class RaymarchTester {
+        ShaderProgram shader;
+        GLuint VAO;
+    public:
+        RaymarchTester();
+        void render(const Camera&, float);
+    };
+ 
+ 
+    class CpuRaymarcher {
+
+        template<class T>
+        [[nodiscard]] constexpr T fract(T _x) const noexcept {
+            return _x - std::floor(_x);
+        }
+
+        template<class T>
+        [[nodiscard]] constexpr Eigen::Matrix<T, 3, 1> toRGB(const Eigen::Matrix<T, 3, 1>& _c) const noexcept{
+            using vec3 = Eigen::Matrix<T, 3, 1>;
+            using vec4 = Eigen::Matrix<T, 4, 1>;
+            const vec4 K = vec4(1., 2. / 3., 1. / 3., 3.);
+            const vec3 p = vec3 ( 
+                std::abs( fract(_c(0) + K(0)) * 6. - K(3) ),
+                std::abs( fract(_c(0) + K(1)) * 6. - K(3) ),
+                std::abs( fract(_c(0) + K(2)) * 6. - K(3) ) );
+
+            return vec3(
+                _c(2) * std::lerp( K(0), std::clamp( (p(0) - K(0)) , 0., 1.), _c(1) ),
+                _c(2) * std::lerp( K(0), std::clamp( (p(0) - K(0)) , 0., 1.), _c(1) ),
+                _c(2) * std::lerp( K(0), std::clamp( (p(0) - K(0)) , 0., 1.), _c(1) )
+            );
+        }
+
+        template<class T>
+        [[nodiscard]] constexpr Eigen::Matrix<T, 3, 1> toHSL(const Eigen::Matrix<T, 3, 1>& _c) const noexcept{
+            T h = 0.;
+            T s = 0.;
+            T l = 0.;
+            const T r = _c(0);
+            const T g = _c(1);
+            const T b = _c(2);
+            const T cMin = std::min( r, std::min( g, b ) );
+            const T cMax = std::max( r, std::max( g, b ) );
+            l = ( cMax + cMin ) / 2.;
+            if ( cMax > cMin ) {
+                const T cDelta = cMax - cMin;
+                s = l < .0 ? cDelta / ( cMax + cMin ) : cDelta / ( 2. - ( cMax + cMin ) );            
+                if ( r == cMax )
+                    h = ( g - b ) / cDelta;
+                else if ( g == cMax )
+                    h = 2. + ( b - r ) / cDelta;
+                else 
+                    h = 4. + ( r - g ) / cDelta;
+
+                if ( h < 0.)
+                    h += 6.;
+
+                h = h / 6.;
+            }
+            return Eigen::Matrix<T, 3, 1>( h, s, l );
+        }
+
+        template<class T>
+        [[nodiscard]] constexpr uint16_t toColorByte(T _v) const noexcept {
+            return uint16_t(_v * T(255));
+        }
+
+    public:    
+
+        template<class Func, class Cam>
+        void render(const Cam& _cam, Func _func, size_t _steps, double _tmax, size_t _width, size_t _height) const noexcept {
+
+            using Vec4 = Eigen::Matrix<double, 4, 1>;
+            using Vec = Eigen::Matrix<double, 3, 1>;
+            using Vec2 = Eigen::Matrix<double, 2, 1>;
+
+            const Vec2 bounds = Vec2(_width, _height);
+            std::vector<Vec4> buffer (_width * _height);
+
+            const Vec camPos = Vec(_cam.position.x, _cam.position.y, _cam.position.z);
+            const Vec dir = Vec(_cam.dir.x, _cam.dir.y, _cam.dir.z);
+            const Vec right = Vec(_cam.right.x, _cam.right.y, _cam.right.z);
+            const Vec up = Vec(_cam.up.x, _cam.up.y, _cam.up.z);
+
+            spdlog::info("render start");
+
+            std::atomic<size_t> counter;
+
+            #pragma omp parallel 
+            {
+                #pragma omp for
+                for(int64_t x = 0; x < _width; ++x){
+                    for(int64_t y = 0; y < _height; ++y){
+
+                        double transmission = 1.;
+                        Vec col (0., 0., 0.);
+
+                        const Vec2 uv (x, y);
+                        const Vec2 pp = (2. * (uv) - bounds) / bounds(1); //eye ray
+                        const Vec r_d = ( pp(0)*right + pp(1)*up + 1.5*dir ).normalized();
+
+                        double t = 0.;
+                        const double stepsize = _tmax / _steps;
+
+                        for( size_t s = 0; s < _steps; ++s ) {
+                            const Vec pos = camPos + t * r_d;
+                            //const vec3 Ls_rgb = eval_wave(vec3(1.f, 1.5f, 1.f), pos, 5, 5, 5);
+                            const Vec Ls_hsl = _func(pos);
+                            const Vec Ls_rgb = toRGB(Ls_hsl);
+                            
+                            transmission *= std::exp( -Ls_hsl(2) );
+                            col += transmission * Ls_rgb;
+                            t += stepsize;
+                        }
+
+                        buffer[x + y* _width] = Vec4( col(0), col(1), col(2), 1. - transmission );
+                        ++counter;
+                        const size_t m = ((_width * _height)/100);
+                        if(counter % m == 0){
+                            spdlog::debug("{}%", 100./double(_width * _height) * double(counter));
+                        }
+
+                    }
+                    
+                }
+
+            } 
+
+            spdlog::info("render done");
+
+            std::vector<unsigned char> out(buffer.size() * 4);
+            for(size_t i = 0, j = 0; i < buffer.size(); ++i, j+=4){
+                out[j] = toColorByte(buffer[i](0));
+                out[j+1] = toColorByte(buffer[i](1));
+                out[j+2] = toColorByte(buffer[i](2));
+                out[j+3] = toColorByte(buffer[i](3));
+            }
+
+            std::string filename = "render.png";
+            lodepng::encode(filename, out.data(), _width, _height);
+
+            spdlog::info("Finished");
+
+        }
+
+    };
+
     namespace util {
         struct alignas(16) array4f16a {
             float v[4];
@@ -113,8 +258,142 @@ namespace GL {
         };
     } //namespace util
 
+    /*
+
+    template<class Func>
+    struct MediumConfig {
+        size_t subdivisions = 4;
+        
+        Func function; //float foo(Vec3)
+        std::string function_shader;
+    };
+
+    template <class T = float, class LightDim = 26>
+    class Medium {
+
+        struct Triangle{ size_t idx[3] };
+
+        using Vector = Eigen::Matrix<T, 3, 1>;
+        using LightVec = Eigen::Matrix<T, LightDim, 1>;
+
+        std::vector<Vector> vrt;
+        std::vector<Triangle> trias;
+
+        std::vector<std::vector<LightVec>> signal; //voxels, bases
+
+    public:
+        Medium(const MediumConfig& _config){
+            icosahedron(_subdivisions);
+        }
+
+        void computeAndUpload();
+        void render();
+
+    private:
+        
+        void icosahedron(size_t _subdivisions) {
+        
+            const T X = .525731112119133606;
+            const T Z = .850650808352039932;
+            const T N = 0.;
+
+            struct Triangle { IdxType vertex[3]; };
+
+            using TriangleList = std::vector<Triangle>;
+            using VertexList = std::vector<Vector>;
+
+            const VertexList vertices =
+                {
+                    {-X,N,Z}, //0
+                    {X,N,Z}, //1
+                    {-X,N,-Z}, //2*
+                    {X,N,-Z}, //3*
+                    {N,Z,X}, //4
+                    {N,Z,-X}, //5* -X
+                    {N,-Z,X}, //6
+                    {N,-Z,-X}, //7* -X
+                    {Z,X,N}, //8
+                    {-Z,X, N}, //9
+                    {Z,-X,N}, //10
+                    {-Z,-X, N} //11
+                };
+
+            const TriangleList triangles =
+                {                   
+                    {0,4,1},    {0,9,4},    {4,8,1},
+                    {8,10,1},   {11,0,6},   {0,1,6},
+                    {6,1,10},   {9,0,11},   {5,2,3},
+                    {2,7,3},    {7,2,11},   {9,2,5},
+                    {9,11,2},   {7,10,3},   {8,3,10},
+                    {5,3,8},    {9,5,4},    {4,5,8},
+                    {7,6,10},   {7,11,6},
+                };
+
+            using Lookup = std::map<std::pair<IdxType, IdxType>, IdxType>;
+
+            const auto vertex_for_edge = [](Lookup& _lookup, VertexList& _vertices, IdxType _first, IdxType _second) {
+                typename Lookup::key_type key(_first, _second);
+                if (key.first > key.second)
+                    std::swap(key.first, key.second);
+
+                const auto& inserted = _lookup.insert({ key, IdxType(vertices.size()) });
+                if (inserted.second)
+                    _vertices.push_back(glm::normalize(vertices[_first] + vertices[_second]));
+
+                return inserted.first->second;
+            };
+
+            const auto subdivide = [](const VertexList& _vertices, const TriangleList& _triangles) {
+                Lookup lookup;
+                TriangleList result;
+
+                for (const auto& each : triangles) {
+                    std::array<IdxType, 3> mid;
+                    for (size_t edge = 0; edge < 3; ++edge)
+                        mid[edge] = vertex_for_edge(lookup, vertices, each.vertex[edge], each.vertex[(edge + 1) % 3]);
+
+                    result.push_back({ each.vertex[0], mid[0], mid[2] });
+                    result.push_back({ each.vertex[1], mid[1], mid[0] });
+                    result.push_back({ each.vertex[2], mid[2], mid[1] });
+                    result.push_back({ mid[0], mid[1], mid[2] });
+                }
+
+                return result;
+            };
+
+            VertexList vert = vertices;
+            TriangleList tria = triangles;
+
+            for (size_t i = 0; i < _subdivisions; ++i) {
+                tria = subdivide(vert, tria);
+            }
+
+            vrt.reserve(vert.size() * 3);
+            idx.reserve(tria.size() * 3);
+
+            for (size_t i = 0, j = 0; i < vert.size(); ++i, j += 3) {
+                const auto v = glm::normalize(vert[i]);
+                std::memcpy(vert.data() + j, glm::value_ptr(v), 3 * sizeof(T));
+                //vrt[j] = v[0];
+                //vrt[j + 1] = v[1];
+                //vrt[j + 2] = v[2];
+            }
+
+            for (size_t i = 0, j = 0; i < tria.size(); ++i, j += 3) {
+                const auto& t = tria[i];
+                std::memcpy(idx.data() + j, glm::value_ptr(t), 3 * sizeof(IdxType));
+                //idx[j] = t.vertex[0];
+                //idx[j + 1] = t.vertex[1];
+                //idx[j + 2] = t.vertex[2];
+            }
+
+        }
+
+    };
+
+    */
 
 
 }  // namespace GL
 
-#endif /* GLL_HPP */
+#endif /* GL_HPP */

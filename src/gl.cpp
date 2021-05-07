@@ -1,6 +1,5 @@
 #include "../include/gl.hpp"
 
-#include "../include/math.hpp"
 #include "../include/util.hpp"
 #include "../include/camera.hpp"
 
@@ -500,6 +499,75 @@ void GL::DepthBufferVisualizer::render(){
     glUniform1i(2, 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, TEX);
+    glBindVertexArray(VAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0);
+    glBindVertexArray(0);
+    shader.unbind();
+    glEnable(GL_DEPTH_TEST);
+}
+
+
+GL::RaymarchTester::RaymarchTester() {
+
+    // -------------- BUFFERS --------------
+
+    const float quad[] = {
+        1.f, 1.f, 1.f, 1.f,    // top right
+        1.f, -1.f, 1.f, 0.f,   // bottom right
+        -1.f, -1.f, 0.f, 0.f,  // bottom left
+        -1.f, 1.f, 0.f, 1.f   // top left
+    };
+
+    const int16_t quadI[] = {
+        0, 1, 2,
+        2, 3, 0};
+
+    GLuint VBO, EBO;
+
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    glBindVertexArray(VAO);
+
+    //vbo
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2*sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    //ebo
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadI), quadI, GL_STATIC_DRAW);
+
+    glBindVertexArray(0);
+
+    // -------------- SHADER --------------
+
+    shader.compileFromFile("naive");
+
+}
+
+void GL::RaymarchTester::render(const Camera& _cam, float _t){
+
+    glDisable(GL_DEPTH_TEST);
+    shader.bind();
+
+    //uniforms
+    glUniform3fv(10, 1, glm::value_ptr(_cam.position));
+    glUniformMatrix4fv(11, 1, GL_FALSE, glm::value_ptr(_cam.combined));
+
+    glUniform3fv(12, 1, glm::value_ptr(_cam.dir));
+    glUniform3fv(13, 1, glm::value_ptr(_cam.right));
+    glUniform3fv(14, 1, glm::value_ptr(_cam.up));
+
+    glUniform2f(15, float(_cam.width), float(_cam.height));
+
+    glUniform1f(50, _t);
+
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0);
     glBindVertexArray(0);

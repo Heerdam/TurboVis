@@ -1,7 +1,5 @@
 
 #include "../include/camera.hpp"
-#include "../include/gl.hpp"
-
 /*
     code taken and adapted from https://github.com/Pascal-So/turbotrack
     with permission by Pascal Sommer, 2021

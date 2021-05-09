@@ -27,6 +27,7 @@ add_executable(tv
 	"src/math.cpp"
 	"src/util.cpp"
 	"src/camera.cpp"
+	"src/state.cpp"
 )
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")

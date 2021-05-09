@@ -551,7 +551,7 @@ GL::RaymarchTester::RaymarchTester() {
 
 }
 
-void GL::RaymarchTester::render(const Camera& _cam, float _t){
+void GL::RaymarchTester::render(const Camera& _cam, const Uniforms& _u){
 
     glDisable(GL_DEPTH_TEST);
     shader.bind();
@@ -560,13 +560,23 @@ void GL::RaymarchTester::render(const Camera& _cam, float _t){
     glUniform3fv(10, 1, glm::value_ptr(_cam.position));
     glUniformMatrix4fv(11, 1, GL_FALSE, glm::value_ptr(_cam.combined));
 
+    //camera
     glUniform3fv(12, 1, glm::value_ptr(_cam.dir));
     glUniform3fv(13, 1, glm::value_ptr(_cam.right));
     glUniform3fv(14, 1, glm::value_ptr(_cam.up));
-
     glUniform2f(15, float(_cam.width), float(_cam.height));
 
-    glUniform1f(50, _t);
+    //optional
+    glUniform1f(31, _u.fovX);
+    glUniform1f(32, _u.tmax);
+    glUniform1ui(33, uint32_t(_u.steps));
+    glUniform3fv(34, 1, glm::value_ptr(_u.low));
+    glUniform3fv(35, 1, glm::value_ptr(_u.high));
+    glUniform1f(36, _u.tr_fac);
+    glUniform1f(37, _u.pd);
+    glUniform1ui(38, bool(_u.grayscale));
+
+    glUniform1f(50, _u.t);
 
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0);

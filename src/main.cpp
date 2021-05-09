@@ -46,7 +46,7 @@ int main() {
     }
 
     glfwMakeContextCurrent(window);
-    glfwSwapInterval(0);
+    glfwSwapInterval(1);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         spdlog::error("ERROR:\tFailed to init GLAD. Shutting down...", true);
@@ -67,20 +67,11 @@ int main() {
 
     // -------------- GUI --------------
     Gui::InputMultiplexer::init(window);
-    Gui::GLGui gui;
-    gui.initGui(window, WIDTH, HEIGHT);
-    try {
-        gui.initGL((unsigned int)(100000), (unsigned int)(200000));
-    } catch (const TurboGUI::TurboGuiException& e) {
-        spdlog::error("{}", e.what());
-    }
-
-    bool show_demo_window = false;
-
+    Gui::FrontendGui gui(window, WIDTH, HEIGHT);
     double time = glfwGetTime();
     double deltaTime = 0.;
     unsigned long long frame = 0;
-    size_t frames = 0, fps = 0;
+    size_t frames = 0, fps = 0, maxfps = 0;
 
     // -------------- CAMERA --------------
     GL::Camera camera = GL::Camera(int64_t(WIDTH), int64_t(HEIGHT), glm::radians(55.f), 0.01f, 5.f);
@@ -196,21 +187,25 @@ int main() {
     GL::DepthBufferVisualizer depthr(camera);
     GL::RaymarchTester rayM;
 
+    GL::Uniforms uniforms;
+
     float t = 0.f;
 
     while (!glfwWindowShouldClose(window)) {
         const double ctime = glfwGetTime();
 
-        glClearColor(0.1f, 0.f, 0.25f, 1.f);
+        glClearColor(0.f, 0.f, 0.f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
         glfwPollEvents();
-        gui.ImGui_ImplGlfw_UpdateMousePosAndButtons(window);
+        //gui.ImGui_ImplGlfw_UpdateMousePosAndButtons(window);
 
         glEnable(GL_DEPTH_TEST);
 
         // -------------- FUNCTION --------------  
-        rayM.render(camera, t);
+        uniforms.t = t;
+
+        rayM.render(camera, uniforms);
         /*
         const Vec2 uv = Vec2(50, 50);
         const Vec2 bounds = Vec2(camera.width, camera.height);
@@ -233,20 +228,21 @@ int main() {
         //glViewport(0, 0, WIDTH, HEIGHT);
         //depthr.render();
 
-        // -------------- GUI --------------       
-        gui.begin();
-        if (show_demo_window)
-            ImGui::ShowDemoWindow(&show_demo_window);
-        gui.drawStatsWindow((uint32_t)fps);
-        gui.draw();
-        gui.sync();
-        
+        // -------------- GUI --------------     
+        Gui::RenderInfo info;
+        info.width = WIDTH;
+        info.height = HEIGHT;
+        info.fps = fps;
+        info.maxfps = maxfps;
+        info.uniforms = &uniforms;
+        gui.draw(window, info);         
 
         glfwSwapBuffers(window);
 
         frame++;
         if (ctime - time >= 1.) {
             fps = frame;
+            maxfps = std::max(fps, maxfps);
             frame = 0;
             time = ctime;
         }

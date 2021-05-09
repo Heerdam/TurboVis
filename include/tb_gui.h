@@ -50,7 +50,7 @@ namespace TurboGUI {
 		uint maxIdx = 0, maxVert = 0;
 		uint idx, vert;
 		uint maxFps = 0;
-		uint timeOutSync = static_cast<uint>(5e6);
+		uint timeOutSync = static_cast<uint>(5e9);
 		uint syncTime = 0;
 
 		ImGuiContext* context;
@@ -114,8 +114,6 @@ inline void TurboGUI::GUI::initGL(uint _vbo_upper_bound, uint _ebo_upper_bound) 
         glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     }
-
- 
 
     idxBound = _ebo_upper_bound;
     vertBound = _vbo_upper_bound;
@@ -370,10 +368,20 @@ inline void TurboGUI::GUI::draw() {
 inline void TurboGUI::GUI::sync() {
     uint syncI = (currIndex + 1) % 2;
     auto t = std::chrono::high_resolution_clock::now();
+
+
     glClientWaitSync(syncObj[syncI], GL_SYNC_FLUSH_COMMANDS_BIT, timeOutSync);
+
+
     syncTime = static_cast<uint>((std::chrono::high_resolution_clock::now() - t).count());
+
+
     glDeleteSync(syncObj[syncI]);
+
+
     syncObj[currIndex] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+
+
     currIndex = syncI;
 }
 

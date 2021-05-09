@@ -3,6 +3,11 @@
 #define M_PI 3.141592
 #define EPSILON 0.000001
 
+vec3 toGs(in vec3 _rgb){
+    const float c = (_rgb.x + _rgb.y + _rgb.z) / 3.f;
+    return vec3(c);
+}
+
 vec3 toRGB(in vec3 c){
     vec4 K = vec4(1., 2. / 3., 1. / 3., 3.);
     vec3 p = abs(fract(c.xxx + K.xyz) * 6. - K.www);
@@ -87,24 +92,20 @@ layout (location = 12) uniform vec3 dir;
 layout (location = 13) uniform vec3 right;
 layout (location = 14) uniform vec3 up;
 
-layout (location = 15) uniform vec2 bounds;
+layout (location = 15) uniform vec2 screenbounds;
 
 //optional
-layout(location = 16) uniform vec3 low = vec3(0.f);
-layout(location = 17) uniform vec3 high = vec3(2.f);
 
 layout (location = 31) uniform float fovX = 0.785398f; //45°
 
-layout (location = 32) uniform vec3 light_dir = normalize(vec3(1.f));
-layout (location = 33) uniform vec3 light_col = vec3(1.f);
-layout (location = 34) uniform float light_strength = 0.75f;
+layout (location = 32) uniform float tmax = 15.f;
+layout (location = 33) uniform uint steps = 3000;
 
-layout (location = 35) uniform vec3 ambiente_col = vec3(1.f);
-layout (location = 36) uniform float ambiente_strength = 0.4;
-
-layout (location = 37) uniform uint AA = 1;
-layout (location = 38) uniform float tmax = 15.f;
-layout (location = 39) uniform uint steps = 2000;
+layout(location = 34) uniform vec3 low = vec3(0.f);
+layout(location = 35) uniform vec3 high = vec3(2.f);
+layout(location = 36) uniform float tr_fac = 1.f;
+layout(location = 37) uniform float pd = 1.f;
+layout(location = 38) uniform uint gs = 1;
 
 layout (location = 50) uniform float t = 0.f;
 // ------------------- OUT -------------------
@@ -112,8 +113,6 @@ out vec4 fragColor;
 
 // ------------------- FUNCTION -------------------
 vec3 eval_exp(in vec3 _pos){
-    if(abs(_pos.x) > 1.f || abs(_pos.y) > 1.f || abs(_pos.z) > 1.f)
-        return vec3(0.f);
     const float res = clamp((exp((_pos.x) * (_pos.y) * (_pos.z))-1.f) / 3.f, -1.f, 1.f);
     if(res >= 0)
         return vec3(0, res, 0);
@@ -122,28 +121,23 @@ vec3 eval_exp(in vec3 _pos){
 };
 
 vec3 eval_sin(in vec3 _pos){
-    if(abs(_pos.x) > 1.f || abs(_pos.y) > 1.f || abs(_pos.z) > 1.f)
-        return vec3(0.f);
-    const float res = sin(_pos.x *t) * sin(_pos.y * t) * sin( _pos.z * t);
+    const float res = cos(_pos.x * _pos.y *  _pos.z * t);
+    //if(res >= 0)
+       // return vec3(0, res, 0);
+    //else
+        return vec3(abs(res), 0, 0);  
+};
+
+vec3 eval_wave(in vec3 _pos){
+    const float x = sin(3 * M_PI / high.x * _pos.x);
+    const float y = sin(3 * M_PI / high.y * _pos.y);
+    const float z = sin(3 * M_PI / high.z * _pos.z);
+
+    const float res = sqrt(8.f / (high.x * high.y * high.z)) * x * y * z;
     if(res >= 0)
         return vec3(0, res, 0);
     else
         return vec3(abs(res), 0, 0);  
-};
-
-vec3 eval_wave(in vec3 _bounds, in vec3 _pos, in int _n1, int _n2, int _n3){
-    if(abs(_pos.x) > abs(_bounds.x) || abs(_pos.y) > abs(_bounds.y) || abs(_pos.z) > abs(_bounds.z)) 
-        return vec3(0.f);
-
-    const float x = sin(_n1 * M_PI / _bounds.x * _pos.x);
-    const float y = sin(_n2 * M_PI / _bounds.y * _pos.y);
-    const float z = sin(_n3 * M_PI / _bounds.z * _pos.z);
-
-    const float res = sqrt(8.f / (_bounds.x * _bounds.y * _bounds.z)) * x * y * z;
-    if(res >= 0)
-        return vec3(0, res, 0);
-    else
-        return vec3(abs(res), 0, 0);
 };
 
 vec3 eval_c(in vec3 _pos){
@@ -162,20 +156,33 @@ vec3 eval_c(in vec3 _pos){
     const float theta = M_PI - 2. * atan(r / R);
 
     const float H = phi;
-    const float L = 1. - theta/M_PI;
+    const float L = clamp(1. - theta, 0.f, 1.f);
     const float S = L;
 
     return vec3(H, S, L); 
 };
+
+vec3 eval_tr(in vec3 _pos){
+    const vec3 m = vec3(1.f);
+    if(length(_pos - m) <= 0.9f)
+        return vec3(0.f, 0.f, 1.f);
+    else
+        return vec3(0.f, 0.f, 0.25f);
+}
+
+float trans(in float _in){
+    return abs(tr_fac) * _in;
+}
 
 void main() {
 
     const vec2 uv = vec2(gl_FragCoord.x, gl_FragCoord.y);
 
     vec3 col = vec3(0.f); //Hue saturation lightness
+    vec3 colGS = vec3(0.f);
     float transmission = 1.f;
 
-    const vec2 pp = (2.f * (uv) - bounds) / bounds.y; //eye ray
+    const vec2 pp = (2.f * (uv) - screenbounds) / screenbounds.y; //eye ray
 
     //create ray
     const vec3 r_d = normalize(pp.x*right + pp.y*up + 1.5f*dir);
@@ -194,22 +201,29 @@ void main() {
 
     for( int i = 0; i < steps; ++i ) {
         const vec3 pos = camPosWorld + t * r_d;
-        const vec4 cpos = cam * vec4(pos, 1.f);
-        const float zd = cpos.z / cpos.w;
-        const float z = (zd + 1.f) * 0.5f;      
+        //const vec4 cpos = cam * vec4(pos, 1.f);
+        //const float zd = cpos.z / cpos.w;
+        //const float z = (zd + 1.f) * 0.5f;      
 
         if(/*z > gl_FragCoord.z && */pos.x <= high.x && pos.y <= high.y && pos.z <= high.z && pos.x >= low.x && pos.y >= low.y && pos.z >= low.z){
-            const vec3 Ls_hsl = eval_c(pos);
-            const vec3 Ls_rgb = toRGB(Ls_hsl);
-            transmission *= exp(-Ls_hsl.z);
-            col += transmission * Ls_rgb;
+            const vec3 Ls_rgb = eval_wave(pos);
+            const vec3 Ls_hsl = toHSL(Ls_rgb);
+            transmission *= exp(-trans(Ls_hsl.z) * stepsize);
+            //const float frac = clamp(1.f/1000.f * float(i), 0.f, 1.f);
+            //col += mix(transmission * Ls_rgb, transmission * toGs(Ls_rgb), frac);
+           // if(i == 1)
+                //colGS = Ls_rgb;
+            if(gs == 1)
+                col += transmission * toGs(Ls_rgb);
+            else
+                col += transmission * Ls_rgb;
         }
 
         t += stepsize;
     }
 
     //gamma
-    col /= float(AA*AA);
+    //col *= (colGS / 1);
     const float expy = 1.f / 2.2f;
     const vec4 resg = vec4(pow(col.x, expy), pow(col.y, expy), pow(col.z, expy), 1.f - transmission);
     fragColor = resg;

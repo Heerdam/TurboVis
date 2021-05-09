@@ -92,12 +92,24 @@ namespace GL {
         void render();
     };
 
+    struct Uniforms {      
+        float fovX = 0.785398f; //45°
+        float tmax = 15.f;
+        int32_t steps = 3000;
+        Vec3 low = Vec3(0.f);
+        Vec3 high = Vec3(2.f);
+        float tr_fac = 1.f;
+        float pd = 1.f;
+        float t = 0.f;
+        bool grayscale = true;
+    };
+
     class RaymarchTester {
         ShaderProgram shader;
         GLuint VAO;
     public:
         RaymarchTester();
-        void render(const Camera&, float);
+        void render(const Camera&, const Uniforms&);
     };
  
  

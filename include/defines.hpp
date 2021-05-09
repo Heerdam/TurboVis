@@ -45,6 +45,7 @@
 #include <glm/gtx/transform.hpp>
 
 #include "allocator.hpp"
+#include "exception.hpp"
 
 using Vec2i = glm::ivec2;
 using Vec3i = glm::ivec3;

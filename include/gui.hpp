@@ -3,6 +3,10 @@
 
 #include "tb_gui.h"
 
+namespace GL {
+    class Uniforms;
+}
+
 namespace Gui {
 
     class GLGui : public TurboGUI::GUI {
@@ -43,6 +47,39 @@ namespace Gui {
         static size_t mouseButtonCallback(std::function<void(GLFWwindow*, int /*button*/, int /*action*/, int /*mods*/)>);
         static size_t scrollCallback(std::function<void(GLFWwindow*, double /*xoffset*/, double /*yoffset*/)>);
         static void remove(size_t /*id*/);
+    };
+
+
+    struct RenderInfo {
+        size_t fps, maxfps, width, height;
+        GL::Uniforms* uniforms;
+    };
+
+    //template<class Callback>
+    class FrontendGui {
+
+        // ----------------- TRANSIENT STATES -----------------
+        bool window_settings = false;
+        bool window_render = false;
+        bool window_debug = false;
+
+        // ----------------------------------------------------
+
+        Gui::GLGui gui;
+
+        void drawTopMenu(const RenderInfo&);
+        void drawFPS(const RenderInfo&);
+        void drawRenderWindow(RenderInfo&);
+
+        void setStyle();
+
+    public:
+        FrontendGui(GLFWwindow*, size_t, size_t);
+        void draw(GLFWwindow*, RenderInfo&);
+
+        // ----------------- CALLBACKS -----------------
+
+
     };
 
 }

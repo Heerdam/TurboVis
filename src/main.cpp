@@ -205,6 +205,7 @@ int main() {
         // -------------- FUNCTION --------------  
         uniforms.t = t;
 
+
         rayM.render(camera, uniforms);
         /*
         const Vec2 uv = Vec2(50, 50);

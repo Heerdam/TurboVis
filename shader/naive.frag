@@ -107,6 +107,9 @@ layout(location = 36) uniform float tr_fac = 1.f;
 layout(location = 37) uniform float pd = 1.f;
 layout(location = 38) uniform uint gs = 1;
 
+layout(location = 39) uniform uint iso = 0;
+layout(location = 40) uniform float iso_val = 1.f;
+
 layout (location = 50) uniform float t = 0.f;
 // ------------------- OUT -------------------
 out vec4 fragColor;
@@ -121,11 +124,15 @@ vec3 eval_exp(in vec3 _pos){
 };
 
 vec3 eval_sin(in vec3 _pos){
-    const float res = cos(_pos.x * _pos.y *  _pos.z * t);
+    const float res = sin(_pos.x * _pos.y *  _pos.z * 3.f);
     //if(res >= 0)
        // return vec3(0, res, 0);
     //else
         return vec3(abs(res), 0, 0);  
+};
+
+float eval_sin_val(in vec3 _pos){
+    return sin(_pos.x * _pos.y *  _pos.z * 3.f); 
 };
 
 vec3 eval_wave(in vec3 _pos){
@@ -138,6 +145,13 @@ vec3 eval_wave(in vec3 _pos){
         return vec3(0, res, 0);
     else
         return vec3(abs(res), 0, 0);  
+};
+
+float eval_wave_val(in vec3 _pos){
+    const float x = sin(3 * M_PI / high.x * _pos.x);
+    const float y = sin(3 * M_PI / high.y * _pos.y);
+    const float z = sin(3 * M_PI / high.z * _pos.z);
+    return sqrt(8.f / (high.x * high.y * high.z)) * x * y * z;
 };
 
 vec3 eval_c(in vec3 _pos){
@@ -198,6 +212,7 @@ void main() {
 
     //ray marching
     const float stepsize = tmax / steps;
+    float ivalo = 0.f;
 
     for( int i = 0; i < steps; ++i ) {
         const vec3 pos = camPosWorld + t * r_d;
@@ -205,18 +220,36 @@ void main() {
         //const float zd = cpos.z / cpos.w;
         //const float z = (zd + 1.f) * 0.5f;      
 
-        if(/*z > gl_FragCoord.z && */pos.x <= high.x && pos.y <= high.y && pos.z <= high.z && pos.x >= low.x && pos.y >= low.y && pos.z >= low.z){
-            const vec3 Ls_rgb = eval_wave(pos);
-            const vec3 Ls_hsl = toHSL(Ls_rgb);
-            transmission *= exp(-trans(Ls_hsl.z) * stepsize);
-            //const float frac = clamp(1.f/1000.f * float(i), 0.f, 1.f);
-            //col += mix(transmission * Ls_rgb, transmission * toGs(Ls_rgb), frac);
-           // if(i == 1)
-                //colGS = Ls_rgb;
-            if(gs == 1)
-                col += transmission * toGs(Ls_rgb);
-            else
-                col += transmission * Ls_rgb;
+        if(iso == 0){
+            if(/*z > gl_FragCoord.z && */pos.x <= high.x && pos.y <= high.y && pos.z <= high.z && pos.x >= low.x && pos.y >= low.y && pos.z >= low.z){
+                const vec3 Ls_rgb = eval_sin(pos);
+                const vec3 Ls_hsl = toHSL(Ls_rgb);
+                transmission *= exp(-trans(Ls_hsl.z) * stepsize);
+
+                if(gs == 1)
+                    col += transmission * toGs(Ls_rgb);
+                else
+                    col += transmission * Ls_rgb;
+            }
+        } else {
+            if(/*z > gl_FragCoord.z && */pos.x <= high.x && pos.y <= high.y && pos.z <= high.z && pos.x >= low.x && pos.y >= low.y && pos.z >= low.z){
+                const float ival = eval_sin_val(pos) - iso_val;
+
+                if(i >= 2){
+
+                    const int s = int(sign(ival));
+                    const int so = int(sign(ivalo));
+
+                    if(s != so){
+                        col = eval_sin(pos);
+                        transmission = 0.f;
+                        break;
+                    }
+
+                }
+
+                ivalo = ival;
+            }
         }
 
         t += stepsize;

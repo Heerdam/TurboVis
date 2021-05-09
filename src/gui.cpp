@@ -311,6 +311,8 @@ void Gui::FrontendGui::drawRenderWindow(RenderInfo& _info){
     ImGui::SliderFloat("tr_fac", &_info.uniforms->tr_fac, 0.0f, 100000.f);
     ImGui::SliderInt("steps", &_info.uniforms->steps, 0, 10000);
     ImGui::Checkbox("grayscale", &_info.uniforms->grayscale);
+    ImGui::Checkbox("isosurface", &_info.uniforms->isosurface);
+    ImGui::SliderFloat("iso_val", &_info.uniforms->isvalue, -10.f, 10.f);
     ImGui::End();
 }
 

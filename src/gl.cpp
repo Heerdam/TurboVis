@@ -574,7 +574,10 @@ void GL::RaymarchTester::render(const Camera& _cam, const Uniforms& _u){
     glUniform3fv(35, 1, glm::value_ptr(_u.high));
     glUniform1f(36, _u.tr_fac);
     glUniform1f(37, _u.pd);
-    glUniform1ui(38, bool(_u.grayscale));
+    glUniform1ui(38, uint32_t(_u.grayscale));
+
+    glUniform1ui(39, uint32_t(_u.isosurface));
+    glUniform1f(40, _u.isvalue);
 
     glUniform1f(50, _u.t);
 

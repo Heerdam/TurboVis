@@ -102,6 +102,8 @@ namespace GL {
         float pd = 1.f;
         float t = 0.f;
         bool grayscale = true;
+        bool isosurface = false;
+        float isvalue = 1.f;
     };
 
     class RaymarchTester {

@@ -313,6 +313,9 @@ void Gui::FrontendGui::drawRenderWindow(RenderInfo& _info){
     ImGui::Checkbox("grayscale", &_info.uniforms->grayscale);
     ImGui::Checkbox("isosurface", &_info.uniforms->isosurface);
     ImGui::SliderFloat("iso_val", &_info.uniforms->isvalue, -10.f, 10.f);
+    ImGui::Checkbox("time", &_info.uniforms->tt);
+    if(ImGui::Button("reset time"))
+            _info.uniforms->t = 0.01f;
     ImGui::End();
 }
 

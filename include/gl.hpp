@@ -100,7 +100,8 @@ namespace GL {
         Vec3 high = Vec3(2.f);
         float tr_fac = 1.f;
         float pd = 1.f;
-        float t = 0.f;
+        float t = 0.01f;
+        bool tt = false;
         bool grayscale = true;
         bool isosurface = false;
         float isvalue = 1.f;

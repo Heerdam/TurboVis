@@ -124,7 +124,7 @@ vec3 eval_exp(in vec3 _pos){
 };
 
 vec3 eval_sin(in vec3 _pos){
-    const float res = sin(_pos.x * _pos.y *  _pos.z * 3.f);
+    const float res = sin(_pos.x * _pos.y *  _pos.z * t);
     //if(res >= 0)
        // return vec3(0, res, 0);
     //else
@@ -132,7 +132,7 @@ vec3 eval_sin(in vec3 _pos){
 };
 
 float eval_sin_val(in vec3 _pos){
-    return sin(_pos.x * _pos.y *  _pos.z * 3.f); 
+    return sin(_pos.x * _pos.y *  _pos.z * t); 
 };
 
 vec3 eval_wave(in vec3 _pos){

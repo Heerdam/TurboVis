@@ -75,10 +75,10 @@ int main() {
 
     // -------------- CAMERA --------------
     GL::Camera camera = GL::Camera(int64_t(WIDTH), int64_t(HEIGHT), glm::radians(55.f), 0.01f, 5.f);
-    camera.position = { 0.f, 0.f, 3.5f };
+    camera.position = { 0.f, 0.f, 5.5f };
     camera.target = { 0.f, 0.f, 0.f };
-    camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
-    camera.combined *= glm::lookAt(camera.position, camera.target, camera.upAxis);
+    //camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
+    camera.combined = glm::lookAt(camera.position, camera.target, camera.upAxis);
     camera.update();
 
     // -------------- GIMBEL CAMERA --------------
@@ -151,12 +151,14 @@ int main() {
 
     Gui::InputMultiplexer::cursorPosCallback([&](GLFWwindow*, double _xpos, double _ypos)-> void{
         oldPosition = newPosition;
-        newPosition = Vec2((float)_xpos - HALFWIDTH, (HEIGHT - (float)_ypos - HALFHEIGHT));
+        newPosition = Vec2(float(_xpos) - HALFWIDTH, (HEIGHT - float(_ypos) - HALFHEIGHT));
 
         if(RMB_down){
-            const auto rot = GL::Camera::trackball_holroyd(oldPosition, newPosition, 200.f);
-            const glm::mat3 RotationMatrix = glm::toMat3(rot);
+            const auto rot = GL::Camera::trackball_holroyd(oldPosition, newPosition, 250.f);
+            const glm::mat4 RotationMatrix = glm::toMat4(glm::normalize(rot));
+           
 
+            /*
             //rotation around x axis
             if(camKeys[0]){
                 camera.right = normalize(rot * camera.right);
@@ -174,12 +176,21 @@ int main() {
                 camera.up = normalize(rot * camera.up);
                 camera.dir = normalize(glm::cross(camera.up, camera.right));
             }
+            */
 
-            const Vec3 rpos = camera.position - camera.target;
-            camera.position = RotationMatrix * rpos  + camera.target;
-            camera.update();
-            camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
-            camera.combined *= glm::lookAt(camera.position, camera.target, camera.upAxis);
+            camera.combined *= RotationMatrix;
+            //std::cout << glm::to_string(camera.combined) << std::endl;
+            
+            camera.position = glm::transpose(glm::mat3(camera.combined)) * Vec3(glm::column(camera.combined, 3)); //3
+            camera.dir = glm::normalize(Vec3(-glm::row(camera.combined, 2))); //-2
+            camera.right = glm::normalize(Vec3(glm::row(camera.combined, 0))); //0
+            camera.up = glm::normalize(Vec3(glm::row(camera.combined, 1))); //1
+
+            //std::cout << glm::to_string(camera.position) << std::endl;
+
+            //camera.update();
+            //camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
+            //camera.combined *= glm::lookAt(camera.position, camera.target, camera.upAxis);
         }
     });
 
@@ -189,8 +200,6 @@ int main() {
 
     GL::Uniforms uniforms;
 
-    float t = 0.f;
-
     while (!glfwWindowShouldClose(window)) {
         const double ctime = glfwGetTime();
 
@@ -198,35 +207,18 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
         glfwPollEvents();
-        //gui.ImGui_ImplGlfw_UpdateMousePosAndButtons(window);
 
         glEnable(GL_DEPTH_TEST);
 
         // -------------- FUNCTION --------------  
-        uniforms.t = t;
-
-
         rayM.render(camera, uniforms);
-        /*
-        const Vec2 uv = Vec2(50, 50);
-        const Vec2 bounds = Vec2(camera.width, camera.height);
-        const Vec2 pp = (2.f * (uv) - bounds) / bounds.y;
-        const Vec3 r_d = glm::normalize(pp.x*camera.right + pp.y*camera.up + 1.5f*camera.dir);
-        for(size_t i = 5; i < 100; ++i){
-            const Vec4 r = camera.combined * Vec4(camera.position + 10.f * i, 1.f);
-            const float z = (r.z / r.w - 1.f) * 0.5f; 
-            std::cout << z << std::endl;
-        }
-        
-        return 1;
-        */
 
         // -------------- GIMBEL --------------  
-        //glViewport(0, 0, gCamera.width, gCamera.height);
-        //const Mat3 rot = Mat3(camera.dir, camera.up, camera.right);
-        //shape.drawAxisWidget(rot);
-        //shape.render(gCamera);
-        //glViewport(0, 0, WIDTH, HEIGHT);
+        glViewport(0, 0, gCamera.width, gCamera.height);
+        const Mat3 rot = Mat3(camera.dir, camera.up, camera.right);
+        shape.drawAxisWidget(rot);
+        shape.render(gCamera);
+        glViewport(0, 0, WIDTH, HEIGHT);
         //depthr.render();
 
         // -------------- GUI --------------     
@@ -248,7 +240,8 @@ int main() {
             time = ctime;
         }
         deltaTime = glfwGetTime() - ctime;
-        t += deltaTime;
+        if(uniforms.tt) 
+            uniforms.t += deltaTime;
     }
     glfwTerminate();
 

@@ -199,6 +199,7 @@ int main() {
     GL::RaymarchTester rayM;
 
     GL::Uniforms uniforms;
+    //uniforms.low = Vec3(-1.f);
 
     while (!glfwWindowShouldClose(window)) {
         const double ctime = glfwGetTime();

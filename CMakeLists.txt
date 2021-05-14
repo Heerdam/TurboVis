@@ -32,9 +32,45 @@ add_executable(tv
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
+find_package (HDF5 REQUIRED)
+
+# ------------------ HIGHFIVE ------------------
+message(STATUS "Fetching HighFive...")
+set(USE_BOOST OFF CACHE BOOL "Enable Boost Support")
+set(USE_EIGEN OFF CACHE BOOL "Enable Eigen testing")
+set(USE_XTENSOR OFF CACHE BOOL "Enable xtensor testing")
+set(USE_OPENCV OFF CACHE BOOL "Enable OpenCV testing")
+FetchContent_Declare(
+	HighFive 
+	GIT_REPOSITORY https://github.com/BlueBrain/HighFive.git
+	GIT_SHALLOW TRUE
+	GIT_TAG v2.3
+)
+FetchContent_GetProperties(HighFive)
+
+if(NOT hv_POPULATED)
+	FetchContent_Populate(HighFive)
+	option(HIGHFIVE_UNIT_TESTS "Enable unit tests" OFF)
+	option(HIGHFIVE_EXAMPLES "Compile examples" OFF)
+	option(HIGHFIVE_PARALLEL_HDF5 "Enable Parallel HDF5 support" OFF)
+	option(HIGHFIVE_BUILD_DOCS "Enable documentation building" OFF)
+	add_subdirectory("${HighFive_SOURCE_DIR}" "${HighFive_BINARY_DIR}")
+endif()
+
 # ------------------ Eigen ------------------
-find_package (Eigen3 3.4.99 QUIET REQUIRED) 
-target_include_directories(tv PUBLIC "${EIGEN3_INCLUDE_DIR}")
+message(STATUS "Fetching Eigen3...")
+FetchContent_Declare(
+	eigen3
+	GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+	GIT_SHALLOW TRUE
+	GIT_TAG        77c66e368c7e355f8be299659f57b0ffcaedb505
+)
+FetchContent_GetProperties(eigen3)
+
+if(NOT eigen3_POPULATED)
+	FetchContent_Populate(eigen3)
+	target_include_directories(tv PUBLIC "${eigen3_SOURCE_DIR}")
+endif()
 
 # ------------------ GLFW ------------------
 message(STATUS "Fetching GLFW...")
@@ -95,8 +131,6 @@ FetchContent_GetProperties(imgui)
 if(NOT imgui_POPULATED)
 	FetchContent_Populate(imgui)
 
-	message(STATUS "Preparing imgui...")
-
 	set(IMGUI_FILES
 		"${imgui_SOURCE_DIR}/imgui_demo.cpp"
 		"${imgui_SOURCE_DIR}/imgui_draw.cpp"
@@ -122,8 +156,6 @@ FetchContent_GetProperties(lodepng)
 if(NOT lodepng_POPULATED)
 	FetchContent_Populate(lodepng)
 
-	message(STATUS "Preparing lodepng...")
-
 	set(LODEPNG_FILES
 		"${lodepng_SOURCE_DIR}/lodepng.cpp"	
 	)
@@ -133,19 +165,8 @@ if(NOT lodepng_POPULATED)
 	target_include_directories(tv PUBLIC "${lodepng_SOURCE_DIR}")
 endif()
 
-# ------------------ LIBMORTON ------------------
-message(STATUS "Fetching LIBMORTON...")
-FetchContent_Declare(
-	libmorton 
-	GIT_REPOSITORY https://github.com/Forceflow/libmorton.git
-	GIT_TAG        v0.2.7
-	GIT_SHALLOW TRUE
-)
-option(BUILD_TESTING "Build unit tests for libmorton" OFF)
-FetchContent_GetProperties(libmorton)
-FetchContent_MakeAvailable(libmorton)
-
 # ------------------ GLM ------------------
+message(STATUS "Fetching GLM...")
 FetchContent_Declare(
         glm
         GIT_REPOSITORY https://github.com/g-truc/glm
@@ -155,25 +176,6 @@ FetchContent_Declare(
 FetchContent_GetProperties(glm)
 FetchContent_MakeAvailable(glm)
 
-# ------------------ OMP ------------------
-#find_package(OpenMP REQUIRED)
-
-# ------------------ MRPT ------------------
-message(STATUS "Fetching mrpt...")
-FetchContent_Declare(
-	mrpt
-	GIT_REPOSITORY https://github.com/vioshyvo/mrpt.git
-	GIT_SHALLOW TRUE
-)
-FetchContent_GetProperties(mrpt)
-
-if(NOT mrpt_POPULATED)
-	FetchContent_Populate(mrpt)
-
-	message(STATUS "Preparing mrpt...")
-	target_include_directories(tv PUBLIC "${mrpt_SOURCE_DIR}/cpp")
-endif()
-
 # ------------------------------------
 
 set(TV_LIBS 
@@ -182,8 +184,8 @@ set(TV_LIBS
 		"glad"
 		"imgui"
 		"lodepng"
-		"libmorton" 
 		"glm"
+		"HighFive"
 		#"OpenMP::OpenMP_CXX"
 )
 

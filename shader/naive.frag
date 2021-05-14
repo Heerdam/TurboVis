@@ -213,15 +213,16 @@ void main() {
     //ray marching
     const float stepsize = tmax / steps;
     float ivalo = 0.f;
+    vec3 oldPos = camPosWorld + t * r_d;
 
     for( int i = 0; i < steps; ++i ) {
         const vec3 pos = camPosWorld + t * r_d;
-        //const vec4 cpos = cam * vec4(pos, 1.f);
-        //const float zd = cpos.z / cpos.w;
-        //const float z = (zd + 1.f) * 0.5f;      
+        const vec4 cpos = cam * vec4(pos, 1.f);
+        const float zd = cpos.z / cpos.w;
+        const float z = (zd + 1.f) * 0.5f;      
 
         if(iso == 0){
-            if(/*z > gl_FragCoord.z && */pos.x <= high.x && pos.y <= high.y && pos.z <= high.z && pos.x >= low.x && pos.y >= low.y && pos.z >= low.z){
+            if(z < gl_FragCoord.z && pos.x <= high.x && pos.y <= high.y && pos.z <= high.z && pos.x >= low.x && pos.y >= low.y && pos.z >= low.z){
                 const vec3 Ls_rgb = eval_sin(pos);
                 const vec3 Ls_hsl = toHSL(Ls_rgb);
                 transmission *= exp(-trans(Ls_hsl.z) * stepsize);
@@ -232,7 +233,7 @@ void main() {
                     col += transmission * Ls_rgb;
             }
         } else {
-            if(/*z > gl_FragCoord.z && */pos.x <= high.x && pos.y <= high.y && pos.z <= high.z && pos.x >= low.x && pos.y >= low.y && pos.z >= low.z){
+            if(z < gl_FragCoord.z && pos.x <= high.x && pos.y <= high.y && pos.z <= high.z && pos.x >= low.x && pos.y >= low.y && pos.z >= low.z){
                 const float ival = eval_sin_val(pos) - iso_val;
 
                 if(i >= 2){
@@ -241,13 +242,20 @@ void main() {
                     const int so = int(sign(ivalo));
 
                     if(s != so){
-                        col = eval_sin(pos);
+                        const float diffX = (eval_sin_val(vec3(pos.x, oldPos.y, oldPos.z)) - ivalo) / abs(pos.x - oldPos.x);
+                        const float diffY = (eval_sin_val(vec3(oldPos.x, pos.y, oldPos.z)) - ivalo) / abs(pos.y - oldPos.y);
+                        const float diffZ = (eval_sin_val(vec3(oldPos.x, oldPos.y, pos.z)) - ivalo) / abs(pos.z - oldPos.z);
+                        const vec3 n = normalize(vec3(diffX, diffY, diffZ));
+
+                        const float diffuse = max(dot(n, vec3(1.f, 1.f, 1.f)), 0.f);
+
+                        col = (vec3(1.f) * 0.25f + vec3(1.f) * diffuse) * vec3(1.f, 0.f, 0.f);
                         transmission = 0.f;
                         break;
                     }
 
                 }
-
+                oldPos = pos;
                 ivalo = ival;
             }
         }

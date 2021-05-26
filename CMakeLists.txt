@@ -47,15 +47,15 @@ FetchContent_Declare(
 	GIT_TAG v2.3
 )
 FetchContent_GetProperties(HighFive)
-
-if(NOT hv_POPULATED)
-	FetchContent_Populate(HighFive)
-	option(HIGHFIVE_UNIT_TESTS "Enable unit tests" OFF)
-	option(HIGHFIVE_EXAMPLES "Compile examples" OFF)
-	option(HIGHFIVE_PARALLEL_HDF5 "Enable Parallel HDF5 support" OFF)
-	option(HIGHFIVE_BUILD_DOCS "Enable documentation building" OFF)
-	add_subdirectory("${HighFive_SOURCE_DIR}" "${HighFive_BINARY_DIR}")
-endif()
+FetchContent_MakeAvailable(HighFive)
+#if(NOT HighFive_POPULATED)
+	#FetchContent_Populate(HighFive)
+	#option(HIGHFIVE_UNIT_TESTS "Enable unit tests" OFF)
+	#option(HIGHFIVE_EXAMPLES "Compile examples" OFF)
+	##option(HIGHFIVE_PARALLEL_HDF5 "Enable Parallel HDF5 support" ON)
+	#option(HIGHFIVE_BUILD_DOCS "Enable documentation building" OFF)
+	#add_subdirectory("${HighFive_SOURCE_DIR}" "${HighFive_BINARY_DIR}")
+#endif()
 
 # ------------------ Eigen ------------------
 message(STATUS "Fetching Eigen3...")

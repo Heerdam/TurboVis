@@ -3,7 +3,216 @@
 
 #include "defines.hpp"
 
+#include <unsupported/Eigen/CXX11/Tensor>
+
 namespace Math {
+
+    namespace Hagedorn {
+
+        namespace Detail {
+
+            template<class T, size_t Dim>
+            [[nodiscard]] std::complex<T> phi_0 (
+                    const Eigen::Matrix<T, Dim, 1>& _x, 
+                    T _epsilon,
+                    const Eigen::array<Eigen::Index, Dim> _k,
+                    const Eigen::Matrix<std::complex<T>, Dim, 1>& _p,
+                    const Eigen::Matrix<std::complex<T>, Dim, 1>& _q,
+                    const Eigen::Matrix<std::complex<T>, Dim, Dim>& _Q, 
+                    const Eigen::Matrix<std::complex<T>, Dim, Dim>& _P) noexcept {
+
+                const auto xq = _x - _q;
+                const auto e2 = _epsilon * _epsilon;
+                const auto v1 = std::pow(M_PI * e2, - Dim/4.) * std::pow(_Q.determinant(), -0.5);
+                const std::complex<T> v2 = (std::complex<T>(0., 1.) / (2. * e2) * xq.transpose() * _P * _Q.inverse() * xq);
+                const std::complex<T> v3 = std::complex<T>(0., 1.) / e2 * _p.transpose() * xq;
+                return v1 * std::exp(v2 + v3);
+            };
+
+            template<class T, size_t Dim>
+            [[nodiscard]] Eigen::Matrix<std::complex<T>, Dim, 1> phi(
+                    const Eigen::Tensor<T, Dim>& _phis,
+                    const Eigen::array<Eigen::Index, Dim>& _k, 
+                    Eigen::Index _dir,
+                    const Eigen::Matrix<std::complex<T>, Dim, 1>& _x_q,
+                    const Eigen::Matrix<std::complex<T>, Dim, Dim>& _Q_1_Qc) noexcept {
+                
+                using Index = Eigen::array<Eigen::Index, Dim>;
+                using Vector = Eigen::Matrix<std::complex<T>, Dim, 1>;
+                Vector res;
+
+                Vector kp;
+                for(size_t j = 0; j < Dim; ++j){
+                    //early out
+                    if(_k(j) - 1 < 0){
+                        kp(j) = 0;
+                        continue;
+                    }
+
+                    Index k_1 = _k;
+                    k_1(j) -= 1;
+                    kp(j) = std::sqrt(_k(j)) * phis(k_1);
+                }
+
+                const auto lhs = _x_q * phis(_k);
+                const auto rhs = _Q_1_Qc * kp;
+                const auto phi_1 =  lhs - rhs;
+         
+                return phi_1;
+            };
+
+            template<size_t sdim, class T, size_t Dim, size_t d>
+            requires (sdim > 3)
+            void loop(
+                    Eigen::Tensor<T, Dim>& _phis, 
+                    Eigen::array<Eigen::Index, Dim>& _i, 
+                    const Eigen::Matrix<std::complex<T>, Dim, 1>& _x_q,
+                    const Eigen::Matrix<std::complex<T>, Dim, Dim>& _Q_1_Qc, 
+                    const Eigen::array<Eigen::Index, Dim>& _k,
+                    const Eigen::Matrix<T, Dim, 1>& _ksj) noexcept {
+                        
+                for(size_t i = 0; i < _i(d); ++i){
+                    _phis(d) = i;
+                    loop<sdim, T, Dim, d - 1>(_phis, _i);
+                }
+            };
+
+            template<size_t sdim, class T, size_t Dim, size_t d>
+            requires (d == 1 && sdim > 3)
+            void loop(
+                    Eigen::Tensor<T, Dim>& _phis, 
+                    Eigen::array<Eigen::Index, Dim>& _i, 
+                    const Eigen::Matrix<std::complex<T>, Dim, 1>& _x_q,
+                    const Eigen::Matrix<std::complex<T>, Dim, Dim>& _Q_1_Qc, 
+                    const Eigen::array<Eigen::Index, Dim>& _k,
+                    const Eigen::Matrix<T, Dim, 1>& _ksj) noexcept {
+
+                using Index = Eigen::array<Eigen::Index, Dim>;
+                for(size_t i = 0; i < _i(d); ++i){                
+                    const auto phi_res = phi(_phis, _i, d, _x_q, _Q_1_Qc);
+                    _i(d) = i;
+
+                    for(size_t j = 0; j < Dim; ++j){
+                        Index k_1 = _i;
+                        k_1(j) += 1;
+                        phis(k_1) = phi_res(j) * _ksj(j);
+                    }
+                }
+            };
+
+            //3-dims
+            template<size_t sdim, class T, size_t Dim, size_t d>
+            requires (d == 3 && sdim == 3)
+            void loop(
+                    Eigen::Tensor<T, Dim>& _phis, 
+                    Eigen::array<Eigen::Index, Dim>& _i, 
+                    const Eigen::Matrix<std::complex<T>, Dim, 1>& _x_q,
+                    const Eigen::Matrix<std::complex<T>, Dim, Dim>& _Q_1_Qc, 
+                    const Eigen::array<Eigen::Index, Dim>& _k,
+                    const Eigen::Matrix<T, Dim, 1>& _ksj) noexcept {
+
+                using Index = Eigen::array<Eigen::Index, Dim>;
+                for(size_t x = 0;  x < _k[0]; ++x) {  
+                    _i[0] = x;
+                    for(size_t y = 0;  x < _k[0]; ++x) {
+                        _i[1] = y;
+                        for(size_t z = 0;  x < _k[0]; ++x) {                                 
+                            const auto phi_res = phi(_phis, _i, d, _x_q, _Q_1_Qc);
+                            _i[2] = z;
+                            for(size_t j = 0; j < Dim; ++j){
+                                Index k_1 = _i;
+                                k_1(j) += 1;
+                                phis(k_1) = phi_res(j) * _ksj(j);
+                            }
+                        }
+                    }
+                }
+            };
+
+            //2-dims
+            template<size_t sdim, class T, size_t Dim, size_t d>
+            requires (d == 2 && sdim == 2)
+            void loop(
+                    Eigen::Tensor<T, Dim>& _phis, 
+                    Eigen::array<Eigen::Index, Dim>& _i, 
+                    const Eigen::Matrix<std::complex<T>, Dim, 1>& _x_q,
+                    const Eigen::Matrix<std::complex<T>, Dim, Dim>& _Q_1_Qc, 
+                    const Eigen::array<Eigen::Index, Dim>& _k,
+                    const Eigen::Matrix<T, Dim, 1>& _ksj) noexcept{
+
+                using Index = Eigen::array<Eigen::Index, Dim>;
+                for(size_t x = 0;  x < _k[0]; ++x) {  
+                    _i[0] = x;
+                    for(size_t y = 0;  x < _k[0]; ++x) {               
+                        const auto phi_res = phi(_phis, _i, d, _x_q, _Q_1_Qc);
+                        _i[1] = y;
+                        for(size_t j = 0; j < Dim; ++j){
+                            Index k_1 = _i;
+                            k_1(j) += 1;
+                            phis(k_1) = phi_res(j) * _ksj(j);
+                        }
+                    }
+                }
+            };
+
+            //1-dims
+            template<size_t sdim, class T, size_t Dim, size_t d>
+            requires (d == 1 && sdim == 1)
+            void loop(
+                    Eigen::Tensor<T, Dim>& _phis, 
+                    Eigen::array<Eigen::Index, Dim>& _i, 
+                    const Eigen::Matrix<std::complex<T>, Dim, 1>& _x_q,
+                    const Eigen::Matrix<std::complex<T>, Dim, Dim>& _Q_1_Qc, 
+                    const Eigen::array<Eigen::Index, Dim>& _k,
+                    const Eigen::Matrix<T, Dim, 1>& _ksj) noexcept{
+
+                using Index = Eigen::array<Eigen::Index, Dim>;
+                for(size_t x = 0;  x < _k[0]; ++x) {                    
+                    const auto phi_res = phi(_phis, _i, d, _x_q, _Q_1_Qc);
+                    _i[0] = x;
+                    for(size_t j = 0; j < Dim; ++j){
+                        Index k_1 = _i;
+                        k_1(j) += 1;
+                        phis(k_1) = phi_res(j) * _ksj(j);
+                    }
+                }
+            };
+
+            template<class T, size_t Dim>
+            [[nodiscard]] inline Eigen::Tensor<std::complex<T>, Dim> compute(    
+                    const Eigen::Matrix<T, Dim, 1>& _x, 
+                    T _epsilon,
+                    const Eigen::array<Eigen::Index, Dim> _k,
+                    const Eigen::Matrix<std::complex<T>, Dim, 1>& _p,
+                    const Eigen::Matrix<std::complex<T>, Dim, 1>& _q,
+                    const Eigen::Matrix<std::complex<T>, Dim, Dim>& _Q, 
+                    const Eigen::Matrix<std::complex<T>, Dim, Dim>& _P) noexcept {
+
+                using Index = Eigen::array<Eigen::Index, Dim>;
+                using Vector = Eigen::Matrix<std::complex<T>, Dim, 1>;
+                using Matrix = Eigen::Matrix<std::complex<T>, Dim, Dim>;
+
+                Eigen::Tensor<std::complex<T>, Dim> phis(_k);
+
+                Eigen::Matrix<T, Dim, 1> skjk;
+                for(size_t i = 0; i < Dim; ++i)
+                    skjk(i) = sqrt(_k(i) + 1);
+
+                const Matrix Qi = _Q.inverse();
+                const Vector x_q = std::sqrt(2. / (_epsilon * _epsilon)) * Qi * (_x - _q);
+                const Matrix Q_1_Qc = Qi * _Q.conjugate();
+
+                //loop over ks
+                Index i;
+                i.fill(0);
+                loop<T, Dim, Dim>(phis, i, x_q, Q_1_Qc, _k, skjk);
+
+                return phis;
+            };
+
+        } //Detail
+
+    } //Hagedorn
 
     namespace Intersector {
 
@@ -166,7 +375,7 @@ namespace Math {
             };
 
             template <class T>
-            T line(const Zylinder<T>& _p, const glm::vec<3, T, glm::defaultp>& _pos) {
+            [[nodiscard]] T line(const Zylinder<T>& _p, const glm::vec<3, T, glm::defaultp>& _pos) {
                 using vec3 = glm::vec<3, T, glm::defaultp>;
                 const vec3 p1 = vec3(_p.p1X, _p.p1Y, _p.p1Z);
                 const vec3 p2 = vec3(_p.p2X, _p.p2Y, _p.p2Z);
@@ -177,7 +386,7 @@ namespace Math {
             };
 
             template <class T>
-            T zylinder(const Zylinder<T>& _p, const glm::vec<3, T, glm::defaultp>& _pos) {
+            [[nodiscard]] T zylinder(const Zylinder<T>& _p, const glm::vec<3, T, glm::defaultp>& _pos) {
                 using vec3 = glm::vec<3, T, glm::defaultp>;
                 const vec3 p1 = vec3(_p.p1X, _p.p1Y, _p.p1Z);
                 const vec3 p2 = vec3(_p.p2X, _p.p2Y, _p.p2Z);

@@ -34,6 +34,21 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 find_package (HDF5 REQUIRED)
 
+# ------------------ Eigen ------------------
+message(STATUS "Fetching Eigen3...")
+FetchContent_Declare(
+	eigen3
+	GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+	GIT_SHALLOW TRUE
+	GIT_TAG        3.4
+)
+FetchContent_GetProperties(eigen3)
+
+if(NOT eigen3_POPULATED)
+	FetchContent_Populate(eigen3)
+	target_include_directories(tv PUBLIC "${eigen3_SOURCE_DIR}")
+endif()
+
 # ------------------ HIGHFIVE ------------------
 message(STATUS "Fetching HighFive...")
 set(USE_BOOST OFF CACHE BOOL "Enable Boost Support")
@@ -56,21 +71,6 @@ FetchContent_MakeAvailable(HighFive)
 	#option(HIGHFIVE_BUILD_DOCS "Enable documentation building" OFF)
 	#add_subdirectory("${HighFive_SOURCE_DIR}" "${HighFive_BINARY_DIR}")
 #endif()
-
-# ------------------ Eigen ------------------
-message(STATUS "Fetching Eigen3...")
-FetchContent_Declare(
-	eigen3
-	GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-	GIT_SHALLOW TRUE
-	GIT_TAG        77c66e368c7e355f8be299659f57b0ffcaedb505
-)
-FetchContent_GetProperties(eigen3)
-
-if(NOT eigen3_POPULATED)
-	FetchContent_Populate(eigen3)
-	target_include_directories(tv PUBLIC "${eigen3_SOURCE_DIR}")
-endif()
 
 # ------------------ GLFW ------------------
 message(STATUS "Fetching GLFW...")
@@ -100,7 +100,6 @@ FetchContent_Declare(
 	GIT_TAG        v1.8.2
 	GIT_SHALLOW TRUE
 )
-FetchContent_GetProperties(spdlog)
 FetchContent_MakeAvailable(spdlog)
 
 # ------------------ GLAD ------------------ 
@@ -173,7 +172,6 @@ FetchContent_Declare(
 		GIT_SHALLOW TRUE
 		GIT_TAG 0.9.9.8
 )
-FetchContent_GetProperties(glm)
 FetchContent_MakeAvailable(glm)
 
 # ------------------------------------

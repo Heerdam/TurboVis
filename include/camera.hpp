@@ -18,6 +18,8 @@ namespace GL {
             up = normalize(cross(right, dir));
         }
 
+        bool hasMoved = false;
+
         Vec3 position, target;
         Vec3 up, right, dir;
 

@@ -7,12 +7,12 @@
 
 namespace Math {
 
-    namespace Hagedorn {
+    
+    namespace Hagedorn_Compile_Time {
 
         namespace Detail {
-
             template<class T, size_t Dim>
-            [[nodiscard]] std::complex<T> phi_0 (
+            [[nodiscard]] inline std::complex<T> phi_0 (
                     const Eigen::Matrix<T, Dim, 1>& _x, 
                     T _epsilon,
                     const Eigen::array<Eigen::Index, Dim> _k,
@@ -30,7 +30,7 @@ namespace Math {
             };
 
             template<class T, size_t Dim>
-            [[nodiscard]] Eigen::Matrix<std::complex<T>, Dim, 1> phi(
+            [[nodiscard]] inline Eigen::Matrix<std::complex<T>, Dim, 1> phi(
                     const Eigen::Tensor<T, Dim>& _phis,
                     const Eigen::array<Eigen::Index, Dim>& _k, 
                     Eigen::Index _dir,
@@ -63,7 +63,7 @@ namespace Math {
 
             template<size_t sdim, class T, size_t Dim, size_t d>
             requires (sdim > 3)
-            void loop(
+            inline void loop(
                     Eigen::Tensor<T, Dim>& _phis, 
                     Eigen::array<Eigen::Index, Dim>& _i, 
                     const Eigen::Matrix<std::complex<T>, Dim, 1>& _x_q,
@@ -79,7 +79,7 @@ namespace Math {
 
             template<size_t sdim, class T, size_t Dim, size_t d>
             requires (d == 1 && sdim > 3)
-            void loop(
+            inline void loop(
                     Eigen::Tensor<T, Dim>& _phis, 
                     Eigen::array<Eigen::Index, Dim>& _i, 
                     const Eigen::Matrix<std::complex<T>, Dim, 1>& _x_q,
@@ -103,7 +103,7 @@ namespace Math {
             //3-dims
             template<class T, size_t Dim, size_t d>
             requires (d == 3 && Dim == 3)
-            void loop(
+            inline void loop(
                     Eigen::Tensor<T, Dim>& _phis, 
                     Eigen::array<Eigen::Index, Dim>& _i, 
                     const Eigen::Matrix<std::complex<T>, Dim, 1>& _x_q,
@@ -132,7 +132,7 @@ namespace Math {
             //2-dims
             template<class T, size_t Dim, size_t d>
             requires (d == 2 && Dim == 2)
-            void loop(
+            inline void loop(
                     Eigen::Tensor<T, Dim>& _phis, 
                     Eigen::array<Eigen::Index, Dim>& _i, 
                     const Eigen::Matrix<std::complex<T>, Dim, 1>& _x_q,
@@ -158,7 +158,7 @@ namespace Math {
             //1-dims
             template<class T, size_t Dim, size_t d>
             requires (d == 1 && Dim == 1)
-            void loop(
+            inline void loop(
                     Eigen::Tensor<T, Dim>& _phis, 
                     Eigen::array<Eigen::Index, Dim>& _i, 
                     const Eigen::Matrix<std::complex<T>, Dim, 1>& _x_q,
@@ -211,22 +211,109 @@ namespace Math {
 
             return phis;
         };
+    } //Hagedorn_Compile_Time
+
+    namespace Hagedorn {
+
+        namespace Detail {
+
+            [[nodiscard]] size_t index(const Eigen::Array<Eigen::Index, -1, 1>& _i, const Eigen::Array<Eigen::Index, -1, 1>& _e){
+                size_t out = _i(0);
+                for(size_t k = 1; k < _e.size(); ++k){
+                    out *= _e(k);
+                    out += _i(k);
+                }
+                return out;
+            };
+
+            template<class T>
+            void loop(
+                    Eigen::Index _level, 
+                    Eigen::Array<Eigen::Index, -1, 1>& _i, 
+                    const Eigen::Array<Eigen::Index, -1, 1>& _e,
+                    Eigen::Array<std::complex<T>, -1, 1>& _phis,
+                    const Eigen::Matrix<std::complex<T>, -1, 1>& _x_q,
+                    const Eigen::Matrix<std::complex<T>, -1, -1>& _Q_1_Qc, 
+                    const Eigen::Array<Eigen::Index, -1, 1>& _k,
+                    const Eigen::Matrix<T, -1, 1>& _ksj) noexcept {
+                if(_level == _e.size() - 1){
+                    //TODO
+                } else {
+                    for(_i(_level) = 0; _i(_level) < _e(_level); ++_i(_level))
+                        loop(_level - 1, _i, _e);
+                }
+            };
+
+        } //Detail
 
         template<class T>
-        [[nodiscard]] Eigen::Matrix<T, 3, 1> C_to_HSV(const std::complex<T>& _c){
-            using Vector = Eigen::Matrix<T, 3, 1>;
-            const T phase = std::arg(_c);
-            Vector hsv (0.5 * std::fmod(phase + 2. * M_PI, 2. * M_PI) / M_PI, 1., 1.);
-            const std::complex<T> modulus = std::abs(_c);
-            //lightness
-            hsv(2) = 2. * std::atan2(modulus.real, 1.) / M_PI;
-            //saturation
-            const T l = hsv[2];
-            hsv[1] = (l <= 0.5) ? 2 * l : 2. * (1. - l);
-            return hsv;
+        [[nodiscard]] inline Eigen::array<std::complex<T>, -1> compute(
+            const Eigen::Matrix<T, -1, 1>& _x, 
+            T _epsilon,
+            const Eigen::array<Eigen::Index, -1> _k,
+            const Eigen::Matrix<std::complex<T>, -1, 1>& _p,
+            const Eigen::Matrix<std::complex<T>, -1, 1>& _q,
+            const Eigen::Matrix<std::complex<T>, -1, -1>& _Q, 
+            const Eigen::Matrix<std::complex<T>, -1, -1>& _P) noexcept {
+
+            using Index = Eigen::array<Eigen::Index, -1>;
+            using Vector = Eigen::Matrix<std::complex<T>, -1, 1>;
+            using Matrix = Eigen::Matrix<std::complex<T>, -1, -1>;
+
+            const size_t dims = _k.rows();
+            size_t size = _k(0);
+            for(size_t i = 1; i < _k.size(); ++i)
+                size *= dims(1);
+
+            Eigen::Array<std::complex<T>, -1, 1> phis (size);
+
+            Eigen::Matrix<T, -1, 1> skjk (dims, 1);
+            for(size_t i = 0; i < dims; ++i)
+                skjk(i) = sqrt(_k(i) + 1);
+
+            const Matrix Qi = _Q.inverse();
+            const Vector x_q = std::sqrt(2. / (_epsilon * _epsilon)) * Qi * (_x - _q);
+            const Matrix Q_1_Qc = Qi * _Q.conjugate();
+
+            //loop over ks
+            Index i (dims);
+            i.fill(0);
+
+            //loop<T, Dim, Dim>(phis, i, x_q, Q_1_Qc, _k, skjk);
+
+            return phis;
         };
 
+
     } //Hagedorn
+
+    template <class T>
+    [[nodiscard]] inline Eigen::Matrix<T, 3, 1> c_to_HSV(const std::complex<T>& _c) {
+        using Vector = Eigen::Matrix<T, 3, 1>;
+        const T phase = std::arg(_c);
+        Vector hsv(0.5 * std::fmod(phase + 2. * M_PI, 2. * M_PI) / M_PI, 1., 1.);
+        const std::complex<T> modulus = std::abs(_c);
+        //lightness
+        hsv(2) = 2. * std::atan2(modulus.real, 1.) / M_PI;
+        //saturation
+        const T l = hsv(2);
+        hsv(1) = (l <= 0.5) ? 2 * l : 2. * (1. - l);
+        return hsv;
+    };
+
+    template <class T>
+    [[nodiscard]] inline Eigen::Matrix<T, 3, 1> HSV_to_RGB(const Eigen::Matrix<T, 3, 1>& _hsv) {
+        Eigen::Matrix<T, 4, 1> K (1., 2. / 3., 1. / 3., 3.);
+        Eigen::Matrix<T, 3, 1> p;
+        p(0) = std::abs(std::modf(_hsv(0) + K(0)) * 6. - K(3));
+        p(1) = std::abs(std::modf(_hsv(0) + K(1)) * 6. - K(3));
+        p(2) = std::abs(std::modf(_hsv(0) + K(2)) * 6. - K(3));
+        Eigen::Matrix<T, 3, 1> out;
+        out(0) = c(2) * std::lerp(K(0), std::clamp(p(0) - K(0), 0., 1.), c(1));
+        out(1) = c(2) * std::lerp(K(0), std::clamp(p(1) - K(0), 0., 1.), c(1));
+        out(2) = c(2) * std::lerp(K(0), std::clamp(p(2) - K(0), 0., 1.), c(1));
+        return out;
+    };
 
     namespace Intersector {
 

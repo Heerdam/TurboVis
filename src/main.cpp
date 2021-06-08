@@ -6,6 +6,7 @@
 #include "../include/bench.hpp"
 #include "../include/util.hpp"
 #include "../include/camera.hpp"
+#include "../include/hdf5.hpp"
 
 void GLAPIENTRY MessageCallback(GLenum /*source*/, GLenum type, GLuint /*id*/, GLenum severity, GLsizei /*length*/, const GLchar* message, const void* /*userParam*/) {
 	if (type != GL_DEBUG_TYPE_ERROR) return;
@@ -153,11 +154,13 @@ int main() {
         oldPosition = newPosition;
         newPosition = Vec2(float(_xpos) - HALFWIDTH, (HEIGHT - float(_ypos) - HALFHEIGHT));
 
+        
+
         if(RMB_down){
+            camera.hasMoved = !(oldPosition == newPosition);
             const auto rot = GL::Camera::trackball_holroyd(oldPosition, newPosition, 250.f);
             const glm::mat4 RotationMatrix = glm::toMat4(glm::normalize(rot));
            
-
             /*
             //rotation around x axis
             if(camKeys[0]){
@@ -196,7 +199,12 @@ int main() {
 
     GL::ShapeRenderer shape (100);
     GL::DepthBufferVisualizer depthr(camera);
-    GL::RaymarchTester rayM;
+    //GL::RaymarchTester rayM;
+
+    //load file
+    const auto file = IO::getExample();
+    GL::HagedornRenderer<double> hager(camera);
+    hager.set(file);
 
     GL::Uniforms uniforms;
     //uniforms.low = Vec3(-1.f);
@@ -212,7 +220,9 @@ int main() {
         glEnable(GL_DEPTH_TEST);
 
         // -------------- FUNCTION --------------  
-        rayM.render(camera, uniforms);
+        //rayM.render(camera, uniforms);
+        //hager.render(camera);
+        camera.hasMoved = false;
 
         // -------------- GIMBEL --------------  
         glViewport(0, 0, gCamera.width, gCamera.height);
@@ -244,6 +254,7 @@ int main() {
         if(uniforms.tt) 
             uniforms.t += deltaTime;
     }
+    //hager.stop();
     glfwTerminate();
 
     return EXIT_SUCCESS;

@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <iostream>
 #include <complex>
+#include <future>
 
 #define _USE_MATH_DEFINES
 #include <math.h>

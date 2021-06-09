@@ -197,7 +197,7 @@ int main() {
         }
     });
 
-    GL::ShapeRenderer shape (100);
+    //GL::ShapeRenderer shape (100);
     GL::DepthBufferVisualizer depthr(camera);
     //GL::RaymarchTester rayM;
 
@@ -205,6 +205,7 @@ int main() {
     const auto file = IO::getExample();
     GL::HagedornRenderer<double> hager(camera);
     hager.set(file);
+    hager.start();
 
     GL::Uniforms uniforms;
     //uniforms.low = Vec3(-1.f);
@@ -221,14 +222,14 @@ int main() {
 
         // -------------- FUNCTION --------------  
         //rayM.render(camera, uniforms);
-        //hager.render(camera);
+        hager.render(camera);
         camera.hasMoved = false;
 
         // -------------- GIMBEL --------------  
         glViewport(0, 0, gCamera.width, gCamera.height);
         const Mat3 rot = Mat3(camera.dir, camera.up, camera.right);
-        shape.drawAxisWidget(rot);
-        shape.render(gCamera);
+        //shape.drawAxisWidget(rot);
+        //shape.render(gCamera);
         glViewport(0, 0, WIDTH, HEIGHT);
         //depthr.render();
 

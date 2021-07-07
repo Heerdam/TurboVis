@@ -59,7 +59,7 @@ int main() {
         return EXIT_FAILURE;
     }
 
-	//glDebugMessageCallback(MessageCallback, 0);
+	glDebugMessageCallback(MessageCallback, 0);
 
     glEnable(GL_STENCIL_TEST);
     glEnable(GL_DEBUG_OUTPUT);
@@ -76,7 +76,7 @@ int main() {
 
     // -------------- CAMERA --------------
     GL::Camera camera = GL::Camera(int64_t(WIDTH), int64_t(HEIGHT), glm::radians(55.f), 0.01f, 5.f);
-    camera.position = { 0.f, 0.f, 5.5f };
+    camera.position = { 0.f, 0.f, 3.5f };
     camera.target = { 0.f, 0.f, 0.f };
     //camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
     camera.combined = glm::lookAt(camera.position, camera.target, camera.upAxis);
@@ -104,14 +104,17 @@ int main() {
     bool camKeys[] = {false, false, false};
 
     Gui::InputMultiplexer::keyCallback([&](GLFWwindow* _window, int _key, int _scancode, int _action, int _mods)-> void {
-        if(_key == GLFW_KEY_X)
-            camKeys[0] = _action == GLFW_PRESS ? true :  _action == GLFW_RELEASE ? false : camKeys[0];
-        if(_key == GLFW_KEY_Y)
-            camKeys[1] = _action == GLFW_PRESS ? true :  _action == GLFW_RELEASE ? false : camKeys[1];
-        if(_key == GLFW_KEY_Z)
-            camKeys[2] = _action == GLFW_PRESS ? true :  _action == GLFW_RELEASE ? false : camKeys[2];
+        //if(_key == GLFW_KEY_X)
+            //camKeys[0] = _action == GLFW_PRESS ? true :  _action == GLFW_RELEASE ? false : camKeys[0];
+        //if(_key == GLFW_KEY_Y)
+            //camKeys[1] = _action == GLFW_PRESS ? true :  _action == GLFW_RELEASE ? false : camKeys[1];
+        //if(_key == GLFW_KEY_Z)
+            //camKeys[2] = _action == GLFW_PRESS ? true :  _action == GLFW_RELEASE ? false : camKeys[2];
 
-        
+        if(_key == GLFW_KEY_R)
+            camera.hasMoved = true;
+
+        /*
         if(false && _key == GLFW_KEY_R && _action == GLFW_PRESS){
             GL::CpuRaymarcher marcher;
             marcher.render(
@@ -146,8 +149,9 @@ int main() {
             25., 
             WIDTH , 
             HEIGHT  );
+            
         }
-
+*/
     });
 
     Gui::InputMultiplexer::cursorPosCallback([&](GLFWwindow*, double _xpos, double _ypos)-> void{

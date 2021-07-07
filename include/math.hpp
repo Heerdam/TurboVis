@@ -43,6 +43,9 @@ namespace Math {
 
     } //Hagedorn
 
+    template<class Vec, class T>
+    [[nodiscard]] bool intersect(const Vec& /*_r_o*/, const Vec& /*_r_o*/, const Vec& /*_low*/, const Vec& /*_high*/, T /*_tMax*/, T& /*_t*/) noexcept;
+
 }
 
 template <class T>
@@ -183,5 +186,25 @@ inline Eigen::Matrix<std::complex<T>, -1, 1> Math::Hagedorn::Detail::phi (
 
     return phi_1;
 };  //phi
+
+template<class Vec, class T>
+bool Math::intersect(const Vec& _r_o, const Vec& _r_d, const Vec& _low, const Vec& _high, T _tmax, T& _t) noexcept {
+    _t = -std::numeric_limits<T>::infinity();
+    for (size_t i = 0; i < _r_o.size(); ++i) {
+        if (std::abs(_r_d[i]) < std::numeric_limits<T>::epsilon())
+            if (_r_o[i] < _low[i] || _r_o[i] > _high[i]) 
+                return false;
+        else {
+            const T ood = 1. / _r_d[i];
+            T t1 = (_low[i] - _r_o[i]) * ood;
+            T t2 = (_high[i] - _r_o[i]) * ood;
+            if (t1 > t2) std::swap(t1, t2);
+            _t = std::max(_t, t1);
+            _tmax = std::min(_tmax, t2);
+            if (_t > _tmax) return false;
+        }
+    }
+    return true;
+}; //intersect
 
 #endif /* MATH_HPP */

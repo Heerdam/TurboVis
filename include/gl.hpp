@@ -6,6 +6,7 @@
 #include "camera.hpp"
 #include "hdf5.hpp"
 #include <lodepng.h>
+#include "AsyncRenderer.hpp"
 
 namespace GL {
 
@@ -220,19 +221,18 @@ namespace GL {
         Eigen::Matrix<T, 3, 1> dir, up, right;
         Eigen::Matrix<T, 3, 1> camPos;
 
+        Eigen::Matrix<T, -1, 1> lower, upper;
+
         ShaderProgram shader;
         GLuint VAO[2], TEX[2];
         float* tex_buffer[2];
         int64_t index = 0;
         int64_t width, height;
 
-        std::future<void> work;
-        std::mutex mutex;
-        bool isReset = false;
-        bool isTerminate = false;
+        AsyncRenderer renderer;
 
-        std::vector<Eigen::Matrix<T, 4, 1>> buffer;
-        std::vector<Eigen::Matrix<float, 4, 1>> colbuffer;
+        std::vector<T> buffer;
+        std::vector<float> colbuffer;
 
         IO::File<T> file;
 
@@ -293,6 +293,15 @@ inline void GL::HagedornRenderer<T>::set(const IO::File<T>& _file) noexcept {
 
 template<class T>
 inline GL::HagedornRenderer<T>::HagedornRenderer(const GL::Camera& _cam) noexcept {
+    width = _cam.width;
+    height = _cam.height;
+    lower.resize(3);
+    upper.resize(3);
+    for(size_t i = 0; i < 3; ++i){
+        lower(i) = -1.;
+        upper(i) = 1.;
+    }
+
     // -------------- BUFFERS --------------
 
     const float quad[] = {
@@ -361,16 +370,21 @@ inline GL::HagedornRenderer<T>::HagedornRenderer(const GL::Camera& _cam) noexcep
         "#version 430 core\n"
         "in vec2 uv;\n"
         "out vec4 fragColor;\n"
-        "layout (location = 2) uniform sampler2D tex;\n"
+        "layout(std430, binding = 2) readonly buffer tex {\n"
+	        "float vals[];\n"
+        "};\n"
+        "layout (location = 3) uniform vec2 bounds;\n"
         "void main() {\n"
-            "fragColor = vec4(texture(tex, uv));\n"
+            "const int idx = 4*(int(gl_FragCoord.x) + int(gl_FragCoord.y) * int(bounds.x));\n"
+            "fragColor = vec4(vals[idx], vals[idx+1], vals[idx+2], vals[idx+3]);\n"
         "};\n";
 
     shader.compile("", vertex, "", frag);
 
     // -------------- BUFFER --------------
     buffer.resize(4 * _cam.width * _cam.height);
-    std::memset(buffer.data(), 0, buffer.size());
+    colbuffer.resize(4 * _cam.width * _cam.height);
+    //std::memset(buffer.data(), 0, buffer.size() * sizeof(T));
 
     // -------------- CAMERA --------------
     camPos = { _cam.position.x, _cam.position.y, _cam.position.z };
@@ -381,123 +395,136 @@ inline GL::HagedornRenderer<T>::HagedornRenderer(const GL::Camera& _cam) noexcep
 
 template<class T>
 inline void GL::HagedornRenderer<T>::start() noexcept{
-    work = std::async(std::launch::async, [&](){
-        #pragma omp parallel 
-        {
-            #pragma omp for
-            for(int64_t x = 0; x < width; ++x){
-                for(int64_t y = 0; y < height; ++y){
 
-                    using Vector = Eigen::Matrix<T, -1, 1>;
+    renderer.start(1, width, height, [&](size_t _threat_index, size_t _x, size_t _y){
 
-                    const size_t steps = 2000;
-                    Vector r_o, r_d;
-                    
+        //std::cout << _index << std::endl;
 
-                    const Eigen::Matrix<T, 2, 1> bounds = Eigen::Matrix<T, 2, 1>(T(width), T(height));
-                    const Eigen::Matrix<T, 2, 1> uv = Eigen::Matrix<T, 2, 1>(T(x), T(y));
-                    const Eigen::Matrix<T, 2, 1> pp = (2. * (uv) - bounds) / bounds(1); //eye ray
+        using Vector = Eigen::Matrix<T, -1, 1>;
+        const size_t steps = 1000;
+        Vector r_o, r_d;
 
-                    {
-                        std::lock_guard<std::mutex> lock(mutex);
-                        r_o = camPos;
-                        r_d = ( pp(0)*right + pp(1)*up + 1.5*dir ).normalized();
+        const Eigen::Matrix<T, 2, 1> bounds = Eigen::Matrix<T, 2, 1>(T(width), T(height));
+        const Eigen::Matrix<T, 2, 1> uv = Eigen::Matrix<T, 2, 1>(T(_x), T(_y));
+        const Eigen::Matrix<T, 2, 1> pp = (2. * uv - bounds) / bounds(1);  //eye ray
+
+        r_o = camPos;
+        r_d = (pp(0) * right + pp(1) * up + 1.5 * dir).normalized();
+
+        T maxDist = 25.;
+        const T dS = maxDist / T(steps);
+
+        //Eigen::array<Eigen::Index, -1> _dims (file);
+
+        Eigen::Matrix<T, 3, 1> col;
+        col.setZero();
+
+        T t = 0.;
+        
+        //intersect bounding box for early out
+        const bool hit = Math::intersect(r_o, r_d, lower, upper, maxDist, t);
+        if(!hit) return;  
+            
+        T transmission = 1.;
+        
+        for (size_t s = 0; s < steps; ++s) {
+            const Vector pos = r_o + t * r_d;
+            t += dS;
+
+            if(t > maxDist || 
+                pos(0) < lower(0) || 
+                pos(1) < lower(1) ||
+                pos(2) < lower(2) ||
+                pos(0) > upper(0) ||
+                pos(1) > upper(1) ||
+                pos(2) > upper(2))
+                return;
+
+            //calculate basis function
+            const std::vector<std::complex<T>> phis = Math::Hagedorn::compute(
+                pos,
+                0.1,
+                file.k_max,
+                file.p[0],
+                file.q[0],
+                file.Q[0],
+                file.P[0]);
+
+                //calculate linear combination
+                
+                std::complex<T> res (0., 0.);
+                for(size_t i = 0; i < file.Ks.size(); ++i){
+                    const auto& index = file.Ks[i];
+
+                    //flatten multi-index
+                    Eigen::Index mi = index[0];
+                    for(size_t d = 0; d < index.rows(); ++d){
+                        mi *= file.k_max(d);
+                        mi += index[d];
                     }
 
-                    T maxDist = 10.;
-                    const T dS = maxDist / T(steps);
+                    res += file.c_0[t](i) * phis[mi];
 
-                    //Eigen::array<Eigen::Index, -1> _dims (file);
+                } 
 
-                    Eigen::Matrix<T, 3, 1> col;
-                    col.setZero();
+                //compute color
+                const auto hsv = GL::c_to_HSV(res);
+                transmission *= std::exp(hsv(2) * dS);
+                const auto rgb = GL::HSV_to_RGB(hsv);
+                col += transmission * rgb;
 
-                    T transmission = 0.;
-                    for(size_t s = 0; s < steps; ++s){
-                        
-
-                        Vector pos = r_o + steps * dS * r_d;
-
-                        //calculate basis function
-                        const std::vector<std::complex<T>> phis = Math::Hagedorn::compute(
-                            pos,
-                            0.1,
-                            file.k_max,
-                            file.p[0],
-                            file.q[0],
-                            file.Q[0],
-                            file.P[0]
-                        );
-                        
-
-                        //calculate linear combination
-                        
-                        std::complex<T> res (0., 0.);
-                        for(size_t i = 0; i < file.Ks.size(); ++i){
-                            const auto& index = file.Ks[i];
-
-                            //flatten multi-index
-                            Eigen::Index mi = index[0];
-                            for(size_t d = 0; d < index.rows(); ++d){
-                                mi *= file.k_max(d);
-                                mi += index[d];
-                            }
-
-                            res += file.c_0[t](i) * phis[mi];
-
-                        }
-                        
-
-                        //compute color
-                        const auto hsv = GL::c_to_HSV(res);
-                        transmission *= std::exp(hsv(2) * dS);
-                        const auto rgb = GL::HSV_to_RGB(hsv);
-                        col += transmission * rgb;
-
-                    }
-               
-                    std::lock_guard<std::mutex> lock(mutex);
-                    buffer[x*y](0) *= col(0);
-                    buffer[x*y](1) *= col(1);
-                    buffer[x*y](2) *= col(2);
-                    buffer[x*y](3) = transmission;
-
-                    colbuffer[x*y](0) *= float(col(0));
-                    colbuffer[x*y](1) *= float(col(1));
-                    colbuffer[x*y](2) *= float(col(2));
-                    colbuffer[x*y](3) = float(transmission);
-
-                }
-            }
+                if(renderer.isShutdown() || renderer.isRestart(_threat_index))
+                    return;
         }
+        
+
+        const size_t idx = _y * width + _x;
+
+        buffer[4 * idx] = col(0);
+        buffer[4 * idx + 1] = col(1);
+        buffer[4 * idx + 2] = col(2);
+        buffer[4 * idx + 3] = transmission;
+
+        colbuffer[4 * idx] = float(col(0));
+        colbuffer[4 * idx + 1] = float(col(1));
+        colbuffer[4 * idx + 2] = float(col(2));
+        colbuffer[4 * idx + 3] = float(transmission);
     });
+
 };
 
 template<class T>
-inline void GL::HagedornRenderer<T>::render(const GL::Camera& _cam) noexcept{
+inline void GL::HagedornRenderer<T>::render(const GL::Camera& _cam) noexcept {
     {
-        std::lock_guard<std::mutex> lock(mutex);
-        isReset = _cam.hasMoved;
-
-        if(isReset){
-            std::memset(colbuffer.data(), 0, colbuffer.size() * sizeof(float));
-            std::memset(buffer.data(), 0, buffer.size() * sizeof(T));
+        if(_cam.hasMoved){   
             camPos = { _cam.position.x, _cam.position.y, _cam.position.z };
             dir = { _cam.dir.x, _cam.dir.y, _cam.dir.z };
             up = { _cam.up.x, _cam.up.y, _cam.up.z };
             right = { _cam.right.x, _cam.right.y, _cam.right.z };
+            std::lock_guard<std::mutex> lock(renderer.getMutex());
+            std::memset(colbuffer.data(), 0, colbuffer.size() * sizeof(float));
+            std::memset(buffer.data(), 0, buffer.size() * sizeof(T));
+            renderer.restart();
         }
 
         //upload to buffer
-        std::memcpy(tex_buffer[index], colbuffer.data(), colbuffer.size());
+        std::memcpy(tex_buffer[index], colbuffer.data(), colbuffer.size() * sizeof(float));
+        /*
+        for(size_t i = 0; i < width * height; ++i){
+            tex_buffer[index][4*i] = 1.f;
+            tex_buffer[index][4*i+1] = 1.f;
+            tex_buffer[index][4*i+2] = 0.f;
+            tex_buffer[index][4*i+3] = 1.f;
+        }
+        */
+
     }
 
     //render tex
     glDisable(GL_DEPTH_TEST);
     shader.bind();
-    glUniform1i(2, 0);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, TEX[index]);
+    glUniform2f(3, float(_cam.width), float(_cam.height));
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, TEX[index]);
     glBindVertexArray(VAO[index]);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0);
     glBindVertexArray(0);
@@ -509,7 +536,7 @@ inline void GL::HagedornRenderer<T>::render(const GL::Camera& _cam) noexcept{
 
 template<class T>
 inline void GL::HagedornRenderer<T>::stop() noexcept{
-
+    renderer.stop();
 };
 
 #endif /* GL_HPP */

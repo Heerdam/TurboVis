@@ -247,43 +247,76 @@ namespace GL {
     };//HagedornRenderer
 
     template <class T>
-    [[nodiscard]] Eigen::Matrix<T, 3, 1> c_to_HSV(const std::complex<T>& /*_c*/) noexcept;
+    [[nodiscard]] Eigen::Matrix<T, 3, 1> c_to_HSL(const std::complex<T>& /*_c*/) noexcept;
 
     template <class T>
-    [[nodiscard]] Eigen::Matrix<T, 3, 1> HSV_to_RGB(const Eigen::Matrix<T, 3, 1>& /*_hsv*/) noexcept;
+    [[nodiscard]] Eigen::Matrix<T, 3, 1> HSL_to_RGB_rad(const Eigen::Matrix<T, 3, 1>& /*_hsv*/) noexcept;
+
+    template <class T>
+    [[nodiscard]] Eigen::Matrix<T, 3, 1> HSL_to_RGB_deg(const Eigen::Matrix<T, 3, 1>& /*_hsv*/) noexcept;
 
 }  // namespace GL
 
 
 template <class T>
-inline Eigen::Matrix<T, 3, 1> GL::c_to_HSV(const std::complex<T>& _c) noexcept {
+inline Eigen::Matrix<T, 3, 1> GL::c_to_HSL(const std::complex<T>& _c) noexcept {
     using Vector = Eigen::Matrix<T, 3, 1>;
     const T phase = std::arg(_c);
     Vector hsv(0.5 * std::fmod(phase + 2. * M_PI, 2. * M_PI) / M_PI, 1., 1.);
     const std::complex<T> modulus = std::abs(_c);
+
     //lightness
     hsv(2) = 2. * std::atan2(modulus.real(), 1.) / M_PI;
+
     //saturation
     const T l = hsv(2);
     hsv(1) = (l <= 0.5) ? 2 * l : 2. * (1. - l);
+    
     return hsv;
 }; //c_to_HSV
 
+/*
+    h: [0, 2pi]
+    s: [0, 1]
+    l: [0, 1]
+    rgb: [0, 1]
+*/
 template <class T>
-inline Eigen::Matrix<T, 3, 1> GL::HSV_to_RGB(const Eigen::Matrix<T, 3, 1>& _hsv) noexcept {
-    Eigen::Matrix<T, 4, 1> K (1., 2. / 3., 1. / 3., 3.);
+inline Eigen::Matrix<T, 3, 1> GL::HSL_to_RGB_rad(const Eigen::Matrix<T, 3, 1>& _hsv) noexcept {
+    return HSL_to_RGB_deg<T>( { _hsv(0) * T( M_PI / 180.), _hsv(1), _hsv(2) } );
+}; //HSV_to_RGB
 
-    Eigen::Matrix<T, 3, 1> p;
-    std::modf((_hsv(0) + K(0)) * 6. - K(3), &p(0));
-    std::modf((_hsv(0) + K(1)) * 6. - K(3), &p(1));
-    std::modf((_hsv(0) + K(2)) * 6. - K(3), &p(2));
-    p.cwiseAbs();
+/*
+    h: [0, 360]
+    s: [0, 1]
+    l: [0, 1]
+    rgb: [0, 1]
+*/
+template <class T>
+inline Eigen::Matrix<T, 3, 1> GL::HSL_to_RGB_deg(const Eigen::Matrix<T, 3, 1>& _hsv) noexcept {
 
-    Eigen::Matrix<T, 3, 1> out;
-    out(0) = _hsv(2) * std::lerp(K(0), std::clamp(p(0) - K(0), 0., 1.), _hsv(1));
-    out(1) = _hsv(2) * std::lerp(K(0), std::clamp(p(1) - K(0), 0., 1.), _hsv(1));
-    out(2) = _hsv(2) * std::lerp(K(0), std::clamp(p(2) - K(0), 0., 1.), _hsv(1));
-    return out;
+    const T H = _hsv(0);
+    const T S = _hsv(1);
+    const T L = _hsv(2);
+
+    assert(0. <= H && H <= 360.);
+    assert(0. <= S && S <= 1.);
+    assert(0. <= L && L <= 1.);
+    
+    const T C = ( T(1.) - std::abs( T(2.) * L - T(1.) ) ) * S;
+    const T X = C * (T(1.) - std::abs(std::fmod(H / T(60.), T(2.)) - T(1.)));
+    const T m = L - C * T(0.5);
+
+    switch(size_t(H / 60.)){
+        case 0: return { C + m, X + m, m};
+        case 1: return { X + m, C + m, m};
+        case 2: return { m, C + m, X + m};
+        case 3: return { m, X + m, C + m};
+        case 4: return { X + m, m, C + m};
+        case 5: return { C + m, m, X + m};
+        default: return { 0., 0., 0.};
+    }
+
 }; //HSV_to_RGB
 
 template<class T>
@@ -469,9 +502,9 @@ inline void GL::HagedornRenderer<T>::start() noexcept{
                     } 
 
                     //compute color
-                    const auto hsv = GL::c_to_HSV(res);
+                    const auto hsv = GL::c_to_HSL(res);
                     transmission *= std::exp(hsv(2) * dS);
-                    const auto rgb = GL::HSV_to_RGB(hsv);
+                    const auto rgb = GL::HSL_to_RGB_deg(hsv);
                     col += transmission * rgb;
 
                     if(renderer.isShutdown() || renderer.isRestart(_threat_index))

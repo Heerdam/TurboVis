@@ -19,8 +19,7 @@ endif()
 
 include(FetchContent)
 
-add_executable(tv
-	"src/main.cpp"
+set(TV_FILES	
 	"src/data.cpp"
 	"src/gl.cpp"
 	"src/gui.cpp"
@@ -28,6 +27,11 @@ add_executable(tv
 	"src/util.cpp"
 	"src/camera.cpp"
 	"src/state.cpp"
+)
+
+add_executable(tv
+	"${TV_FILES}"
+	"src/main.cpp"
 )
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
@@ -198,58 +202,29 @@ endif()
 
 #if(TURBOVIS_BUILD_TESTS)
 
-# ------------------ GnuPlot ------------------
-	message(STATUS "Fetching gnuplot...")
+	# ------------------ CATCH2 ------------------
+	message(STATUS "Fetching Catch2...")
 	FetchContent_Declare(
-		gp
-		GIT_REPOSITORY https://github.com/sciplot/sciplot.git
-		GIT_SHALLOW TRUE
-		GIT_TAG v0.2.2
+			Catch2 
+			GIT_REPOSITORY      https://github.com/catchorg/Catch2.git
+			GIT_TAG             v2.13.6
+			GIT_SHALLOW	        TRUE
 	)
 
-	option(SCIPLOT_BUILD_EXAMPLES "Build examples" OFF)
-	option(SCIPLOT_BUILD_TESTS "Build tests" OFF)
-	option(SCIPLOT_BUILD_DOCS "Build documentation" OFF)
+	option(CATCH_INSTALL_DOCS "Install documentation alongside library" OFF)
+	option(CATCH_INSTALL_EXTRAS "Install extras alongside library" OFF)
+	FetchContent_MakeAvailable(Catch2)
 
-	FetchContent_GetProperties(gp)
-	if(NOT gp_POPULATED)
-		FetchContent_Populate(gp)
-		add_subdirectory("${gp_SOURCE_DIR}" "${gp_BINARY_DIR}")
-	endif()	
+	# ------------------ Target ------------------
+	add_executable( tv_tests "tests/main.cpp" "${TV_FILES}" )
 
-	# ------------------ Targets ------------------
-	add_executable(VQ tests/VQ/main.cpp	)
-	add_executable(SHAPES tests/SHAPES/main.cpp	)
-	add_executable(PCA_STATIC tests/PCA_STATIC/main.cpp	)
-	add_executable(VPM tests/VPM/main.cpp	)
-
-	#VQ
-	target_include_directories(VQ PUBLIC "${EIGEN3_INCLUDE_DIR}")
-	target_include_directories(VQ PUBLIC "${imgui_SOURCE_DIR}")
-
-	#SHAPES
-	target_include_directories(SHAPES PUBLIC "${EIGEN3_INCLUDE_DIR}")
-	target_include_directories(SHAPES PUBLIC "${imgui_SOURCE_DIR}")
-	target_include_directories(SHAPES PUBLIC "${lodepng_SOURCE_DIR}")
-
-	#PCA_STATIC
-	target_include_directories(PCA_STATIC PUBLIC "${EIGEN3_INCLUDE_DIR}")
-	target_include_directories(PCA_STATIC PUBLIC "${imgui_SOURCE_DIR}")
-
-	#VPM
-	target_include_directories(VPM PUBLIC "${EIGEN3_INCLUDE_DIR}")
-	target_include_directories(VPM PUBLIC "${imgui_SOURCE_DIR}")
-	target_include_directories(VPM PUBLIC "${lodepng_SOURCE_DIR}")
+	target_include_directories( tv_tests PUBLIC "${eigen3_SOURCE_DIR}" )
+	target_include_directories( tv_tests PUBLIC "${imgui_SOURCE_DIR}" )
+	target_include_directories( tv_tests PUBLIC "${lodepng_SOURCE_DIR}" )
 
 	if (MSVC)
-		target_link_libraries(VQ "${TV_LIBS}" sciplot )
-		target_link_libraries(SHAPES "${TV_LIBS}" sciplot )
-		target_link_libraries(PCA_STATIC "${TV_LIBS}" sciplot )
-		target_link_libraries(VPM "${TV_LIBS}" sciplot )
+		target_link_libraries( tv_tests "${TV_LIBS}" Catch2 )
 	else()
-		target_link_libraries(VQ "${TV_LIBS_LINUX}" sciplot )
-		target_link_libraries(SHAPES "${TV_LIBS_LINUX}" sciplot )
-		target_link_libraries(PCA_STATIC "${TV_LIBS_LINUX}" sciplot )
-		target_link_libraries(VPM "${TV_LIBS_LINUX}" sciplot )
+		target_link_libraries( tv_tests "${TV_LIBS_LINUX}" Catch2 )
 	endif()
 #endif()

@@ -420,63 +420,64 @@ inline void GL::HagedornRenderer<T>::start() noexcept{
         col.setZero();
 
         T t = 0.;
+        T transmission = 1.;
         
         //intersect bounding box for early out
         const bool hit = Math::intersect(r_o, r_d, lower, upper, maxDist, t);
-        if(!hit) return;  
-            
-        T transmission = 1.;
-        
-        for (size_t s = 0; s < steps; ++s) {
-            const Vector pos = r_o + t * r_d;
-            t += dS;
+        if(!hit){
+            col(0) = col(1) = col(2) = 0.1;
+        } else {   
+  
+            for (size_t s = 0; s < steps; ++s) {
+                const Vector pos = r_o + t * r_d;
+                t += dS;
 
-            if(t > maxDist || 
-                pos(0) < lower(0) || 
-                pos(1) < lower(1) ||
-                pos(2) < lower(2) ||
-                pos(0) > upper(0) ||
-                pos(1) > upper(1) ||
-                pos(2) > upper(2))
-                return;
-
-            //calculate basis function
-            const std::vector<std::complex<T>> phis = Math::Hagedorn::compute(
-                pos,
-                0.1,
-                file.k_max,
-                file.p[0],
-                file.q[0],
-                file.Q[0],
-                file.P[0]);
-
-                //calculate linear combination
-                
-                std::complex<T> res (0., 0.);
-                for(size_t i = 0; i < file.Ks.size(); ++i){
-                    const auto& index = file.Ks[i];
-
-                    //flatten multi-index
-                    Eigen::Index mi = index[0];
-                    for(size_t d = 0; d < index.rows(); ++d){
-                        mi *= file.k_max(d);
-                        mi += index[d];
-                    }
-
-                    res += file.c_0[t](i) * phis[mi];
-
-                } 
-
-                //compute color
-                const auto hsv = GL::c_to_HSV(res);
-                transmission *= std::exp(hsv(2) * dS);
-                const auto rgb = GL::HSV_to_RGB(hsv);
-                col += transmission * rgb;
-
-                if(renderer.isShutdown() || renderer.isRestart(_threat_index))
+                if(t > maxDist || 
+                    pos(0) < lower(0) || 
+                    pos(1) < lower(1) ||
+                    pos(2) < lower(2) ||
+                    pos(0) > upper(0) ||
+                    pos(1) > upper(1) ||
+                    pos(2) > upper(2))
                     return;
-        }
-        
+
+                //calculate basis function
+                const std::vector<std::complex<T>> phis = Math::Hagedorn::compute(
+                    pos,
+                    0.1,
+                    file.k_max,
+                    file.p[0],
+                    file.q[0],
+                    file.Q[0],
+                    file.P[0]);
+
+                    //calculate linear combination
+                    
+                    std::complex<T> res (0., 0.);
+                    for(size_t i = 0; i < file.Ks.size(); ++i){
+                        const auto& index = file.Ks[i];
+
+                        //flatten multi-index
+                        Eigen::Index mi = index[0];
+                        for(size_t d = 0; d < index.rows(); ++d){
+                            mi *= file.k_max(d);
+                            mi += index[d];
+                        }
+
+                        res += file.c_0[t](i) * phis[mi];
+
+                    } 
+
+                    //compute color
+                    const auto hsv = GL::c_to_HSV(res);
+                    transmission *= std::exp(hsv(2) * dS);
+                    const auto rgb = GL::HSV_to_RGB(hsv);
+                    col += transmission * rgb;
+
+                    if(renderer.isShutdown() || renderer.isRestart(_threat_index))
+                        return;
+            }
+        }        
 
         const size_t idx = _y * width + _x;
 

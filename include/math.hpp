@@ -174,7 +174,7 @@ inline Eigen::Matrix<std::complex<T>, -1, 1> Math::Hagedorn::Detail::phi (
         }
 
         Index k_1 = _k;
-        k_1(j) -= 1;
+        k_1(j) = std::max(k_1(j) - 1, 0ll);
         const Eigen::Index ii = Detail::index(k_1, _k);
         kp(j) = std::sqrt(_k(j)) * _phis[ii];  //todo index
     }
@@ -191,10 +191,10 @@ template<class Vec, class T>
 bool Math::intersect(const Vec& _r_o, const Vec& _r_d, const Vec& _low, const Vec& _high, T _tmax, T& _t) noexcept {
     _t = -std::numeric_limits<T>::infinity();
     for (size_t i = 0; i < _r_o.size(); ++i) {
-        if (std::abs(_r_d[i]) < std::numeric_limits<T>::epsilon())
+        if (std::abs(_r_d[i]) < std::numeric_limits<T>::epsilon()){
             if (_r_o[i] < _low[i] || _r_o[i] > _high[i]) 
                 return false;
-        else {
+        } else {
             const T ood = 1. / _r_d[i];
             T t1 = (_low[i] - _r_o[i]) * ood;
             T t2 = (_high[i] - _r_o[i]) * ood;

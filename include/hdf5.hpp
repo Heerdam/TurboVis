@@ -242,6 +242,7 @@ inline IO::File<double> IO::getExample() noexcept{
         //step 1
         Eigen::Matrix<std::complex<double>, -1, 1> c_0(13);
         c_0.setZero();
+        c_0(0) = std::complex<double>(1., 0.);
         out.c_0.push_back(std::move(c_0));
     }
     {

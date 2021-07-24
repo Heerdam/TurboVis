@@ -9,7 +9,8 @@ namespace Math {
 
         namespace Detail {
 
-            [[nodiscard]] size_t index(const Eigen::Matrix<Eigen::Index, -1, 1>& _i, const Eigen::Matrix<Eigen::Index, -1, 1>& _e) noexcept;
+            // [x_n, ..., x_2, x_1] -> N
+            [[nodiscard]] Eigen::Index index(const Eigen::Matrix<Eigen::Index, -1, 1>& _i, const Eigen::Matrix<Eigen::Index, -1, 1>& _e) noexcept;
 
             template<class T>
             [[nodiscard]] std::complex<T> phi_0 (
@@ -64,9 +65,9 @@ inline std::vector<std::complex<T>> Math::Hagedorn::compute (
 
     const size_t dim = _k.rows();
 
-    size_t size = _k(0);
+    size_t size = _k(0) + 1;
     for (size_t i = 1; i < _k.size(); ++i)
-        size *= _k(i);
+        size *= (_k(i)+1);
 
     std::vector<std::complex<T>> phis;
     phis.resize(size);
@@ -88,7 +89,7 @@ inline std::vector<std::complex<T>> Math::Hagedorn::compute (
     bool first = true;
 
     while (true) {
-        for (index(dim - 1) = 0; index(dim - 1) <= _k(dim - 1); ++index(dim - 1)) {
+        for (index(dim-1) = 0; index(dim-1) <= _k(dim-1); ++index(dim-1)) { 
             if (first) {
                 first = false;
                 const auto phi0 = Detail::phi_0(_x, _epsilon, _p, _q, _Q, _P);
@@ -97,11 +98,12 @@ inline std::vector<std::complex<T>> Math::Hagedorn::compute (
             }
 
             const auto phi = Detail::phi(phis, _k, index, x_q, Q_1_Qc);
+            //std::cout << phi << std::endl;
 
             for (size_t d = 0; d < dim; ++d) {
                 Index ni = index;
                 ni(d) += 1;
-                const size_t ii = Detail::index(ni, _k);
+                const Eigen::Index ii = Detail::index(ni, _k);
                 phis[ii] = phi(d);
             }
         }
@@ -123,9 +125,14 @@ inline std::vector<std::complex<T>> Math::Hagedorn::compute (
     return phis;
 }; //compute
 
-inline size_t Math::Hagedorn::Detail::index(const Eigen::Matrix<Eigen::Index, -1, 1>& _i, const Eigen::Matrix<Eigen::Index, -1, 1>& _e) noexcept {
-    size_t out = _i(0);
-    for (size_t k = 1; k < _e.size(); ++k) {
+/*
+    i: index
+    e: extends, # units
+*/
+inline Eigen::Index Math::Hagedorn::Detail::index(const Eigen::Matrix<Eigen::Index, -1, 1>& _i, const Eigen::Matrix<Eigen::Index, -1, 1>& _e) noexcept {
+    assert(_i.size() == _e.size());
+    Eigen::Index out = _i(0);
+    for (Eigen::Index k = 1; k < _i.size(); ++k) {
         out *= _e(k);
         out += _i(k);
     }
@@ -140,10 +147,20 @@ inline std::complex<T> Math::Hagedorn::Detail::phi_0 (
     const Eigen::Matrix<std::complex<T>, -1, 1>& _q,
     const Eigen::Matrix<std::complex<T>, -1, -1>& _Q,
     const Eigen::Matrix<std::complex<T>, -1, -1>& _P) noexcept {
-    const size_t dims = _x.rows();
+
+    
     const auto xq = _x - _q;
-    const auto e2 = _epsilon * _epsilon;
-    const auto v1 = std::pow(M_PI * e2, -dims / 4.) * std::pow(_Q.determinant(), -0.5);
+    const auto det_Q = _Q.determinant();
+    const auto v1_a = std::pow(det_Q, -0.5);
+
+    const size_t dims = _x.rows();
+    const T PI = M_PI;
+    const T e2 = _epsilon * _epsilon;
+    const T u = -T(dims) / 4;
+    const T l = PI * e2;
+    const auto v1_b = std::pow(l, u);
+
+    const auto v1 = v1_a * v1_b;
     const std::complex<T> v2 = (std::complex<T>(0., 1.) / (2. * e2) * xq.transpose() * _P * _Q.inverse() * xq);
     const std::complex<T> v3 = std::complex<T>(0., 1.) / e2 * _p.transpose() * xq;
     return v1 * std::exp(v2 + v3);
@@ -163,20 +180,25 @@ inline Eigen::Matrix<std::complex<T>, -1, 1> Math::Hagedorn::Detail::phi (
 
     const size_t dim = _k.rows();
 
-    Vector res;
+    //std::cout << _index << std::endl << std::endl << _k << std::endl;
 
-    Vector kp;
+
+    Vector res (3);
+
+    Vector kp (3);
     for (size_t j = 0; j < dim; ++j) {
         //early out
-        if (_k(j) - 1 < 0) {
+        if (_index(j) - 1 < 0) {
             kp(j) = 0;
             continue;
         }
 
-        Index k_1 = _k;
+        Index k_1 = _index;
         k_1(j) = std::max(k_1(j) - 1, 0ll);
+        //std::cout << _index << std::endl << k_1 << std::endl;
+        //std::cout << _k << std::endl << std::endl;
         const Eigen::Index ii = Detail::index(k_1, _k);
-        kp(j) = std::sqrt(_k(j)) * _phis[ii];  //todo index
+        kp(j) = std::sqrt(_index(j)) * _phis[ii];  
     }
 
     const Eigen::Index ii = Detail::index(_index, _k);

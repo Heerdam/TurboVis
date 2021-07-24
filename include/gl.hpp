@@ -223,7 +223,7 @@ namespace GL {
 
         Eigen::Matrix<T, -1, 1> lower, upper;
 
-        ShaderProgram shader;
+        ShaderProgram s_buffer, s_preview;
         GLuint VAO[2], TEX[2];
         float* tex_buffer[2];
         int64_t index = 0;
@@ -271,7 +271,7 @@ inline Eigen::Matrix<T, 3, 1> GL::c_to_HSL(const std::complex<T>& _c) noexcept {
     //saturation
     const T l = hsv(2);
     hsv(1) = (l <= 0.5) ? 2 * l : 2. * (1. - l);
-    
+
     return hsv;
 }; //c_to_HSV
 
@@ -387,33 +387,169 @@ inline GL::HagedornRenderer<T>::HagedornRenderer(const GL::Camera& _cam) noexcep
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
-    // -------------- SHADER --------------
+    // -------------- SHADERS --------------
 
-    const char* vertex =
-        "#version 430 core\n"
-        "layout (location = 0) in vec2 pos;\n"
-        "layout (location = 1) in vec2 uvs;\n"
-        "out vec2 uv;\n"
-        "void main() {\n"
-            "uv = uvs;\n"
-            "gl_Position = vec4(pos.xy, 0.f, 1.f);\n"
-        "};\n";
+    { //draw buffer shader
+        const char* vertex =
+            "#version 430 core\n"
+            "layout (location = 0) in vec2 pos;\n"
+            "layout (location = 1) in vec2 uvs;\n"
+            "out vec2 uv;\n"
+            "void main() {\n"
+            "   uv = uvs;\n"
+            "   gl_Position = vec4(pos.xy, 0.f, 1.f);\n"
+            "};\n";
 
-    const char* frag =
-        "#version 430 core\n"
-        "in vec2 uv;\n"
-        "out vec4 fragColor;\n"
-        "layout(std430, binding = 2) readonly buffer tex {\n"
-	        "float vals[];\n"
-        "};\n"
-        "layout (location = 3) uniform vec2 bounds;\n"
-        "void main() {\n"
-            "const int idx = 4*(int(gl_FragCoord.x) + int(gl_FragCoord.y) * int(bounds.x));\n"
-            "fragColor = vec4(vals[idx], vals[idx+1], vals[idx+2], vals[idx+3]);\n"
-        "};\n";
+        const char* frag =
+            "#version 430 core\n"
+            "in vec2 uv;\n"
+            "out vec4 fragColor;\n"
+            "layout(std430, binding = 2) readonly buffer tex {\n"
+            "   float vals[];\n"
+            "};\n"
+            "layout (location = 3) uniform vec2 bounds;\n"
+            "void main() {\n"
+            "   const int idx = 4*(int(gl_FragCoord.x) + int(gl_FragCoord.y) * int(bounds.x));\n"
+            "   fragColor = vec4(vals[idx], vals[idx+1], vals[idx+2], vals[idx+3]);\n"
+            "};\n";
 
-    shader.compile("", vertex, "", frag);
+        s_buffer.compile("", vertex, "", frag);
+    }
+    { //box preview shader
+        const char* vertex = 
+            "#version 430 core\n"
+            "layout (location = 0) in vec3 pos;\n"
+            "layout (location = 1) uniform mat4 cam;\n"
+            "void main() {\n"
+            "   gl_Position = cam * vec4(pos.xyz, 1.f);\n"
+            "};\n";
 
+        const char* geo =
+            "#version 430 core\n"
+            "layout(points) in;"
+            "layout(triangles, max_vertices=36) out;"
+            "layout (location = 2) uniform vec3 l;\n"
+            "layout (location = 3) uniform vec3 h;\n"
+            "void main() {\n"
+            "   const float x = h.x - l.x;"
+            "   const float y = h.y - l.y;"
+            "   const float z = h.z - l.z;"
+            // side 1
+            // tria 1
+            "   gl_Position = l;"
+            "   EmitVertex();"
+            "   gl_Position = vec3(h.x, h.y, l.z);"
+            "   EmitVertex();"
+            "   gl_Position = vec3(h.x, l.y, h.z);"
+            "   EmitVertex();"
+            "   EndPrimitive();"
+            // tria 2
+            "   gl_Position = l;"
+            "   EmitVertex();"
+            "   gl_Position = vec3(h.x, l.y, l.z);"
+            "   EmitVertex();"
+            "   gl_Position = vec3(h.x, h.y, l.z);"
+            "   EmitVertex();"
+            "   EndPrimitive();"
+            // side 2
+            // tria 1
+            "   gl_Position = vec3(h.x, l.y, l.z);"
+            "   EmitVertex();"
+            "   gl_Position = h;"
+            "   EmitVertex();"
+            "   gl_Position = vec3(h.x, h.y, l.z);"
+            "   EmitVertex();"
+            "   EndPrimitive();"
+            // tria 2
+            "   gl_Position = vec3(h.x, l.y, l.z);"
+            "   EmitVertex();"
+            "   gl_Position = vec3(h.x, h.y, l.z);"
+            "   EmitVertex();"
+            "   gl_Position = h;"
+            "   EmitVertex();"
+            "   EndPrimitive();"
+            // side 3
+            // tria 1
+            "   gl_Position = vec3(l.x, h.y, l.z);"
+            "   EmitVertex();"
+            "   gl_Position = vec3(l.x, h.y, l.z);"
+            "   EmitVertex();"
+            "   gl_Position = h;"
+            "   EmitVertex();"
+            "   EndPrimitive();"
+            // tria 2
+            "   gl_Position = vec3(l.x, h.y, l.z);"
+            "   EmitVertex();"
+            "   gl_Position = h;"
+            "   EmitVertex();"
+            "   gl_Position = vec3(l.x, h.y, h.z);"
+            "   EmitVertex();"
+            "   EndPrimitive();"
+            /*
+            // side 4
+            // tria 1
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   EndPrimitive();"
+            // tria 2
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   EndPrimitive();"
+            // side 5
+            // tria 1
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   EndPrimitive();"
+            // tria 2
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   EndPrimitive();"
+            // side 6
+            // tria 1
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   EndPrimitive();"
+            // tria 2
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   gl_Position = vec3();"
+            "   EmitVertex();"
+            "   EndPrimitive();"
+            */
+            "};\n";
+
+        const char* frag = 
+            "#version 430 core\n";
+            "layout (location = 2) uniform vec4 col = vec4(1.f, 0.f, 0.f, 1.f);\n"
+            "out vec4 fragColor;\n"
+            "void main() {\n"
+            "   fragColor = col;"
+            "};\n";
+
+        s_preview.compile("", vertex, geo, frag);
+    }
     // -------------- BUFFER --------------
     buffer.resize(4 * _cam.width * _cam.height);
     colbuffer.resize(4 * _cam.width * _cam.height);
@@ -554,16 +690,26 @@ inline void GL::HagedornRenderer<T>::render(const GL::Camera& _cam) noexcept {
 
     }
 
+    s_preview.bind();
+    glUniform3fv(1, 1, lower.data());
+    glUniform3fv(2, 1, upper.data());
+    glBindVertexArray(VAO[index]);
+    glDrawElements(GL_POINTS, 1, GL_UNSIGNED_SHORT, (void*)0);
+    glBindVertexArray(0);
+    s_preview.unbind();
+
     //render tex
     glDisable(GL_DEPTH_TEST);
-    shader.bind();
+    s_buffer.bind();
     glUniform2f(3, float(_cam.width), float(_cam.height));
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, TEX[index]);
     glBindVertexArray(VAO[index]);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0);
     glBindVertexArray(0);
-    shader.unbind();
+    s_buffer.unbind();
     glEnable(GL_DEPTH_TEST);
+
+
 
     index = (index+1)%2;
 };

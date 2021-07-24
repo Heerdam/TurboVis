@@ -50,3 +50,5 @@ with h5py.File(hdf5file,'r') as f:
         print("Step {0}:\n".format(i), c)
         i += 1
         print("\n")
+
+    

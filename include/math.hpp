@@ -72,12 +72,6 @@ inline std::vector<std::complex<T>> Math::Hagedorn::compute (
     std::vector<std::complex<T>> phis;
     phis.resize(size);
 
-    Vector skjk(dim);
-    for (size_t i = 0; i < dim; ++i) {
-        const std::complex<T> ki(T(_k(i)) + 1., 0.);
-        skjk(i) = sqrt(ki);
-    }
-
     const Matrix Qi = _Q.inverse();
     const Vector x_q = std::sqrt(2. / (_epsilon * _epsilon)) * Qi * (_x - _q);
     const Matrix Q_1_Qc = Qi * _Q.conjugate();
@@ -121,6 +115,11 @@ inline std::vector<std::complex<T>> Math::Hagedorn::compute (
         }
         if (done) break;
     }
+
+    //for (size_t i = 0; i < dim; ++i) {
+        //const std::complex<T> ki(T(_k(i)) + 1., 0.);
+      //  phis(i) /= sqrt(ki);
+    //}
 
     return phis;
 }; //compute
@@ -182,10 +181,9 @@ inline Eigen::Matrix<std::complex<T>, -1, 1> Math::Hagedorn::Detail::phi (
 
     //std::cout << _index << std::endl << std::endl << _k << std::endl;
 
+    Vector res (dim);
 
-    Vector res (3);
-
-    Vector kp (3);
+    Vector kp (dim);
     for (size_t j = 0; j < dim; ++j) {
         //early out
         if (_index(j) - 1 < 0) {
@@ -204,9 +202,16 @@ inline Eigen::Matrix<std::complex<T>, -1, 1> Math::Hagedorn::Detail::phi (
     const Eigen::Index ii = Detail::index(_index, _k);
     const auto lhs = _x_q *_phis[ii];
     const auto rhs = _Q_1_Qc * kp;
-    const auto phi_1 = lhs - rhs;
+    auto phi_t = lhs - rhs;
 
-    return phi_1;
+    Vector phi (dim);
+    for(size_t i = 0; i < dim; ++i){
+        const T sk = std::sqrt(T(_index(i)) + 1.);
+        const std::complex<T> skc = std::complex<T>(sk, 0.);
+        phi(i) = phi_t(i) / skc;
+    }
+
+    return phi;
 };  //phi
 
 template<class Vec, class T>

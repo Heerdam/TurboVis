@@ -83,6 +83,20 @@ TEST_CASE( "rgb-hsl conversion", "UtilFunctions" ) {
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 255);
     }
+    {
+        const Color c = { 180. * (180. / M_PI), 1., 0.1 };
+        const Color c_rgb = GL::HSL_to_RGB_rad(c);
+        REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
+        REQUIRE(int(std::round(c_rgb(1) * 255)) == 51);
+        REQUIRE(int(std::round(c_rgb(2) * 255)) == 51);
+    }
+    {
+        const Color c = { 200. * (180. / M_PI), 0.5, 0.88 };
+        const Color c_rgb = GL::HSL_to_RGB_rad(c);
+        REQUIRE(int(std::round(c_rgb(0) * 255)) == 209);
+        REQUIRE(int(std::round(c_rgb(1) * 255)) == 230);
+        REQUIRE(int(std::round(c_rgb(2) * 255)) == 240);
+    }
 }
 
 TEST_CASE( "complex to hsl conversion", "UtilFunctions" ) {
@@ -90,7 +104,7 @@ TEST_CASE( "complex to hsl conversion", "UtilFunctions" ) {
     using Color = Eigen::Matrix<float, 3, 1>;
     
     std::complex<float> cn (0.f, 1.f);
-    Color col = GL::c_to_HSL(cn);
+    Color col = GL::c_to_HSL(10.f, cn);
     const Color c_rgb = GL::HSL_to_RGB_deg(col);
 
     //REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
@@ -231,6 +245,8 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
 
     const auto file = IO::getExample();
 
+    double error = 0.;
+
     for( size_t i = 0; i < 8; ++i){
         for(size_t t = 0; t < 4; ++t){
             const auto phis = Math::Hagedorn::compute(
@@ -243,19 +259,23 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
                 file.P[t]
             );
 
-            //calculate linear combination          
+            //calculate linear combination
             std::complex<double> res (0., 0.);
-
+ 
             for(size_t k = 0; k < file.Ks.size(); ++k){ 
                 const size_t idx = Math::Hagedorn::Detail::index(file.Ks[k], file.k_max);
-                //std::cout <<file.c_0[t](k) << std::endl;
                 res += file.c_0[t](k) * phis[idx];
             } 
 
-            std::cout << "R:" << res << " S:" << psis[i](t) << std::endl;
+            const double rl2 = std::abs(res);
+            error += (rl2*rl2);
+
+            std::cout << "R:" << res << " S:" << psis[i](t) << " error: (" << std::abs(psis[i](t).real() - res.real()) << ", " << std::abs(psis[i](t).imag() - res.imag()) << ")" << std::endl;
 
             //REQUIRE(res == psis[i](t));
         }
+
+        std::cout << "L2 error: " << std::sqrt(error)  << std::endl;
 
     }
 

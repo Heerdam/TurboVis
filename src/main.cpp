@@ -103,8 +103,30 @@ int main() {
 
     bool camKeys[] = {false, false, false};
 
+    // -------------- RENDERER --------------
+    //GL::ShapeRenderer shape (100);
+    GL::DepthBufferVisualizer depthr(camera);
+    //GL::RaymarchTester rayM;
+
+    //load file
+    const auto file = IO::getExample();
+    GL::HagedornRenderer<double> hager(camera);
+    hager.set(file);
+    hager.start();
+
+    GL::Uniforms uniforms;
+    //uniforms.low = Vec3(-1.f);
+
     Gui::InputMultiplexer::keyCallback([&](GLFWwindow* _window, int _key, int _scancode, int _action, int _mods)-> void {
-        //if(_key == GLFW_KEY_X)
+        if(_key == GLFW_KEY_X){
+            hager.steps = 100;
+            camera.hasMoved = true;
+        } 
+        if(_key == GLFW_KEY_Z){
+            hager.steps = 1;
+            camera.hasMoved = true;
+        } 
+
             //camKeys[0] = _action == GLFW_PRESS ? true :  _action == GLFW_RELEASE ? false : camKeys[0];
         //if(_key == GLFW_KEY_Y)
             //camKeys[1] = _action == GLFW_PRESS ? true :  _action == GLFW_RELEASE ? false : camKeys[1];
@@ -201,18 +223,7 @@ int main() {
         }
     });
 
-    //GL::ShapeRenderer shape (100);
-    GL::DepthBufferVisualizer depthr(camera);
-    //GL::RaymarchTester rayM;
 
-    //load file
-    const auto file = IO::getExample();
-    GL::HagedornRenderer<double> hager(camera);
-    hager.set(file);
-    hager.start();
-
-    GL::Uniforms uniforms;
-    //uniforms.low = Vec3(-1.f);
 
     while (!glfwWindowShouldClose(window)) {
         const double ctime = glfwGetTime();

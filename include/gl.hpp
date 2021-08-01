@@ -239,6 +239,9 @@ namespace GL {
         std::atomic<size_t> t;
 
     public:
+        std::atomic<size_t> steps = 1;
+
+    public:
         HagedornRenderer(const Camera& /*_cam*/) noexcept;
         void set(const IO::File<T>& /*_file*/) noexcept;
         void start() noexcept;
@@ -247,33 +250,26 @@ namespace GL {
     };//HagedornRenderer
 
     template <class T>
-    [[nodiscard]] Eigen::Matrix<T, 3, 1> c_to_HSL(const std::complex<T>& /*_c*/) noexcept;
+    [[nodiscard]] Eigen::Matrix<T, 3, 1> c_to_HSL(T /*_max*/, const std::complex<T>& /*_c*/) noexcept;
 
     template <class T>
-    [[nodiscard]] Eigen::Matrix<T, 3, 1> HSL_to_RGB_rad(const Eigen::Matrix<T, 3, 1>& /*_hsv*/) noexcept;
+    [[nodiscard]] Eigen::Matrix<T, 3, 1> HSL_to_RGB_rad(const Eigen::Matrix<T, 3, 1>& /*_hsl*/) noexcept;
 
     template <class T>
-    [[nodiscard]] Eigen::Matrix<T, 3, 1> HSL_to_RGB_deg(const Eigen::Matrix<T, 3, 1>& /*_hsv*/) noexcept;
+    [[nodiscard]] Eigen::Matrix<T, 3, 1> HSL_to_RGB_deg(const Eigen::Matrix<T, 3, 1>& /*_hsl*/) noexcept;
 
 }  // namespace GL
 
-
 template <class T>
-inline Eigen::Matrix<T, 3, 1> GL::c_to_HSL(const std::complex<T>& _c) noexcept {
-    using Vector = Eigen::Matrix<T, 3, 1>;
-    const T phase = std::arg(_c);
-    Vector hsv(0.5 * std::fmod(phase + 2. * M_PI, 2. * M_PI) / M_PI, 1., 1.);
-    const std::complex<T> modulus = std::abs(_c);
-
-    //lightness
-    hsv(2) = 2. * std::atan2(modulus.real(), 1.) / M_PI;
-
-    //saturation
-    const T l = hsv(2);
-    hsv(1) = (l <= 0.5) ? 2 * l : 2. * (1. - l);
-
-    return hsv;
-}; //c_to_HSV
+inline Eigen::Matrix<T, 3, 1> GL::c_to_HSL(T _max, const std::complex<T>& _c) noexcept {
+    const T H = std::clamp(std::abs(std::fmod(std::arg(_c), 2. * M_PI)), 0., 1.);
+    const T S = 1.;
+    const T L = std::clamp(std::abs(_max * std::atan(std::abs(_c)) / (0.5 * M_PI)), 0., 1.);
+    //const T z2 = std::pow(std::abs(_c), 2);
+    //const T L = std::clamp(_max * z2 / (1. + z2), 0., 1.);
+    //const T L = std::clamp(std::abs(_max * std::atan(std::abs(_c)) / (0.5 * M_PI)), 0., 1.);
+    return { H, S, L };
+}; //c_to_HSL
 
 /*
     h: [0, 2pi]
@@ -282,9 +278,9 @@ inline Eigen::Matrix<T, 3, 1> GL::c_to_HSL(const std::complex<T>& _c) noexcept {
     rgb: [0, 1]
 */
 template <class T>
-inline Eigen::Matrix<T, 3, 1> GL::HSL_to_RGB_rad(const Eigen::Matrix<T, 3, 1>& _hsv) noexcept {
-    return HSL_to_RGB_deg<T>( { _hsv(0) * T( M_PI / 180.), _hsv(1), _hsv(2) } );
-}; //HSV_to_RGB
+inline Eigen::Matrix<T, 3, 1> GL::HSL_to_RGB_rad(const Eigen::Matrix<T, 3, 1>& _hsl) noexcept {
+    return HSL_to_RGB_deg<T>( { _hsl(0) * T( M_PI / 180.), _hsl(1), _hsl(2) } );
+}; //HSL_to_RGB
 
 /*
     h: [0, 360]
@@ -293,16 +289,16 @@ inline Eigen::Matrix<T, 3, 1> GL::HSL_to_RGB_rad(const Eigen::Matrix<T, 3, 1>& _
     rgb: [0, 1]
 */
 template <class T>
-inline Eigen::Matrix<T, 3, 1> GL::HSL_to_RGB_deg(const Eigen::Matrix<T, 3, 1>& _hsv) noexcept {
+inline Eigen::Matrix<T, 3, 1> GL::HSL_to_RGB_deg(const Eigen::Matrix<T, 3, 1>& _hsl) noexcept {
 
-    const T H = _hsv(0);
-    const T S = _hsv(1);
-    const T L = _hsv(2);
+    const T H = _hsl(0);
+    const T S = _hsl(1);
+    const T L = _hsl(2);
 
     assert(0. <= H && H <= 360.);
     assert(0. <= S && S <= 1.);
     assert(0. <= L && L <= 1.);
-    
+
     const T C = ( T(1.) - std::abs( T(2.) * L - T(1.) ) ) * S;
     const T X = C * (T(1.) - std::abs(std::fmod(H / T(60.), T(2.)) - T(1.)));
     const T m = L - C * T(0.5);
@@ -317,7 +313,7 @@ inline Eigen::Matrix<T, 3, 1> GL::HSL_to_RGB_deg(const Eigen::Matrix<T, 3, 1>& _
         default: return { 0., 0., 0.};
     }
 
-}; //HSV_to_RGB
+}; //HSL_to_RGB
 
 template<class T>
 inline void GL::HagedornRenderer<T>::set(const IO::File<T>& _file) noexcept {
@@ -415,7 +411,7 @@ inline GL::HagedornRenderer<T>::HagedornRenderer(const GL::Camera& _cam) noexcep
 
         s_buffer.compile("", vertex, "", frag);
     }
-    { //box preview shader
+    if(false){ //box preview shader
         const char* vertex = 
             "#version 430 core\n"
             "layout (location = 0) in vec3 pos;\n"
@@ -565,12 +561,12 @@ inline GL::HagedornRenderer<T>::HagedornRenderer(const GL::Camera& _cam) noexcep
 template<class T>
 inline void GL::HagedornRenderer<T>::start() noexcept{
 
-    renderer.start(1, width, height, [&](size_t _threat_index, size_t _x, size_t _y){
+    renderer.start(8, width, height, [&](size_t _threat_index, size_t _x, size_t _y){
 
         //std::cout << _index << std::endl;
 
         using Vector = Eigen::Matrix<T, -1, 1>;
-        const size_t steps = 1000;
+        //const size_t steps = 2500;
         Vector r_o, r_d;
 
         const Eigen::Matrix<T, 2, 1> bounds = Eigen::Matrix<T, 2, 1>(T(width), T(height));
@@ -595,11 +591,18 @@ inline void GL::HagedornRenderer<T>::start() noexcept{
         const bool hit = Math::intersect(r_o, r_d, lower, upper, maxDist, t);
         if(!hit){
             col(0) = col(1) = col(2) = 0.1;
-        } else {   
+            transmission = 0.9;
+        } else if(steps == 1){   
+
+            col(0) = 1.f;
+            transmission = 0.;
+            
+        } else {
   
             for (size_t s = 0; s < steps; ++s) {
                 const Vector pos = r_o + t * r_d;
                 t += dS;
+
 
                 if(t > maxDist || 
                     pos(0) < lower(0) || 
@@ -608,12 +611,12 @@ inline void GL::HagedornRenderer<T>::start() noexcept{
                     pos(0) > upper(0) ||
                     pos(1) > upper(1) ||
                     pos(2) > upper(2))
-                    return;
+                    break;
 
                 //calculate basis function
                 const std::vector<std::complex<T>> phis = Math::Hagedorn::compute(
                     pos,
-                    0.1,
+                    1.,
                     file.k_max,
                     file.p[0],
                     file.q[0],
@@ -623,24 +626,18 @@ inline void GL::HagedornRenderer<T>::start() noexcept{
                     //calculate linear combination
                     
                     std::complex<T> res (0., 0.);
-                    for(size_t i = 0; i < file.Ks.size(); ++i){
-                        const auto& index = file.Ks[i];
-
-                        //flatten multi-index
-                        Eigen::Index mi = index[0];
-                        for(size_t d = 0; d < index.rows(); ++d){
-                            mi *= file.k_max(d);
-                            mi += index[d];
-                        }
-
-                        res += file.c_0[t](i) * phis[mi];
-
+                    for(Eigen::Index k = 0; k < file.Ks.size(); ++k){ 
+                        const Eigen::Index idx = Math::Hagedorn::Detail::index(file.Ks[k], file.k_max);
+                        res += file.c_0[0](k) * phis[idx];
                     } 
 
                     //compute color
-                    const auto hsv = GL::c_to_HSL(res);
-                    transmission *= std::exp(hsv(2) * dS);
-                    const auto rgb = GL::HSL_to_RGB_deg(hsv);
+                    const auto hsl = GL::c_to_HSL(2., res);
+                    transmission *= std::exp(-hsl(2) * dS);
+                    const auto rgb = GL::HSL_to_RGB_rad(hsl);
+                    
+
+
                     col += transmission * rgb;
 
                     if(renderer.isShutdown() || renderer.isRestart(_threat_index))
@@ -650,15 +647,18 @@ inline void GL::HagedornRenderer<T>::start() noexcept{
 
         const size_t idx = _y * width + _x;
 
+        //if(hit)
+            //std::cout << col(0) << ", " << col(1) << ", " << col(2) <<  ", " << transmission << std::endl;
+
         buffer[4 * idx] = col(0);
         buffer[4 * idx + 1] = col(1);
         buffer[4 * idx + 2] = col(2);
-        buffer[4 * idx + 3] = transmission;
+        buffer[4 * idx + 3] = 1. - transmission;
 
         colbuffer[4 * idx] = float(col(0));
         colbuffer[4 * idx + 1] = float(col(1));
         colbuffer[4 * idx + 2] = float(col(2));
-        colbuffer[4 * idx + 3] = float(transmission);
+        colbuffer[4 * idx + 3] = 1.f - float(transmission);
     });
 
 };
@@ -689,7 +689,7 @@ inline void GL::HagedornRenderer<T>::render(const GL::Camera& _cam) noexcept {
         */
 
     }
-
+/*
     s_preview.bind();
     glUniform3fv(1, 1, lower.data());
     glUniform3fv(2, 1, upper.data());
@@ -697,6 +697,7 @@ inline void GL::HagedornRenderer<T>::render(const GL::Camera& _cam) noexcept {
     glDrawElements(GL_POINTS, 1, GL_UNSIGNED_SHORT, (void*)0);
     glBindVertexArray(0);
     s_preview.unbind();
+    */
 
     //render tex
     glDisable(GL_DEPTH_TEST);

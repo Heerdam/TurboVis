@@ -149,12 +149,13 @@ inline void AsyncRenderer::work(size_t _index) noexcept {
         //wait for restart or termination
         if(!brestart[_index]){  
             if(_index == 0)
-                std::cout << "waiting for restart";   
+                std::cout << "waiting for restart [" << _index << "]" << std::endl;   
             lock.lock();
             cv.wait(lock, [&](){ return brestart[_index] || b_isShutdown; });       
             brestart[_index] = false;
             lock.unlock();
-        }
+        }else if(brestart[_index])
+            brestart[_index] = false;
 
         //if(_index == 0)
            //std::cout << std::endl;

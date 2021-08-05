@@ -27,6 +27,7 @@ namespace GL {
         const int64_t width, height;
 
         Mat4 combined;
+        Mat4 comb;
 
         static Vec3 shoemake_projection(const Vec2&, float);
         static Vec3 holroyd_projection(const Vec2&, float);

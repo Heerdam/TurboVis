@@ -3,10 +3,6 @@
 
 #include "tb_gui.h"
 
-namespace GL {
-    class Uniforms;
-}
-
 namespace Gui {
 
     class GLGui : public TurboGUI::GUI {
@@ -52,10 +48,10 @@ namespace Gui {
 
     struct RenderInfo {
         size_t fps, maxfps, width, height;
-        GL::Uniforms* uniforms;
+        double progress;
+        int32_t steps;
     };
 
-    //template<class Callback>
     class FrontendGui {
 
         // ----------------- TRANSIENT STATES -----------------

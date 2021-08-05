@@ -53,27 +53,12 @@ namespace GL {
         void render();
     };
 
-    struct Uniforms {      
-        float fovX = 0.785398f; //45°
-        float tmax = 15.f;
-        int32_t steps = 3000;
-        Vec3 low = Vec3(0.f);
-        Vec3 high = Vec3(2.f);
-        float tr_fac = 1.f;
-        float pd = 1.f;
-        float t = 0.01f;
-        bool tt = false;
-        bool grayscale = true;
-        bool isosurface = false;
-        float isvalue = 1.f;
-    };
-
     class RaymarchTester {
         ShaderProgram shader;
         GLuint VAO;
     public:
         RaymarchTester();
-        void render(const Camera&, const Uniforms&);
+        void render(const Camera&);
     };
  
  
@@ -225,6 +210,8 @@ namespace GL {
 
         ShaderProgram s_buffer, s_preview;
         GLuint VAO[2], TEX[2];
+        GLuint pr_vao;
+
         float* tex_buffer[2];
         int64_t index = 0;
         int64_t width, height;
@@ -233,20 +220,23 @@ namespace GL {
 
         std::vector<T> buffer;
         std::vector<float> colbuffer;
+        //std::vector<T> depthBuffer;
 
         IO::File<T> file;
 
-        std::atomic<size_t> t;
+        std::atomic<size_t> t;     
 
     public:
         std::atomic<size_t> steps = 1;
+        std::atomic<double> k;
 
     public:
         HagedornRenderer(const Camera& /*_cam*/) noexcept;
         void set(const IO::File<T>& /*_file*/) noexcept;
-        void start() noexcept;
+        void start(const Camera& /*_cam*/) noexcept;
         void render(const Camera& /*_cam*/) noexcept;
         void stop() noexcept;
+        [[nodiscard]] double getProgress() noexcept;
     };//HagedornRenderer
 
     template <class T>
@@ -257,6 +247,9 @@ namespace GL {
 
     template <class T>
     [[nodiscard]] Eigen::Matrix<T, 3, 1> HSL_to_RGB_deg(const Eigen::Matrix<T, 3, 1>& /*_hsl*/) noexcept;
+
+    template <class T>
+    [[nodiscard]] constexpr T depth(const Eigen::Array<T, 4, 1>& /*_ps*/) noexcept;
 
 }  // namespace GL
 
@@ -314,6 +307,16 @@ inline Eigen::Matrix<T, 3, 1> GL::HSL_to_RGB_deg(const Eigen::Matrix<T, 3, 1>& _
     }
 
 }; //HSL_to_RGB
+
+template <class T>
+constexpr T depth(const Eigen::Array<T, 4, 1>& _p) noexcept{
+    return (_p.z / _p.z + 1.) * 0.5;
+} //depth
+
+template<class T>
+inline double GL::HagedornRenderer<T>::getProgress() noexcept {
+    return renderer.getProgress();
+}
 
 template<class T>
 inline void GL::HagedornRenderer<T>::set(const IO::File<T>& _file) noexcept {
@@ -383,9 +386,51 @@ inline GL::HagedornRenderer<T>::HagedornRenderer(const GL::Camera& _cam) noexcep
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
-    // -------------- SHADERS --------------
+    {
+        const float quad[] = {
+            //x
+            0.f, 0.f, 0.f, 1.f, 0.f, 0.f,   
+            50.f, 0.f, 0.f, 1.f, 0.f, 0.f,  
+            //y
+            0.f, 0.f, 0.f, 0.f, 1.f, 0.f,   
+            0.f, 50.f, 0.f, 0.f, 1.f, 0.f,
+            //z
+            0.f, 0.f, 0.f, 0.f, 0.f, 1.f,   
+            0.f, 0.f, 50.f, 0.f, 0.f, 1.f,
+ 
+        };
 
-    { //draw buffer shader
+        const int16_t quadI[] = {
+            0, 1, 
+            2, 3,
+            4, 5
+        };
+
+        GLuint pr_vbo, pr_ebo;
+
+        glGenVertexArrays(1, &pr_vao);
+        glGenBuffers(1, &pr_vbo);
+        glGenBuffers(1, &pr_ebo);
+
+        glBindVertexArray(pr_vao);
+
+        //vbo
+        glBindBuffer(GL_ARRAY_BUFFER, pr_vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3*sizeof(float)));
+        glEnableVertexAttribArray(1);
+
+        //ebo
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, pr_ebo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadI), quadI, GL_STATIC_DRAW);
+
+        glBindVertexArray(0);
+
+        // -------------- SHADERS --------------
+        //draw buffer shader
         const char* vertex =
             "#version 430 core\n"
             "layout (location = 0) in vec2 pos;\n"
@@ -405,150 +450,41 @@ inline GL::HagedornRenderer<T>::HagedornRenderer(const GL::Camera& _cam) noexcep
             "};\n"
             "layout (location = 3) uniform vec2 bounds;\n"
             "void main() {\n"
-            "   const int idx = 4*(int(gl_FragCoord.x) + int(gl_FragCoord.y) * int(bounds.x));\n"
+            "   const int idx = 4*( int(gl_FragCoord.x) + int(gl_FragCoord.y) * int(bounds.x) );\n"
             "   fragColor = vec4(vals[idx], vals[idx+1], vals[idx+2], vals[idx+3]);\n"
             "};\n";
 
         s_buffer.compile("", vertex, "", frag);
     }
-    if(false){ //box preview shader
-        const char* vertex = 
+
+    { //axis shader
+        const char* vertexa = 
             "#version 430 core\n"
             "layout (location = 0) in vec3 pos;\n"
-            "layout (location = 1) uniform mat4 cam;\n"
+            "layout (location = 1) in vec3 col;\n"
+            "layout (location = 2) uniform mat4 cam;\n"
+            "out vec3 color;\n"
             "void main() {\n"
-            "   gl_Position = cam * vec4(pos.xyz, 1.f);\n"
+            "   color = col;\n"
+            "   gl_Position =  cam * vec4(pos.xyz, 1.f);\n"
             "};\n";
 
-        const char* geo =
+        const char* fraga = 
             "#version 430 core\n"
-            "layout(points) in;"
-            "layout(triangles, max_vertices=36) out;"
-            "layout (location = 2) uniform vec3 l;\n"
-            "layout (location = 3) uniform vec3 h;\n"
-            "void main() {\n"
-            "   const float x = h.x - l.x;"
-            "   const float y = h.y - l.y;"
-            "   const float z = h.z - l.z;"
-            // side 1
-            // tria 1
-            "   gl_Position = l;"
-            "   EmitVertex();"
-            "   gl_Position = vec3(h.x, h.y, l.z);"
-            "   EmitVertex();"
-            "   gl_Position = vec3(h.x, l.y, h.z);"
-            "   EmitVertex();"
-            "   EndPrimitive();"
-            // tria 2
-            "   gl_Position = l;"
-            "   EmitVertex();"
-            "   gl_Position = vec3(h.x, l.y, l.z);"
-            "   EmitVertex();"
-            "   gl_Position = vec3(h.x, h.y, l.z);"
-            "   EmitVertex();"
-            "   EndPrimitive();"
-            // side 2
-            // tria 1
-            "   gl_Position = vec3(h.x, l.y, l.z);"
-            "   EmitVertex();"
-            "   gl_Position = h;"
-            "   EmitVertex();"
-            "   gl_Position = vec3(h.x, h.y, l.z);"
-            "   EmitVertex();"
-            "   EndPrimitive();"
-            // tria 2
-            "   gl_Position = vec3(h.x, l.y, l.z);"
-            "   EmitVertex();"
-            "   gl_Position = vec3(h.x, h.y, l.z);"
-            "   EmitVertex();"
-            "   gl_Position = h;"
-            "   EmitVertex();"
-            "   EndPrimitive();"
-            // side 3
-            // tria 1
-            "   gl_Position = vec3(l.x, h.y, l.z);"
-            "   EmitVertex();"
-            "   gl_Position = vec3(l.x, h.y, l.z);"
-            "   EmitVertex();"
-            "   gl_Position = h;"
-            "   EmitVertex();"
-            "   EndPrimitive();"
-            // tria 2
-            "   gl_Position = vec3(l.x, h.y, l.z);"
-            "   EmitVertex();"
-            "   gl_Position = h;"
-            "   EmitVertex();"
-            "   gl_Position = vec3(l.x, h.y, h.z);"
-            "   EmitVertex();"
-            "   EndPrimitive();"
-            /*
-            // side 4
-            // tria 1
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   EndPrimitive();"
-            // tria 2
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   EndPrimitive();"
-            // side 5
-            // tria 1
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   EndPrimitive();"
-            // tria 2
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   EndPrimitive();"
-            // side 6
-            // tria 1
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   EndPrimitive();"
-            // tria 2
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   gl_Position = vec3();"
-            "   EmitVertex();"
-            "   EndPrimitive();"
-            */
-            "};\n";
-
-        const char* frag = 
-            "#version 430 core\n";
-            "layout (location = 2) uniform vec4 col = vec4(1.f, 0.f, 0.f, 1.f);\n"
+            "in vec3 color;\n"
             "out vec4 fragColor;\n"
             "void main() {\n"
-            "   fragColor = col;"
+            "   fragColor = vec4(color.xyz, 1.f);\n"
+             //"fragColor = vec4(1.f, 0.f, 0.f, 1.f);"
             "};\n";
 
-        s_preview.compile("", vertex, geo, frag);
+        s_preview.id = "axis";
+        s_preview.compile("", vertexa, "", fraga);
     }
     // -------------- BUFFER --------------
     buffer.resize(4 * _cam.width * _cam.height);
     colbuffer.resize(4 * _cam.width * _cam.height);
+    //depthBuffer.resize(_cam.width * _cam.height);
     //std::memset(buffer.data(), 0, buffer.size() * sizeof(T));
 
     // -------------- CAMERA --------------
@@ -559,7 +495,7 @@ inline GL::HagedornRenderer<T>::HagedornRenderer(const GL::Camera& _cam) noexcep
 };
 
 template<class T>
-inline void GL::HagedornRenderer<T>::start() noexcept{
+inline void GL::HagedornRenderer<T>::start(const Camera& _cam) noexcept{
 
     renderer.start(8, width, height, [&](size_t _threat_index, size_t _x, size_t _y){
 
@@ -588,10 +524,17 @@ inline void GL::HagedornRenderer<T>::start() noexcept{
         T transmission = 1.;
         
         //intersect bounding box for early out
-        const bool hit = Math::intersect(r_o, r_d, lower, upper, maxDist, t);
+        const bool hit = Math::intersect(r_o, r_d, lower, upper, maxDist, t); 
+        t +=dS;
         if(!hit){
-            col(0) = col(1) = col(2) = 0.1;
-            transmission = 0.9;
+            
+//#ifdef NDEBUG
+            //col(0) = col(1) = col(2) = 0.1;
+            //transmission = 0.0;
+//#else
+            col(0) = col(1) = col(2) = 0.0;
+//#endif
+
         } else if(steps == 1){   
 
             col(0) = 1.f;
@@ -603,16 +546,18 @@ inline void GL::HagedornRenderer<T>::start() noexcept{
                 const Vector pos = r_o + t * r_d;
                 t += dS;
 
-
                 if(t > maxDist || 
                     pos(0) < lower(0) || 
                     pos(1) < lower(1) ||
                     pos(2) < lower(2) ||
                     pos(0) > upper(0) ||
                     pos(1) > upper(1) ||
-                    pos(2) > upper(2))
+                    pos(2) > upper(2)
+                )
                     break;
 
+                
+/*
                 //calculate basis function
                 const std::vector<std::complex<T>> phis = Math::Hagedorn::compute(
                     pos,
@@ -623,25 +568,28 @@ inline void GL::HagedornRenderer<T>::start() noexcept{
                     file.Q[0],
                     file.P[0]);
 
-                    //calculate linear combination
+                //calculate linear combination     
+                std::complex<T> res (0., 0.);
+                for(Eigen::Index k = 0; k < file.Ks.size(); ++k){ 
+                   const Eigen::Index idx = Math::Hagedorn::Detail::index(file.Ks[k], file.k_max);
+                    res += file.c_0[0](k) * phis[idx];
+                } 
+                
+*/    
+                //compute color
+                Eigen::Matrix<T, 3, 1> rgb;
+                rgb.setZero();
+                rgb(0) = rgb(1) = rgb(2) = std::clamp(std::abs(std::cos(pos(0) * pos(1) * pos(2)*250. )), 0., 1.);
+                //const auto hsl = GL::c_to_HSL(2., res);
+                transmission *= std::exp(-rgb(2) * dS);
+                //const auto rgb = GL::HSL_to_RGB_rad(hsl);
                     
-                    std::complex<T> res (0., 0.);
-                    for(Eigen::Index k = 0; k < file.Ks.size(); ++k){ 
-                        const Eigen::Index idx = Math::Hagedorn::Detail::index(file.Ks[k], file.k_max);
-                        res += file.c_0[0](k) * phis[idx];
-                    } 
+                //assert(!std::isnan(rgb(0)) && !std::isnan(rgb(1)) && !std::isnan(rgb(2)));
 
-                    //compute color
-                    const auto hsl = GL::c_to_HSL(2., res);
-                    transmission *= std::exp(-hsl(2) * dS);
-                    const auto rgb = GL::HSL_to_RGB_rad(hsl);
-                    
+                col += transmission * rgb * dS;
 
-
-                    col += transmission * rgb;
-
-                    if(renderer.isShutdown() || renderer.isRestart(_threat_index))
-                        return;
+                if(renderer.isShutdown() || renderer.isRestart(_threat_index))
+                    return;
             }
         }        
 
@@ -665,7 +613,7 @@ inline void GL::HagedornRenderer<T>::start() noexcept{
 
 template<class T>
 inline void GL::HagedornRenderer<T>::render(const GL::Camera& _cam) noexcept {
-    {
+    if(true){
         if(_cam.hasMoved){   
             camPos = { _cam.position.x, _cam.position.y, _cam.position.z };
             dir = { _cam.dir.x, _cam.dir.y, _cam.dir.z };
@@ -674,6 +622,8 @@ inline void GL::HagedornRenderer<T>::render(const GL::Camera& _cam) noexcept {
             std::lock_guard<std::mutex> lock(renderer.getMutex());
             std::memset(colbuffer.data(), 0, colbuffer.size() * sizeof(float));
             std::memset(buffer.data(), 0, buffer.size() * sizeof(T));
+            //for(size_t i = 0; i < depthBuffer; ++i)
+                //depthBuffer[i] = std::numeric_limits<T>::infinity();
             renderer.restart();
         }
 
@@ -689,17 +639,20 @@ inline void GL::HagedornRenderer<T>::render(const GL::Camera& _cam) noexcept {
         */
 
     }
-/*
+
+    //render axes
+    //glDisable(GL_DEPTH_TEST);
+    glLineWidth(5.f);
     s_preview.bind();
-    glUniform3fv(1, 1, lower.data());
-    glUniform3fv(2, 1, upper.data());
-    glBindVertexArray(VAO[index]);
-    glDrawElements(GL_POINTS, 1, GL_UNSIGNED_SHORT, (void*)0);
+    glBindVertexArray(pr_vao);
+    glUniformMatrix4fv(2, 1, false, glm::value_ptr(_cam.comb));
+    glDrawElements(GL_LINES, 6, GL_UNSIGNED_SHORT, (void*)0);
     glBindVertexArray(0);
     s_preview.unbind();
-    */
+    
 
     //render tex
+    
     glDisable(GL_DEPTH_TEST);
     s_buffer.bind();
     glUniform2f(3, float(_cam.width), float(_cam.height));
@@ -709,8 +662,6 @@ inline void GL::HagedornRenderer<T>::render(const GL::Camera& _cam) noexcept {
     glBindVertexArray(0);
     s_buffer.unbind();
     glEnable(GL_DEPTH_TEST);
-
-
 
     index = (index+1)%2;
 };

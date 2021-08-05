@@ -287,6 +287,7 @@ GL::DepthBufferVisualizer::DepthBufferVisualizer(const Camera& _cam) : w(_cam.wi
         "layout (location = 2) uniform sampler2D depth;\n"
         "void main() {\n"
             "fragColor = vec4(texture(depth, uv).xyz, 1.f);\n"
+           // "fragColor = vec4(1.f, 0.f, 0.f, 1.f);"
         "};\n";
 
     shader.compile("", vertex, "", frag);
@@ -378,7 +379,7 @@ GL::RaymarchTester::RaymarchTester() {
 
 }
 
-void GL::RaymarchTester::render(const Camera& _cam, const Uniforms& _u){
+void GL::RaymarchTester::render(const Camera& _cam){
 
     glDisable(GL_DEPTH_TEST);
     shader.bind();
@@ -392,7 +393,7 @@ void GL::RaymarchTester::render(const Camera& _cam, const Uniforms& _u){
     glUniform3fv(13, 1, glm::value_ptr(_cam.right));
     glUniform3fv(14, 1, glm::value_ptr(_cam.up));
     glUniform2f(15, float(_cam.width), float(_cam.height));
-
+/*
     //optional
     glUniform1f(31, _u.fovX);
     glUniform1f(32, _u.tmax);
@@ -407,7 +408,7 @@ void GL::RaymarchTester::render(const Camera& _cam, const Uniforms& _u){
     glUniform1f(40, _u.isvalue);
 
     glUniform1f(50, _u.t);
-
+*/
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, (void*)0);
     glBindVertexArray(0);

@@ -215,7 +215,7 @@ inline Eigen::Matrix<std::complex<T>, -1, 1> Math::Hagedorn::Detail::phi (
 };  //phi
 
 template<class Vec, class T>
-bool Math::intersect(const Vec& _r_o, const Vec& _r_d, const Vec& _low, const Vec& _high, T _tmax, T& _t) noexcept {
+inline bool Math::intersect(const Vec& _r_o, const Vec& _r_d, const Vec& _low, const Vec& _high, T _tmax, T& _t) noexcept {
     _t = -std::numeric_limits<T>::infinity();
     for (size_t i = 0; i < _r_o.size(); ++i) {
         if (std::abs(_r_d[i]) < std::numeric_limits<T>::epsilon()){

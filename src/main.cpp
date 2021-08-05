@@ -80,6 +80,7 @@ int main() {
     camera.target = { 0.f, 0.f, 0.f };
     //camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
     camera.combined = glm::lookAt(camera.position, camera.target, camera.upAxis);
+    camera.comb =  glm::perspective(glm::radians(55.f), float(WIDTH)/float(HEIGHT), 0.1f, 100.f) * camera.combined;
     camera.update();
 
     // -------------- GIMBEL CAMERA --------------
@@ -112,68 +113,25 @@ int main() {
     const auto file = IO::getExample();
     GL::HagedornRenderer<double> hager(camera);
     hager.set(file);
-    hager.start();
-
-    GL::Uniforms uniforms;
-    //uniforms.low = Vec3(-1.f);
+    
+    hager.steps = 500;
 
     Gui::InputMultiplexer::keyCallback([&](GLFWwindow* _window, int _key, int _scancode, int _action, int _mods)-> void {
-        if(_key == GLFW_KEY_X){
-            hager.steps = 100;
+        if(_key == GLFW_KEY_X && _action == GLFW_PRESS){
+            hager.steps = 250;
+            //hager.k += 0.001;
+            std::cout << hager.k << std::endl;
+            camera.hasMoved = true; 
+        } 
+        if(_key == GLFW_KEY_Z && _action == GLFW_PRESS){
+            hager.steps += 250;
+            std::cout << hager.steps << std::endl;
             camera.hasMoved = true;
         } 
-        if(_key == GLFW_KEY_Z){
-            hager.steps = 1;
-            camera.hasMoved = true;
-        } 
-
-            //camKeys[0] = _action == GLFW_PRESS ? true :  _action == GLFW_RELEASE ? false : camKeys[0];
-        //if(_key == GLFW_KEY_Y)
-            //camKeys[1] = _action == GLFW_PRESS ? true :  _action == GLFW_RELEASE ? false : camKeys[1];
-        //if(_key == GLFW_KEY_Z)
-            //camKeys[2] = _action == GLFW_PRESS ? true :  _action == GLFW_RELEASE ? false : camKeys[2];
 
         if(_key == GLFW_KEY_R)
             camera.hasMoved = true;
 
-        /*
-        if(false && _key == GLFW_KEY_R && _action == GLFW_PRESS){
-            GL::CpuRaymarcher marcher;
-            marcher.render(
-                camera, 
-                [](const Eigen::Matrix<double, 3, 1>& _pos){
-                    using Vec = Eigen::Matrix<double, 3, 1>;
-                    const double x = _pos(0);
-                    const double y = _pos(1);
-                    const double z = _pos(2);
-
-                    if(abs(x) > 1. || abs(y) > 1. || abs(z) > 1.)
-                        return Vec(0., 0., 0.);
-                    
-                    //f(x, y, z) = (x + i*y) - z*y = (x - z*y) + i*y
-
-                    const double re = x - z*y;
-                    const double im = y;
-
-                    const double r = std::sqrt(re*re + im*im);
-                    const double phi = std::atan(im/re);
-                    const double R = 2.;
-                    const double theta = M_PI - 2. * std::atan(r / R);
-
-                    const double H = phi / (M_PI * 2.);
-                    const double L = 1. - theta/M_PI;
-                    const double S = L;
-
-                    return Vec(H, S, L);
-
-            }, 
-            3000, 
-            25., 
-            WIDTH , 
-            HEIGHT  );
-            
-        }
-*/
     });
 
     Gui::InputMultiplexer::cursorPosCallback([&](GLFWwindow*, double _xpos, double _ypos)-> void{
@@ -181,33 +139,13 @@ int main() {
         newPosition = Vec2(float(_xpos) - HALFWIDTH, (HEIGHT - float(_ypos) - HALFHEIGHT));
 
         
-
         if(RMB_down){
             camera.hasMoved = !(oldPosition == newPosition);
             const auto rot = GL::Camera::trackball_holroyd(oldPosition, newPosition, 250.f);
             const glm::mat4 RotationMatrix = glm::toMat4(glm::normalize(rot));
-           
-            /*
-            //rotation around x axis
-            if(camKeys[0]){
-                camera.right = normalize(rot * camera.right);
-                camera.up = normalize(glm::cross(camera.dir, camera.right));
-            }
-
-            //rotation around y axis
-            if(camKeys[1]){
-                camera.dir = normalize(rot * camera.dir);
-                camera.right = normalize(glm::cross(camera.dir, camera.up));
-            }
-
-            //rotation around z axis
-            if(camKeys[2]){
-                camera.up = normalize(rot * camera.up);
-                camera.dir = normalize(glm::cross(camera.up, camera.right));
-            }
-            */
 
             camera.combined *= RotationMatrix;
+            camera.comb *= RotationMatrix;
             //std::cout << glm::to_string(camera.combined) << std::endl;
             
             camera.position = glm::transpose(glm::mat3(camera.combined)) * Vec3(glm::column(camera.combined, 3)); //3
@@ -223,7 +161,7 @@ int main() {
         }
     });
 
-
+    hager.start(camera);
 
     while (!glfwWindowShouldClose(window)) {
         const double ctime = glfwGetTime();
@@ -237,25 +175,35 @@ int main() {
 
         // -------------- FUNCTION --------------  
         //rayM.render(camera, uniforms);
+        //hager.k += 1./60.;
         hager.render(camera);
         camera.hasMoved = false;
+         //depthr.render();
 
+/*
         // -------------- GIMBEL --------------  
         glViewport(0, 0, gCamera.width, gCamera.height);
         const Mat3 rot = Mat3(camera.dir, camera.up, camera.right);
         //shape.drawAxisWidget(rot);
         //shape.render(gCamera);
         glViewport(0, 0, WIDTH, HEIGHT);
-        //depthr.render();
-
+       
+*/
         // -------------- GUI --------------     
         Gui::RenderInfo info;
         info.width = WIDTH;
         info.height = HEIGHT;
         info.fps = fps;
         info.maxfps = maxfps;
-        info.uniforms = &uniforms;
-        gui.draw(window, info);         
+        info.progress = hager.getProgress();
+        info.steps = hager.steps;
+        gui.draw(window, info);   
+
+        if(hager.steps != info.steps){
+            hager.steps = info.steps;
+            camera.hasMoved = true;
+        }    
+          
 
         glfwSwapBuffers(window);
 
@@ -267,10 +215,10 @@ int main() {
             time = ctime;
         }
         deltaTime = glfwGetTime() - ctime;
-        if(uniforms.tt) 
-            uniforms.t += deltaTime;
+        //if(uniforms.tt) 
+            //uniforms.t += deltaTime;
     }
-    //hager.stop();
+    hager.stop();
     glfwTerminate();
 
     return EXIT_SUCCESS;

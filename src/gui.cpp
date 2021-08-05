@@ -277,27 +277,27 @@ void Gui::FrontendGui::draw(GLFWwindow* _window, RenderInfo& _info) {
 
 void Gui::FrontendGui::drawTopMenu(const RenderInfo& _info){
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(_info.width - 200, 50), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(_info.width - 400, 50), ImGuiCond_Always);
     ImGui::Begin("menu", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_MenuBar |
         ImGuiWindowFlags_AlwaysAutoResize);
 
     if (ImGui::BeginMenuBar()) {
         if(ImGui::BeginMenu("Menu")) {
 
-            ImGui::MenuItem("New");
-            ImGui::MenuItem("Open", "Ctrl+O");
+            //ImGui::MenuItem("New");
+            //ImGui::MenuItem("Open", "Ctrl+O");
 
             ImGui::EndMenu();
         }
         
-        if(ImGui::Button("Settings"))
-            window_settings = true;
+        //if(ImGui::Button("Settings"))
+            //window_settings = true;
         
         if(ImGui::Button("Render"))
             window_render = true;
 
-        if(ImGui::Button("Debug"))
-            window_debug = true;
+        //if(ImGui::Button("Debug"))
+            //window_debug = true;
         
     }
     
@@ -308,18 +308,20 @@ void Gui::FrontendGui::drawTopMenu(const RenderInfo& _info){
 
 void Gui::FrontendGui::drawRenderWindow(RenderInfo& _info){
     ImGui::Begin("renderer", &window_render);
-    ImGui::SliderFloat("tr_fac", &_info.uniforms->tr_fac, 0.0f, 100000.f);
-    ImGui::SliderInt("steps", &_info.uniforms->steps, 0, 10000);
-    ImGui::Checkbox("grayscale", &_info.uniforms->grayscale);
-    ImGui::Checkbox("isosurface", &_info.uniforms->isosurface);
-    ImGui::SliderFloat("iso_val", &_info.uniforms->isvalue, -10.f, 10.f);
-    ImGui::Checkbox("time", &_info.uniforms->tt);
-    if(ImGui::Button("reset time"))
-            _info.uniforms->t = 0.01f;
+    ImGui::SliderInt("steps", &_info.steps, 0, 50000);
     ImGui::End();
 }
 
 void Gui::FrontendGui::drawFPS(const RenderInfo& _info){
+    //progress window
+    ImGui::SetNextWindowPos(ImVec2(_info.width - 400, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(200, 50), ImGuiCond_Always);
+    ImGui::Begin("progress", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNav | 
+        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs);
+        ImGui::ProgressBar(float(_info.progress));
+    ImGui::End();
+
+    //fps window
     ImGui::SetNextWindowPos(ImVec2(_info.width - 200, 0), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(200, 50), ImGuiCond_Always);
     ImGui::Begin("fps", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNav | 

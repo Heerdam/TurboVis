@@ -36,6 +36,7 @@ public:
     [[nodiscard]] bool isShutdown() noexcept;
     [[nodiscard]] bool isRestart(size_t /*index*/) noexcept;
     [[nodiscard]] std::mutex& getMutex() noexcept;
+    [[nodiscard]] double getProgress() noexcept;
 
 private:
     void work(size_t /*_index*/) noexcept;
@@ -43,6 +44,11 @@ private:
 };
 
 // ----------------- PUBLIC -----------------
+
+inline double AsyncRenderer::getProgress() noexcept {
+    std::lock_guard<std::mutex> lock(mutex);
+    return double(index) / (double)(width * height);
+}
 
 inline AsyncRenderer::AsyncRenderer() noexcept {}
 
@@ -61,8 +67,11 @@ inline void AsyncRenderer::start(size_t _numThreads, size_t _width, size_t _heig
     b_isShutdown = false;
 
     for(size_t i = 0; i < _numThreads; ++i){
-        worker.emplace_back(&AsyncRenderer::work, this, i);
         brestart.push_back(false);
+    }
+
+    for(size_t i = 0; i < _numThreads; ++i){
+        worker.emplace_back(&AsyncRenderer::work, this, i);
     }
 
 };

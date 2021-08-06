@@ -20,13 +20,9 @@ endif()
 include(FetchContent)
 
 set(TV_FILES	
-	"src/data.cpp"
-	"src/gl.cpp"
 	"src/gui.cpp"
-	"src/math.cpp"
 	"src/util.cpp"
 	"src/camera.cpp"
-	"src/state.cpp"
 )
 
 add_executable(tv

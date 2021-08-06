@@ -2,11 +2,12 @@
 #include "../include/defines.hpp"
 #include "../include/gui.hpp"
 #include "../include/data.hpp"
-#include "../include/gl.hpp"
+#include "../include/hagedornrenderer.hpp"
 #include "../include/bench.hpp"
 #include "../include/util.hpp"
 #include "../include/camera.hpp"
 #include "../include/hdf5.hpp"
+#include "../include/shaderprogram.hpp"
 
 void GLAPIENTRY MessageCallback(GLenum /*source*/, GLenum type, GLuint /*id*/, GLenum severity, GLsizei /*length*/, const GLchar* message, const void* /*userParam*/) {
 	if (type != GL_DEBUG_TYPE_ERROR) return;
@@ -24,6 +25,11 @@ int main() {
         spdlog::error("Failed to init glfw. Shutting down...", true);
         return EXIT_FAILURE;
     }
+
+    GL::ShaderProgram::SHADERFOLDERPATH = FilePathResolver::SHADERDIR();
+    GL::ShaderProgram::cb_debug = [&](const std::string& _msg){
+        spdlog::debug(_msg);
+    };
 
     glfwWindowHint(GLFW_REFRESH_RATE, 144);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
@@ -106,12 +112,12 @@ int main() {
 
     // -------------- RENDERER --------------
     //GL::ShapeRenderer shape (100);
-    GL::DepthBufferVisualizer depthr(camera);
+    //GL::DepthBufferVisualizer depthr(camera);
     //GL::RaymarchTester rayM;
 
     //load file
     const auto file = IO::getExample();
-    GL::HagedornRenderer<double> hager(camera);
+    GL::HagedornRenderer<double, GL::Camera> hager(camera);
     hager.set(file);
     
     hager.steps = 500;

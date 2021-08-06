@@ -1,14 +1,16 @@
 #ifndef BENCH_HPP
 #define BENCH_HPP
+
 #include <numeric>
 #include <chrono>
 #include <vector>
+
 namespace std{
-        unsigned long long nanoTime(){
-                using namespace std;
-                using namespace chrono;
-                return duration_cast<nanoseconds>(high_resolution_clock::now().time_since_epoch()).count();
-        }
+    unsigned long long nanoTime(){
+        using namespace std;
+        using namespace chrono;
+        return duration_cast<nanoseconds>(high_resolution_clock::now().time_since_epoch()).count();
+    }
 }
 template<size_t run_length = 300, typename Function, typename... Ts>
 double bench_function(Function f, Ts&&... args){

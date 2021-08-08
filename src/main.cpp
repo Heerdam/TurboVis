@@ -1,10 +1,9 @@
 
 #include "../include/defines.hpp"
 #include "../include/gui.hpp"
-#include "../include/data.hpp"
 #include "../include/hagedornrenderer.hpp"
 #include "../include/bench.hpp"
-#include "../include/util.hpp"
+#include "../include/filepathresolver.hpp"
 #include "../include/camera.hpp"
 #include "../include/hdf5.hpp"
 #include "../include/shaderprogram.hpp"
@@ -86,7 +85,8 @@ int main() {
     camera.target = { 0.f, 0.f, 0.f };
     //camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
     camera.combined = glm::lookAt(camera.position, camera.target, camera.upAxis);
-    camera.comb =  glm::perspective(glm::radians(55.f), float(WIDTH)/float(HEIGHT), 0.1f, 100.f) * camera.combined;
+    camera.comb = glm::perspectiveFov(glm::radians(55.f), float(WIDTH), float(HEIGHT), 0.1f, 100.f)* camera.combined;
+    //camera.comb =  glm::perspective(glm::radians(55.f), float(HEIGHT)/float(WIDTH), 0.1f, 100.f) * camera.combined;
     camera.update();
 
     // -------------- GIMBEL CAMERA --------------

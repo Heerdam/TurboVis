@@ -1,28 +1,28 @@
 
 #include "../include/gui.hpp"
-#include "../include/util.hpp"
-#include "../include/gl.hpp"
+#include "../include/filepathresolver.hpp"
+#include "../include/shaderprogram.hpp"
 
-const char* Gui::GLGui::ImGui_ImplGlfw_GetClipboardText(void* user_data) {
-    return glfwGetClipboardString((GLFWwindow*)user_data);
+const char* Gui::GLGui::ImGui_GetClipboardText(void* _user_data) {
+    return glfwGetClipboardString((GLFWwindow*)_user_data);
 }
 
-void Gui::GLGui::ImGui_ImplGlfw_SetClipboardText(void* user_data, const char* text) {
+void Gui::GLGui::ImGui_SetClipboardText(void* user_data, const char* text) {
     glfwSetClipboardString((GLFWwindow*)user_data, text);
 }
 
-void Gui::GLGui::ImGui_ImplGlfw_MouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+void Gui::GLGui::ImGui_MouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     if (action == GLFW_PRESS && button >= 0 && button < IM_ARRAYSIZE(g_MouseJustPressed))
         g_MouseJustPressed[button] = true;
 }
 
-void Gui::GLGui::ImGui_ImplGlfw_ScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
+void Gui::GLGui::ImGui_ScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
     ImGuiIO& io = ImGui::GetIO();
     io.MouseWheelH += (float)xoffset;
     io.MouseWheel += (float)yoffset;
 }
 
-void Gui::GLGui::ImGui_ImplGlfw_KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+void Gui::GLGui::ImGui_KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     ImGuiIO& io = ImGui::GetIO();
     if (action == GLFW_PRESS)
         io.KeysDown[key] = true;
@@ -40,12 +40,12 @@ void Gui::GLGui::ImGui_ImplGlfw_KeyCallback(GLFWwindow* window, int key, int sca
 #endif
 }
 
-void Gui::GLGui::ImGui_ImplGlfw_CharCallback(GLFWwindow* window, unsigned int c) {
+void Gui::GLGui::ImGui_CharCallback(GLFWwindow* window, unsigned int c) {
     ImGuiIO& io = ImGui::GetIO();
     io.AddInputCharacter(c);
 }
 
-void Gui::GLGui::ImGui_ImplGlfw_UpdateMousePosAndButtons(GLFWwindow* _window) {
+void Gui::GLGui::ImGui_UpdateMousePosAndButtons(GLFWwindow* _window) {
     // Update buttons
     ImGuiIO& io = ImGui::GetIO();
     for (int i = 0; i < IM_ARRAYSIZE(io.MouseDown); i++) {
@@ -105,10 +105,10 @@ void Gui::GLGui::initGui(GLFWwindow* _window, size_t _width, size_t _height) {
 		io.KeyMap[ImGuiKey_Y] = GLFW_KEY_Y;
 		io.KeyMap[ImGuiKey_Z] = GLFW_KEY_Z;
 
-        Gui::InputMultiplexer::mouseButtonCallback(ImGui_ImplGlfw_MouseButtonCallback);
-        Gui::InputMultiplexer::scrollCallback(ImGui_ImplGlfw_ScrollCallback);
-        Gui::InputMultiplexer::keyCallback(ImGui_ImplGlfw_KeyCallback);
-        Gui::InputMultiplexer::charCallback(ImGui_ImplGlfw_CharCallback);
+        Gui::InputMultiplexer::mouseButtonCallback(ImGui_MouseButtonCallback);
+        Gui::InputMultiplexer::scrollCallback(ImGui_ScrollCallback);
+        Gui::InputMultiplexer::keyCallback(ImGui_KeyCallback);
+        Gui::InputMultiplexer::charCallback(ImGui_CharCallback);
 	}
 }
 
@@ -263,7 +263,7 @@ Gui::FrontendGui::FrontendGui(GLFWwindow* _window, size_t _width, size_t _height
 }
 
 void Gui::FrontendGui::draw(GLFWwindow* _window, RenderInfo& _info) {
-    gui.ImGui_ImplGlfw_UpdateMousePosAndButtons(_window);
+    gui.ImGui_UpdateMousePosAndButtons(_window);
     gui.begin();
     drawTopMenu(_info);
     drawFPS(_info);

@@ -7,7 +7,7 @@
 #include "hdf5.hpp"
 #include "shaderprogram.hpp"
 #include <lodepng.h>
-#include "AsyncRenderer.hpp"
+#include "asyncrenderer.hpp"
 
 namespace GL {
 
@@ -375,37 +375,39 @@ inline void GL::HagedornRenderer<T, Camera>::start(const Camera& _cam) noexcept{
                 )
                     break;
 
-                
-/*
-                //calculate basis function
-                const std::vector<std::complex<T>> phis = Math::Hagedorn::compute(
-                    pos,
-                    1.,
-                    file.k_max,
-                    file.p[0],
-                    file.q[0],
-                    file.Q[0],
-                    file.P[0]);
+                if constexpr (true){
+                    //calculate basis function
+                    const std::vector<std::complex<T>> phis = Math::Hagedorn::compute(
+                        pos,
+                        1.,
+                        file.k_max,
+                        file.p[0],
+                        file.q[0],
+                        file.Q[0],
+                        file.P[0]);
 
-                //calculate linear combination     
-                std::complex<T> res (0., 0.);
-                for(Eigen::Index k = 0; k < file.Ks.size(); ++k){ 
-                   const Eigen::Index idx = Math::Hagedorn::Detail::index(file.Ks[k], file.k_max);
-                    res += file.c_0[0](k) * phis[idx];
-                } 
-                
-*/    
-                //compute color
-                Eigen::Matrix<T, 3, 1> rgb;
-                rgb.setZero();
-                rgb(0) = rgb(1) = rgb(2) = std::clamp(std::abs(std::cos(pos(0) * pos(1) * pos(2)*250. )), 0., 1.);
-                //const auto hsl = GL::c_to_HSL(2., res);
-                transmission *= std::exp(-rgb(2) * dS);
-                //const auto rgb = GL::HSL_to_RGB_rad(hsl);
-                    
-                //assert(!std::isnan(rgb(0)) && !std::isnan(rgb(1)) && !std::isnan(rgb(2)));
+                    //calculate linear combination     
+                    std::complex<T> res (0., 0.);
+                    for(Eigen::Index k = 0; k < file.Ks.size(); ++k){ 
+                    const Eigen::Index idx = Math::Hagedorn::Detail::index(file.Ks[k], file.k_max);
+                        res += file.c_0[0](k) * phis[idx];
+                    } 
 
-                col += transmission * rgb * dS;
+                    //compute color
+                    const auto hsl = GL::Detail::c_to_HSL(2., res);
+                    transmission *= std::exp(-hsl(2) * dS);
+                    const auto rgb = GL::Detail::HSL_to_RGB_rad(hsl);
+                    col += transmission * rgb * dS;
+
+                } else {
+
+                    Eigen::Matrix<T, 3, 1> rgb;
+                    rgb.setZero();
+                    rgb(0) = rgb(1) = rgb(2) = std::clamp(std::abs(std::cos(pos(0) * pos(1) * pos(2)*250. )), 0., 1.);
+                    transmission *= std::exp(-rgb(2) * dS);
+                    col += transmission * rgb * dS;
+
+                }
 
                 if(renderer.isShutdown() || renderer.isRestart(_threat_index))
                     return;

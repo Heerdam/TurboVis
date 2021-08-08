@@ -40,6 +40,7 @@ namespace IO {
         size_t dimensions;
         size_t K;
         Eigen::Matrix<Eigen::Index, -1, 1> k_max;
+        Eigen::Matrix<std::complex<T>, -1, 1> S;
         std::vector<Eigen::Matrix<Eigen::Index, -1, 1>> Ks;
         std::vector<Eigen::Matrix<std::complex<T>, -1, 1>> c_0;
         std::vector<Eigen::Matrix<std::complex<T>, -1, 1>> p, q;
@@ -298,6 +299,15 @@ inline IO::File<double> IO::getExample() noexcept{
         c_0(11) = std::complex<double>(5.18094648e-18, -1.03681495e-17);
         c_0(12) = std::complex<double>(1.06469989e-17, -6.54653106e-18);
         out.c_0.push_back(std::move(c_0));
+    }
+
+    // -------------- S --------------
+    {
+        out.S.resize(4);
+        out.S(0) = { 0., 0. };
+        out.S(1) = { 0.17461399965914637, 0. };
+        out.S(2) = { 0.05445990452930107, 0. };
+        out.S(3) = { -0.15762864220149592, 0. };
     }
 
     out.Ks = hyperbolicCutShape(out.dimensions, out.K);

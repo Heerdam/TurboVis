@@ -21,8 +21,6 @@ include(FetchContent)
 
 set(TV_FILES	
 	"src/gui.cpp"
-	"src/util.cpp"
-	"src/camera.cpp"
 )
 
 add_executable(tv

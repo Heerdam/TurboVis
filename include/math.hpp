@@ -147,22 +147,17 @@ inline std::complex<T> Math::Hagedorn::Detail::phi_0 (
     const Eigen::Matrix<std::complex<T>, -1, -1>& _Q,
     const Eigen::Matrix<std::complex<T>, -1, -1>& _P) noexcept {
 
-    
-    const auto xq = _x - _q;
-    const auto det_Q = _Q.determinant();
-    const auto v1_a = std::pow(det_Q, -0.5);
-
     const size_t dims = _x.rows();
-    const T PI = M_PI;
+    const auto xq = _x - _q;
     const T e2 = _epsilon * _epsilon;
-    const T u = -T(dims) / 4;
-    const T l = PI * e2;
-    const auto v1_b = std::pow(l, u);
 
-    const auto v1 = v1_a * v1_b;
-    const std::complex<T> v2 = (std::complex<T>(0., 1.) / (2. * e2) * xq.transpose() * _P * _Q.inverse() * xq);
-    const std::complex<T> v3 = std::complex<T>(0., 1.) / e2 * _p.transpose() * xq;
-    return v1 * std::exp(v2 + v3);
+    const auto v1_a = std::pow(_Q.determinant(), -0.5);
+    const auto v1_b = std::pow(T(M_PI) * e2, -T(dims) / 4.);
+
+    const std::complex<T> v2 = ((std::complex<T>(0., 1.) / (2. * e2)) * xq.transpose() * _P * _Q.inverse() * xq);
+    const std::complex<T> v3 = (std::complex<T>(0., 1.) / e2) * _p.transpose() * xq;
+
+    return v1_a * v1_b * std::exp(v2 + v3);
 };  //phi_0
 
 template <class T>

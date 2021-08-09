@@ -81,7 +81,7 @@ int main() {
 
     // -------------- CAMERA --------------
     GL::Camera camera = GL::Camera(int64_t(WIDTH), int64_t(HEIGHT), glm::radians(55.f), 0.01f, 5.f);
-    camera.position = { 0.f, 0.f, 3.5f };
+    camera.position = { 0.f, 5.5f, 0.f };
     camera.target = { 0.f, 0.f, 0.f };
     //camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
     camera.combined = glm::lookAt(camera.position, camera.target, camera.upAxis);
@@ -203,13 +203,24 @@ int main() {
         info.maxfps = maxfps;
         info.progress = hager.getProgress();
         info.steps = hager.steps;
+        info.scale = hager.scale;
+        info.max = hager.MAX;
         gui.draw(window, info);   
 
         if(hager.steps != info.steps){
             hager.steps = info.steps;
             camera.hasMoved = true;
         }    
-          
+        
+        if(hager.scale != info.scale){
+            hager.scale = info.scale;
+            camera.hasMoved = true;
+        }
+
+        if(hager.MAX != info.max){
+            hager.MAX = info.max;
+            camera.hasMoved = true;
+        }
 
         glfwSwapBuffers(window);
 

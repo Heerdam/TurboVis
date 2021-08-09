@@ -49,6 +49,8 @@ namespace Gui {
     struct RenderInfo {
         size_t fps, maxfps, width, height;
         double progress;
+        float scale;
+        float max;
         int32_t steps;
     };
 

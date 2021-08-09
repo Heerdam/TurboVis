@@ -7,7 +7,7 @@ namespace GL {
 
     class Camera {
     public:
-        const Vec3 upAxis = Vec3(0.f, 1.f, 0.f);
+        const Vec3 upAxis = Vec3(0.f, 0.f, 1.f);
 
         Camera(int64_t _width, int64_t _height, float _fov, float _near, float _far) noexcept
             : width(_width), height(_height), fov(_fov), near(_near), far(_far) {}

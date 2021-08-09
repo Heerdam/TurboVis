@@ -309,6 +309,8 @@ void Gui::FrontendGui::drawTopMenu(const RenderInfo& _info){
 void Gui::FrontendGui::drawRenderWindow(RenderInfo& _info){
     ImGui::Begin("renderer", &window_render);
     ImGui::SliderInt("steps", &_info.steps, 0, 50000);
+    ImGui::SliderFloat("scaling", &_info.scale, 0.f, 5.f);
+    ImGui::SliderFloat("MAX", &_info.max, 0.f, 10.f);
     ImGui::End();
 }
 

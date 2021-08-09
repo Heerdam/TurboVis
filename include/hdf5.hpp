@@ -208,32 +208,32 @@ inline IO::File<double> IO::getExample() noexcept{
     {
         //step 1
         Eigen::Matrix<std::complex<double>, -1, 1> q(3);
-        q(0) = std::complex(1., 0.);
-        q(1) = std::complex(0., 0.);
+        q(0) = std::complex(0., 0.);
+        q(1) = std::complex(1., 0.);
         q(2) = std::complex(0., 0.);
         out.q.push_back(std::move(q));
     }
     {
         //step 1
         Eigen::Matrix<std::complex<double>, -1, 1> q(3);
-        q(0) = std::complex(0.7602446, 0.);
-        q(1) = std::complex(-0.45936268, 0.);
+        q(0) = std::complex(0.9187253698655619, 0.);
+        q(1) = std::complex(0.760244597075633, 0.);
         q(2) = std::complex(0., 0.);
         out.q.push_back(std::move(q));
     }
     {
         //step 1
         Eigen::Matrix<std::complex<double>, -1, 1> q(3);
-        q(0) = std::complex(0.15594369, 0.);
-        q(1) = std::complex(-0.698456, 0.);
+        q(0) = std::complex(1.3969119972732962, 0.);
+        q(1) = std::complex(0.15594369476536343, 0.);
         q(2) = std::complex(0., 0.);
         out.q.push_back(std::move(q));
     }
     {
         //step 1
         Eigen::Matrix<std::complex<double>, -1, 1> q(3);
-        q(0) = std::complex(-0.52313389, 0.);
-        q(1) = std::complex(-0.60263211, 0.);
+        q(0) = std::complex(1.205264227168689, 0.);
+        q(1) = std::complex(-0.5231338942889137, 0.);
         q(2) = std::complex(0., 0.);
         out.q.push_back(std::move(q));
     }

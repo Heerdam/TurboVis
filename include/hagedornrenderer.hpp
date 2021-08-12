@@ -23,6 +23,9 @@ namespace GL {
         [[nodiscard]] Eigen::Matrix<T, 3, 1> HSL_to_RGB_deg(const Eigen::Matrix<T, 3, 1>& /*_hsl*/) noexcept;
 
         template <class T>
+        [[nodiscard]] Eigen::Matrix<T, 3, 1> rgb_to_gs(const Eigen::Matrix<T, 3, 1>& /*_rgb*/) noexcept;
+
+        template <class T>
         [[nodiscard]] constexpr T depth(const Eigen::Array<T, 4, 1>& /*_ps*/) noexcept;
 
     }
@@ -51,14 +54,16 @@ namespace GL {
 
         IO::File<T> file;
 
-        std::atomic<size_t> t;     
+             
 
     public:
-        std::atomic<size_t> steps = 1;
+        std::atomic<size_t> steps = 1500;
         std::atomic<double> k;
-        std::atomic<float> scale = 1.5;
-        std::atomic<float> MAX = 2.f;
-
+        std::atomic<float> scale = 7.5;
+        std::atomic<float> MAX = 25.f;
+        std::atomic<size_t> curT = 2;
+        std::atomic<size_t> maxT = 0;
+//51
     public:
         HagedornRenderer(const Camera& /*_cam*/) noexcept;
         void set(const IO::File<T>& /*_file*/) noexcept;
@@ -74,9 +79,10 @@ namespace GL {
 
 template <class T>
 inline Eigen::Matrix<T, 3, 1> GL::Detail::c_to_HSL(T _max, const std::complex<T>& _c) noexcept {
-    const T H = std::clamp(std::abs(std::fmod(std::arg(_c), 2. * M_PI)), 0., 1.);
+    const T H = std::clamp(std::abs(std::fmod(std::arg(_c), 2. * M_PI)), 0., 2. * M_PI);
     const T S = 1.;
     const T L = std::clamp(std::abs(_max * std::atan(std::abs(_c)) / (0.5 * M_PI)), 0., 1.);
+    //std::cout << H << " " << L << std::endl;
     //const T z2 = std::pow(std::abs(_c), 2);
     //const T L = std::clamp(_max * z2 / (1. + z2), 0., 1.);
     //const T L = std::clamp(std::abs(_max * std::atan(std::abs(_c)) / (0.5 * M_PI)), 0., 1.);
@@ -91,7 +97,7 @@ inline Eigen::Matrix<T, 3, 1> GL::Detail::c_to_HSL(T _max, const std::complex<T>
 */
 template <class T>
 inline Eigen::Matrix<T, 3, 1> GL::Detail::HSL_to_RGB_rad(const Eigen::Matrix<T, 3, 1>& _hsl) noexcept {
-    return HSL_to_RGB_deg<T>( { _hsl(0) * T( M_PI / 180.), _hsl(1), _hsl(2) } );
+    return HSL_to_RGB_deg<T>( { _hsl(0) * T( 180. / M_PI), _hsl(1), _hsl(2) } );
 }; //HSL_to_RGB
 
 /*
@@ -128,6 +134,12 @@ inline Eigen::Matrix<T, 3, 1> GL::Detail::HSL_to_RGB_deg(const Eigen::Matrix<T, 
 }; //HSL_to_RGB
 
 template <class T>
+inline Eigen::Matrix<T, 3, 1> GL::Detail::rgb_to_gs(const Eigen::Matrix<T, 3, 1>& _rgb) noexcept {
+    const T gs = (_rgb(0) + _rgb(1) + _rgb(2)) / 3.;
+    return { gs, gs, gs };
+}; //HSL_to_RGB
+
+template <class T>
 inline constexpr T GL::Detail::depth(const Eigen::Array<T, 4, 1>& _p) noexcept{
     return (_p.z / _p.z + 1.) * 0.5;
 } //depth
@@ -142,6 +154,7 @@ inline double GL::HagedornRenderer<T, Camera>::getProgress() noexcept {
 template<class T, class Camera>
 inline void GL::HagedornRenderer<T, Camera>::set(const IO::File<T>& _file) noexcept {
     file = _file;
+    maxT = file.p.size();
 };
 
 template<class T, class Camera>
@@ -150,14 +163,10 @@ inline GL::HagedornRenderer<T, Camera>::HagedornRenderer(const Camera& _cam) noe
     height = _cam.height;
     lower.resize(3);
     upper.resize(3);
-    lower(0) = lower(2) = -5.;
-    upper(0) = upper(2) = upper(1) = 5.;
-    lower(1) = 0.;
-
-   // for(size_t i = 0; i < 3; ++i){
-   //     lower(i) = -5.;
-   //     upper(i) = 5.;
-   // }
+    for(size_t i = 0; i < 3; ++i){
+        lower(i) = -10.;
+        upper(i) = 10.;
+    }
 
     // -------------- BUFFERS --------------
 
@@ -215,13 +224,13 @@ inline GL::HagedornRenderer<T, Camera>::HagedornRenderer(const Camera& _cam) noe
         const float quad[] = {
             //x
             0.f, 0.f, 0.f, 1.f, 0.f, 0.f,   
-            50.f, 0.f, 0.f, 1.f, 0.f, 0.f,  
+            500.f, 0.f, 0.f, 1.f, 0.f, 0.f,  
             //y
             0.f, 0.f, 0.f, 0.f, 1.f, 0.f,   
-            0.f, 50.f, 0.f, 0.f, 1.f, 0.f,
+            0.f, 500.f, 0.f, 0.f, 1.f, 0.f,
             //z
             0.f, 0.f, 0.f, 0.f, 0.f, 1.f,   
-            0.f, 0.f, 50.f, 0.f, 0.f, 1.f,
+            0.f, 0.f, 500.f, 0.f, 0.f, 1.f,
  
         };
 
@@ -334,8 +343,10 @@ inline void GL::HagedornRenderer<T, Camera>::start(const Camera& _cam) noexcept{
         const Eigen::Matrix<T, 2, 1> uv = Eigen::Matrix<T, 2, 1>(T(_x), T(_y));
         const Eigen::Matrix<T, 2, 1> pp = (2. * uv - bounds) / bounds(1);  //eye ray
 
-        r_o = camPos;
-        r_d = (pp(0) * right + pp(1) * up + scale * dir).normalized();
+        r_o = camPos + scale*(pp(0) * right + pp(1) * up );
+        //r_d = (pp(0) * right + pp(1) * up + scale * dir).normalized();
+
+        r_d = dir;
 
         T maxDist = 35.;
         const T dS = maxDist / T(steps);
@@ -383,35 +394,40 @@ inline void GL::HagedornRenderer<T, Camera>::start(const Camera& _cam) noexcept{
 
                 if constexpr (true){
                     //calculate basis function
-                    /*
+                    
                     const std::vector<std::complex<T>> phis = Math::Hagedorn::compute(
                         pos,
                         1.,
                         file.k_max,
-                        file.p[0],
-                        file.q[0],
-                        file.Q[0],
-                        file.P[0]);
-                        */
+                        file.p[curT],
+                        file.q[curT],
+                        file.Q[curT],
+                        file.P[curT]);
+                        
 
-                    //calculate linear combination     
+                    //calculate linear combination 
+                    /*    
                     std::complex<T> res = Math::Hagedorn::Detail::phi_0(
                         pos,
                         1.,
-                        file.p[0],
-                        file.q[0],
-                        file.Q[0],
-                        file.P[0]
+                        file.p[curT],
+                        file.q[curT],
+                        file.Q[curT],
+                        file.P[curT]
                     );
-                    //for(Eigen::Index k = 0; k < file.Ks.size(); ++k){ 
-                    //const Eigen::Index idx = Math::Hagedorn::Detail::index(file.Ks[k], file.k_max);
-                    //    res += file.c_0[0](k) * phis[idx];
-                    //} 
+                    */
+
+                    std::complex<T> res (0., 0.);
+                    for(Eigen::Index k = 0; k < file.Ks.size(); ++k){ 
+                        const Eigen::Index idx = Math::Hagedorn::Detail::index(file.Ks[k], file.k_max);
+                        res += file.c_0[curT](k) * phis[idx];
+                    } 
+                    res *= std::exp(std::complex<T>(0., 1.) * file.S(Eigen::Index(curT)));
 
                     //compute color
                     const auto hsl = GL::Detail::c_to_HSL(T(MAX), res);
                     transmission *= std::exp(-hsl(2) * dS);
-                    const auto rgb = GL::Detail::HSL_to_RGB_rad(hsl);
+                    const auto rgb = Detail::HSL_to_RGB_rad(hsl);
                     col += transmission * rgb * dS;
 
                 } else {
@@ -455,7 +471,7 @@ inline void GL::HagedornRenderer<T, Camera>::render(const Camera& _cam) noexcept
             dir = { _cam.dir.x, _cam.dir.y, _cam.dir.z };
             up = { _cam.up.x, _cam.up.y, _cam.up.z };
             right = { _cam.right.x, _cam.right.y, _cam.right.z };
-            std::lock_guard<std::mutex> lock(renderer.getMutex());
+            //std::lock_guard<std::mutex> lock(renderer.getMutex());
             std::memset(colbuffer.data(), 0, colbuffer.size() * sizeof(float));
             std::memset(buffer.data(), 0, buffer.size() * sizeof(T));
             //for(size_t i = 0; i < depthBuffer; ++i)

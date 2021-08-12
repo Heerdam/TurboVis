@@ -85,7 +85,9 @@ int main() {
     camera.target = { 0.f, 0.f, 0.f };
     //camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
     camera.combined = glm::lookAt(camera.position, camera.target, camera.upAxis);
-    camera.comb = glm::perspectiveFov(glm::radians(55.f), float(WIDTH), float(HEIGHT), 0.1f, 100.f)* camera.combined;
+    camera.comb = glm::ortho(-float(WIDTH)/2.f, float(WIDTH)/2.f, -float(HEIGHT)/2.f, float(HEIGHT)/2.f, -1000.f, 1000.f)* camera.combined;
+    //camera.comb = glm::ortho(0.f, 0.f, float(WIDTH), float(HEIGHT), 0.1f, 50.f)* camera.combined;
+    //camera.comb = glm::perspectiveFov(glm::radians(55.f), float(WIDTH), float(HEIGHT), 0.1f, 100.f)* camera.combined;
     //camera.comb =  glm::perspective(glm::radians(55.f), float(HEIGHT)/float(WIDTH), 0.1f, 100.f) * camera.combined;
     camera.update();
 
@@ -120,8 +122,6 @@ int main() {
     GL::HagedornRenderer<double, GL::Camera> hager(camera);
     hager.set(file);
     
-    hager.steps = 500;
-
     Gui::InputMultiplexer::keyCallback([&](GLFWwindow* _window, int _key, int _scancode, int _action, int _mods)-> void {
         if(_key == GLFW_KEY_X && _action == GLFW_PRESS){
             hager.steps = 250;
@@ -205,6 +205,8 @@ int main() {
         info.steps = hager.steps;
         info.scale = hager.scale;
         info.max = hager.MAX;
+        info.T = hager.curT;
+        info.maxT = hager.maxT;
         gui.draw(window, info);   
 
         if(hager.steps != info.steps){
@@ -219,6 +221,11 @@ int main() {
 
         if(hager.MAX != info.max){
             hager.MAX = info.max;
+            camera.hasMoved = true;
+        }
+
+        if(hager.curT != info.T){
+            hager.curT = info.T;
             camera.hasMoved = true;
         }
 

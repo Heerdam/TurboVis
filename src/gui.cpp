@@ -275,7 +275,7 @@ void Gui::FrontendGui::draw(GLFWwindow* _window, RenderInfo& _info) {
     gui.sync();
 }
 
-void Gui::FrontendGui::drawTopMenu(const RenderInfo& _info){
+void Gui::FrontendGui::drawTopMenu(RenderInfo& _info){
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(_info.width - 400, 50), ImGuiCond_Always);
     ImGui::Begin("menu", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_MenuBar |
@@ -300,6 +300,28 @@ void Gui::FrontendGui::drawTopMenu(const RenderInfo& _info){
             //window_debug = true;
         
     }
+
+    if(ImGui::Button("X")){
+        _info.setX = true;
+    };
+
+    if(ImGui::Button("Y")){
+        _info.setY = true;
+    };
+
+    if(ImGui::Button("Z")){
+        _info.setZ = true;
+    };
+
+    if(ImGui::Button("<T")){
+        _info.T = (_info.T - 1)%_info.maxT;
+        std::cout << _info.T << std::endl;
+    }
+
+    if(ImGui::Button("T>")){
+        _info.T = (_info.T + 1)%_info.maxT;
+        std::cout << _info.T << std::endl;
+    }
     
     ImGui::EndMenuBar();
 
@@ -308,9 +330,9 @@ void Gui::FrontendGui::drawTopMenu(const RenderInfo& _info){
 
 void Gui::FrontendGui::drawRenderWindow(RenderInfo& _info){
     ImGui::Begin("renderer", &window_render);
-    ImGui::SliderInt("steps", &_info.steps, 0, 50000);
-    ImGui::SliderFloat("scaling", &_info.scale, 0.f, 5.f);
-    ImGui::SliderFloat("MAX", &_info.max, 0.f, 10.f);
+    ImGui::SliderInt("steps", &_info.steps, 0, 10000);
+    ImGui::SliderFloat("scaling", &_info.scale, 0.f, 10.f);
+    ImGui::SliderFloat("MAX", &_info.max, 0.f, 25.f);
     ImGui::End();
 }
 

@@ -247,6 +247,7 @@ TEST_CASE( "PSI00", "Hagedorn" ){
     double error = 0.;
 
     for(size_t t = 0; t < 4; ++t){
+        std::cout << "Time Step: " << t << std::endl;
         for( size_t i = 0; i < 8; ++i){
         
             const auto res = Math::Hagedorn::Detail::phi_0(
@@ -261,12 +262,12 @@ TEST_CASE( "PSI00", "Hagedorn" ){
             const double rl2 = std::abs(res);
             error += (rl2*rl2);
 
-            std::cout << "R:" << res << " S:" << psis[i](t) << " error: (" << std::abs(psis[i](t).real() - res.real()) << ", " << std::abs(psis[i](t).imag() - res.imag()) << ")" << std::endl;
+            std::cout << "Result:" << res.real() << "+i*" << res.imag() << "\t\tSolution:" << psis[i](t).real() << " +i*" << psis[i](t).imag() << "\t\t|Solution - Result|: " << std::abs(psis[i](t).real() - res.real()) << "+i*" << std::abs(psis[i](t).imag() - res.imag())  << std::endl;
 
             //REQUIRE(res == psis[i](t));
         }
 
-        std::cout << "L2 error: " << std::sqrt(error)  << std::endl;
+        std::cout << "L2 error over domain: " << std::sqrt(error)  << std::endl<< std::endl;
 
     }
 
@@ -362,7 +363,7 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
             const double rl2 = std::abs(res);
             error += (rl2*rl2);
 
-            std::cout << "R:" << res << " S:" << psis[i](t) << " error: (" << std::abs(psis[i](t).real() - res.real()) << ", " << std::abs(psis[i](t).imag() - res.imag()) << ")" << std::endl;
+            //std::cout << "Result:" << res.real() << "+i*" << res.imag() << "\tSsolution:" << psis[i](t).real() << "+i*" << psis[i](t).imag() << "\t|Solution - Result|: " << std::abs(psis[i](t).real() - res.real()) << "+i*" << std::abs(psis[i](t).imag() - res.imag())  << std::endl;
 
             //REQUIRE(res == psis[i](t));
         }

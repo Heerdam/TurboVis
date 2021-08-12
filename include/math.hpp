@@ -35,7 +35,7 @@ namespace Math {
         [[nodiscard]] std::vector<std::complex<T>> compute (
             const Eigen::Matrix<T, -1, 1>& _x, 
             T _epsilon,
-            const Eigen::Matrix<Eigen::Index, -1, 1> _k,
+            const Eigen::Matrix<Eigen::Index, -1, 1>& _k,
             const Eigen::Matrix<std::complex<T>, -1, 1>& _p,
             const Eigen::Matrix<std::complex<T>, -1, 1>& _q,
             const Eigen::Matrix<std::complex<T>, -1, -1>& _Q, 
@@ -53,7 +53,7 @@ template <class T>
 inline std::vector<std::complex<T>> Math::Hagedorn::compute (
     const Eigen::Matrix<T, -1, 1>& _x,
     T _epsilon,
-    const Eigen::Matrix<Eigen::Index, -1, 1> _k,
+    const Eigen::Matrix<Eigen::Index, -1, 1>& _k,
     const Eigen::Matrix<std::complex<T>, -1, 1>& _p,
     const Eigen::Matrix<std::complex<T>, -1, 1>& _q,
     const Eigen::Matrix<std::complex<T>, -1, -1>& _Q,

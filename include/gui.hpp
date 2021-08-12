@@ -52,6 +52,10 @@ namespace Gui {
         float scale;
         float max;
         int32_t steps;
+        int64_t maxT, T;
+        bool setX = false;
+        bool setY = false;
+        bool setZ = false;
     };
 
     class FrontendGui {
@@ -65,7 +69,7 @@ namespace Gui {
 
         Gui::GLGui gui;
 
-        void drawTopMenu(const RenderInfo&);
+        void drawTopMenu(RenderInfo&);
         void drawFPS(const RenderInfo&);
         void drawRenderWindow(RenderInfo&);
 

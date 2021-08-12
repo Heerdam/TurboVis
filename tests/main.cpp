@@ -372,6 +372,39 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
 
     }
 
+}
 
+using Now = std::chrono::high_resolution_clock::time_point;
+//375.3 gflops
+
+TEST_CASE( "Compute itensity double", "Hagedorn" ) {
+
+    using Vector = Eigen::Matrix<double, Eigen::Dynamic, 1>;
+
+    const auto file = IO::getExample();
+
+    Vector pos (3);
+    pos.setZero();
+
+    double mean = 0.f;
+    double last = 0.f;
+    for(size_t i = 0; i < 1000; ++i){
+
+        const Now start = std::chrono::high_resolution_clock::now();
+        const std::vector<std::complex<double>> phis = Math::Hagedorn::compute(
+            pos,
+            1.,
+            file.k_max,
+            file.p[0],
+            file.q[0],
+            file.Q[0],
+            file.P[0]
+        );
+        const Now end = std::chrono::high_resolution_clock::now();
+        const double time = std::chrono::duration<double>(start - end).count();
+        mean += 1./ double(i+1) * (last - time);
+        last =  time;
+    }
+    std::cout << "Mean for 1000 hagedorn iterations: " << mean << std::endl;
 
 }

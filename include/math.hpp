@@ -9,37 +9,57 @@ namespace Math {
 
         namespace Detail {
 
+            template<class T>
+            struct Invariants {
+                //phi_0
+                std::complex<T> pre;
+                std::complex<T> i_2_E_2;
+                Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic> P_Q_1;
+                std::complex<T> i_E_2_p;
+
+                //phi
+                //sqrt*Q-1
+                Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic> Q_1;
+                //Q-1*QT
+                Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic> Q_1_Q_T;
+
+                //[sqrt(kj)]
+                //std::vector<T> sqrt_kj;
+                //[sqrt(kj+1)]
+                //std::vector<T> sqrt_Kj_1;
+            };
+
             // [x_n, ..., x_2, x_1] -> N
-            [[nodiscard]] Eigen::Index index(const Eigen::Matrix<Eigen::Index, -1, 1>& _i, const Eigen::Matrix<Eigen::Index, -1, 1>& _e) noexcept;
+            [[nodiscard]] Eigen::Index index(const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _i, const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _e) noexcept;
 
             template<class T>
             [[nodiscard]] std::complex<T> phi_0 (
-                    const Eigen::Matrix<T, -1, 1>& _x, 
+                    const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x, 
                     T _epsilon,
-                    const Eigen::Matrix<std::complex<T>, -1, 1>& _p,
-                    const Eigen::Matrix<std::complex<T>, -1, 1>& _q,
-                    const Eigen::Matrix<std::complex<T>, -1, -1>& _Q, 
-                    const Eigen::Matrix<std::complex<T>, -1, -1>& _P) noexcept;
+                    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _p,
+                    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _q,
+                    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _Q, 
+                    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _P) noexcept;
 
             template<class T>
             [[nodiscard]] Eigen::Matrix<std::complex<T>, -1, 1> phi (
                     const std::vector<std::complex<T>>& _phis,
-                    const Eigen::Matrix<Eigen::Index, -1, 1>& _k, 
-                    const Eigen::Matrix<Eigen::Index, -1, 1>& _index,
-                    const Eigen::Matrix<std::complex<T>, -1, 1>& _x_q,
-                    const Eigen::Matrix<std::complex<T>, -1, -1>& _Q_1_Qc) noexcept; 
+                    const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _k, 
+                    const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _index,
+                    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _x_q,
+                    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _Q_1_Qc) noexcept; 
 
         } //Detail
 
         template<class T>
         [[nodiscard]] std::vector<std::complex<T>> compute (
-            const Eigen::Matrix<T, -1, 1>& _x, 
+            const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x, 
             T _epsilon,
-            const Eigen::Matrix<Eigen::Index, -1, 1>& _k,
-            const Eigen::Matrix<std::complex<T>, -1, 1>& _p,
-            const Eigen::Matrix<std::complex<T>, -1, 1>& _q,
-            const Eigen::Matrix<std::complex<T>, -1, -1>& _Q, 
-            const Eigen::Matrix<std::complex<T>, -1, -1>& _P) noexcept;
+            const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _k,
+            const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _p,
+            const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _q,
+            const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _Q, 
+            const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _P) noexcept;
 
 
     } //Hagedorn
@@ -51,17 +71,17 @@ namespace Math {
 
 template <class T>
 inline std::vector<std::complex<T>> Math::Hagedorn::compute (
-    const Eigen::Matrix<T, -1, 1>& _x,
+    const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x,
     T _epsilon,
-    const Eigen::Matrix<Eigen::Index, -1, 1>& _k,
-    const Eigen::Matrix<std::complex<T>, -1, 1>& _p,
-    const Eigen::Matrix<std::complex<T>, -1, 1>& _q,
-    const Eigen::Matrix<std::complex<T>, -1, -1>& _Q,
-    const Eigen::Matrix<std::complex<T>, -1, -1>& _P) noexcept {
+    const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _k,
+    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _p,
+    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _q,
+    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _Q,
+    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _P) noexcept {
 
-    using Index = Eigen::Matrix<Eigen::Index, -1, 1>;
-    using Vector = Eigen::Matrix<std::complex<T>, -1, 1>;
-    using Matrix = Eigen::Matrix<std::complex<T>, -1, -1>;
+    using Index = Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>;
+    using Vector = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>;
+    using Matrix = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>;
 
     const size_t dim = _k.rows();
 
@@ -128,7 +148,7 @@ inline std::vector<std::complex<T>> Math::Hagedorn::compute (
     i: index
     e: extends, # units
 */
-inline Eigen::Index Math::Hagedorn::Detail::index(const Eigen::Matrix<Eigen::Index, -1, 1>& _i, const Eigen::Matrix<Eigen::Index, -1, 1>& _e) noexcept {
+inline Eigen::Index Math::Hagedorn::Detail::index(const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _i, const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _e) noexcept {
     assert(_i.size() == _e.size());
     Eigen::Index out = _i(0);
     for (Eigen::Index k = 1; k < _i.size(); ++k) {
@@ -142,10 +162,10 @@ template <class T>
 inline std::complex<T> Math::Hagedorn::Detail::phi_0 (
     const Eigen::Matrix<T, -1, 1>& _x,
     T _epsilon,
-    const Eigen::Matrix<std::complex<T>, -1, 1>& _p,
-    const Eigen::Matrix<std::complex<T>, -1, 1>& _q,
-    const Eigen::Matrix<std::complex<T>, -1, -1>& _Q,
-    const Eigen::Matrix<std::complex<T>, -1, -1>& _P) noexcept {
+    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _p,
+    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _q,
+    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _Q,
+    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _P) noexcept {
 
     const size_t dims = _x.rows();
     const auto xq = _x - _q;
@@ -161,16 +181,16 @@ inline std::complex<T> Math::Hagedorn::Detail::phi_0 (
 };  //phi_0
 
 template <class T>
-inline Eigen::Matrix<std::complex<T>, -1, 1> Math::Hagedorn::Detail::phi (
+inline Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> Math::Hagedorn::Detail::phi (
     const std::vector<std::complex<T>>& _phis,
-    const Eigen::Matrix<Eigen::Index, -1, 1>& _k,
-    const Eigen::Matrix<Eigen::Index, -1, 1>& _index,
-    const Eigen::Matrix<std::complex<T>, -1, 1>& _x_q,
-    const Eigen::Matrix<std::complex<T>, -1, -1>& _Q_1_Qc) noexcept {
+    const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _k,
+    const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _index,
+    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _x_q,
+    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _Q_1_Qc) noexcept {
 
-    using Index = Eigen::Matrix<Eigen::Index, -1, 1>;
-    using Vector = Eigen::Matrix<std::complex<T>, -1, 1>;
-    using Matrix = Eigen::Matrix<std::complex<T>, -1, -1>;
+    using Index = Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>;
+    using Vector = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>;
+    using Matrix = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>;
 
     const size_t dim = _k.rows();
 

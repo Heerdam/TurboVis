@@ -246,7 +246,7 @@ TEST_CASE( "PSI00", "Hagedorn" ){
     const auto file = IO::getExample();
     const auto inv = Math::Hagedorn::computeInvariants(file);
     double error = 0.;
-
+    std::cout << "Hagedorn - PSI00" << std::endl;
     for(size_t t = 0; t < 4; ++t){
         std::cout << "Time Step: " << t << std::endl;
         for( size_t i = 0; i < 8; ++i){
@@ -260,12 +260,12 @@ TEST_CASE( "PSI00", "Hagedorn" ){
             const double rl2 = std::abs(res);
             error += (rl2*rl2);
 
-            std::cout << "Result:" << res.real() << "+i*" << res.imag() << "\t\tSolution:" << psis[i](t).real() << " +i*" << psis[i](t).imag() << "\t\t|Solution - Result|: " << std::abs(psis[i](t).real() - res.real()) << "+i*" << std::abs(psis[i](t).imag() - res.imag())  << std::endl;
+            std::cout << "Result:" << res.real() << "+i*" << res.imag() << "\t\tSolution:" << psis[i](t).real() << " +i*" << psis[i](t).imag() << "\t\t|Solution - Result|: " << std::abs(psis[i](t).real() - res.real()) << "+i*" << std::abs(psis[i](t).imag() - res.imag()) << std::endl;
 
             //REQUIRE(res == psis[i](t));
         }
 
-        std::cout << "L2 error over domain: " << std::sqrt(error)  << std::endl<< std::endl;
+        std::cout << "L2 error over domain: " << std::sqrt(error) << std::endl << std::endl;
 
     }
 
@@ -338,9 +338,10 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
     const auto inv = Math::Hagedorn::computeInvariants(file);
 
     double error = 0.;
-
-    for( size_t i = 0; i < 8; ++i){
-        for(size_t t = 0; t < 4; ++t){
+    std::cout << "Hagedorn - Function Values" << std::endl;
+    for(size_t t = 0; t < 4; ++t){
+        for( size_t i = 0; i < 8; ++i){
+        
             const auto phis = Math::Hagedorn::compute(
                 t,
                 grid[i],
@@ -358,12 +359,12 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
             const double rl2 = std::abs(res);
             error += (rl2*rl2);
 
-            //std::cout << "Result:" << res.real() << "+i*" << res.imag() << "\tSsolution:" << psis[i](t).real() << "+i*" << psis[i](t).imag() << "\t|Solution - Result|: " << std::abs(psis[i](t).real() - res.real()) << "+i*" << std::abs(psis[i](t).imag() - res.imag())  << std::endl;
+            std::cout << "Result:" << res.real() << "+i*" << res.imag() << "\t\tSolution:" << psis[i](t).real() << " +i*" << psis[i](t).imag() << "\t\t|Solution - Result|: " << std::abs(psis[i](t).real() - res.real()) << "+i*" << std::abs(psis[i](t).imag() - res.imag()) << std::endl;
 
             //REQUIRE(res == psis[i](t));
         }
 
-        std::cout << "L2 error: " << std::sqrt(error)  << std::endl;
+        std::cout << "L2 error over domain: " << std::sqrt(error) << std::endl << std::endl;
 
     }
 
@@ -382,22 +383,30 @@ TEST_CASE( "Compute itensity double", "Hagedorn" ) {
     Vector pos (3);
     pos.setZero();
 
-    double mean = 0.f;
-    double last = 0.f;
-    for(size_t i = 0; i < 1000; ++i){
+    Vector dir(3);
+    dir.setZero();
+    dir(2) = 1. / 1000.;
 
-        const Now start = std::chrono::high_resolution_clock::now();
+    for(size_t k = 0; k < 10; ++k){
+        double mean = 0.f;
+        double last = 0.f;
+        for(size_t i = 0; i < 1000; ++i){
 
-        const std::vector<std::complex<double>> phis = Math::Hagedorn::compute(
-            0,
-            pos,
-            inv
-        );
-        const Now end = std::chrono::high_resolution_clock::now();
-        const double time = std::chrono::duration<double>(start - end).count();
-        mean += 1./ double(i+1) * (last - time);
-        last =  time;
+            pos + double(i) * dir;
+
+            const Now start = std::chrono::high_resolution_clock::now();
+
+            const std::vector<std::complex<double>> phis = Math::Hagedorn::compute(
+                0,
+                pos,
+                inv
+            );
+            const Now end = std::chrono::high_resolution_clock::now();
+            const double time = std::chrono::duration<double>(end - start).count();
+            mean += 1./ double(i+1) * (time - last);
+            last =  time;
+        }
+        std::cout << "Mean for 1000 hagedorn iterations: " << mean *1000 << "ms" << std::endl;
     }
-    std::cout << "Mean for 1000 hagedorn iterations: " << mean << std::endl;
 
 }

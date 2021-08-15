@@ -158,8 +158,9 @@ template <class T>
 inline std::complex<T> Math::Hagedorn::Detail::phi_0 (size_t _t, const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x, const Detail::Invariants<T>& _inv) noexcept {
     const auto xq = _x - _inv.q[_t];
     const auto xqt = xq.transpose();
-    const std::complex<T> tmp = _inv.i_2_E_2;// * xqt * _inv.P_Q_1[_t] * xq + _inv.i_E_2_p[_t] * xq;
-    return _inv.pre[_t] * std::exp(tmp);
+    const std::complex<T> e1 = _inv.i_2_E_2 * xqt * _inv.P_Q_1[_t] * xq;
+    const std::complex<T> e2 = _inv.i_E_2_p[_t] * xq;
+    return _inv.pre[_t] * std::exp(e1 + e2);
 };  //phi_0
 
 template <class T>

@@ -70,28 +70,28 @@ TEST_CASE( "rgb-hsl conversion", "UtilFunctions" ) {
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 0);
     }
     { //green
-        const Color c = { 120 * (180. / M_PI), 1., 0.5 };
+        const Color c = { 120 * ( M_PI / 180.), 1., 0.5 };
         const Color c_rgb = GL::Detail::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 0);
     }
     { //blue
-        const Color c = { 240. * (180. / M_PI), 1., 0.5 };
+        const Color c = { 240. * (M_PI / 180.), 1., 0.5 };
         const Color c_rgb = GL::Detail::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 255);
     }
     {
-        const Color c = { 180. * (180. / M_PI), 1., 0.1 };
+        const Color c = { 180. * (M_PI / 180.), 1., 0.1 };
         const Color c_rgb = GL::Detail::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 51);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 51);
     }
     {
-        const Color c = { 200. * (180. / M_PI), 0.5, 0.88 };
+        const Color c = { 200. * (M_PI / 180.), 0.5, 0.88 };
         const Color c_rgb = GL::Detail::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 209);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 230);
@@ -244,6 +244,7 @@ TEST_CASE( "PSI00", "Hagedorn" ){
     };
 
     const auto file = IO::getExample();
+    const auto inv = Math::Hagedorn::computeInvariants(file);
     double error = 0.;
 
     for(size_t t = 0; t < 4; ++t){
@@ -251,12 +252,9 @@ TEST_CASE( "PSI00", "Hagedorn" ){
         for( size_t i = 0; i < 8; ++i){
         
             const auto res = Math::Hagedorn::Detail::phi_0(
+                t,
                 grid[i],
-                1.,
-                file.p[t],
-                file.q[t],
-                file.Q[t],
-                file.P[t]
+                inv
             );
 
             const double rl2 = std::abs(res);
@@ -337,19 +335,16 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
     };
 
     const auto file = IO::getExample();
+    const auto inv = Math::Hagedorn::computeInvariants(file);
 
     double error = 0.;
 
     for( size_t i = 0; i < 8; ++i){
         for(size_t t = 0; t < 4; ++t){
             const auto phis = Math::Hagedorn::compute(
+                t,
                 grid[i],
-                1.,
-                file.k_max,
-                file.p[t],
-                file.q[t],
-                file.Q[t],
-                file.P[t]
+                inv
             );
 
             //calculate linear combination
@@ -382,6 +377,7 @@ TEST_CASE( "Compute itensity double", "Hagedorn" ) {
     using Vector = Eigen::Matrix<double, Eigen::Dynamic, 1>;
 
     const auto file = IO::getExample();
+    const auto inv = Math::Hagedorn::computeInvariants(file);
 
     Vector pos (3);
     pos.setZero();
@@ -391,14 +387,11 @@ TEST_CASE( "Compute itensity double", "Hagedorn" ) {
     for(size_t i = 0; i < 1000; ++i){
 
         const Now start = std::chrono::high_resolution_clock::now();
+
         const std::vector<std::complex<double>> phis = Math::Hagedorn::compute(
+            0,
             pos,
-            1.,
-            file.k_max,
-            file.p[0],
-            file.q[0],
-            file.Q[0],
-            file.P[0]
+            inv
         );
         const Now end = std::chrono::high_resolution_clock::now();
         const double time = std::chrono::duration<double>(start - end).count();

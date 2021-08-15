@@ -38,13 +38,15 @@ namespace IO {
     template<class T>
     struct File {
         size_t dimensions;
+        size_t timesteps;
         size_t K;
-        Eigen::Matrix<Eigen::Index, -1, 1> k_max;
-        Eigen::Matrix<std::complex<T>, -1, 1> S;
-        std::vector<Eigen::Matrix<Eigen::Index, -1, 1>> Ks;
-        std::vector<Eigen::Matrix<std::complex<T>, -1, 1>> c_0;
-        std::vector<Eigen::Matrix<std::complex<T>, -1, 1>> p, q;
-        std::vector<Eigen::Matrix<std::complex<T>, -1, -1>> P, Q;
+        T epsilon;
+        Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> k_max;
+        Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> S;
+        std::vector<Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>> Ks; //shapefunction
+        std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>> c_0;
+        std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>> p, q;
+        std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>> P, Q;
     }; //Options
 
     template <class T, size_t Dim>
@@ -92,7 +94,9 @@ inline IO::File<double> IO::getExample() noexcept{
     File<double> out;
 
     out.dimensions = 3;
+    out.timesteps = 4;
     out.K = 4;
+    out.epsilon = 1.;
 
     // -------------- P --------------
     {

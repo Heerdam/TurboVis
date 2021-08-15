@@ -11,56 +11,44 @@ namespace Math {
 
             template<class T>
             struct Invariants {
+                size_t dimensions;
+                Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> k;
+                std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>> p;
+                std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>> q;
                 //phi_0
-                std::complex<T> pre;
+                std::vector<std::complex<T>> pre;
                 std::complex<T> i_2_E_2;
-                Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic> P_Q_1;
-                std::complex<T> i_E_2_p;
-
+                std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>> P_Q_1;
+                std::vector<Eigen::Matrix<std::complex<T>, 1, Eigen::Dynamic>> i_E_2_p;
                 //phi
                 //sqrt*Q-1
-                Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic> Q_1;
+                std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>> Q_1;
                 //Q-1*QT
-                Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic> Q_1_Q_T;
-
-                //[sqrt(kj)]
-                //std::vector<T> sqrt_kj;
-                //[sqrt(kj+1)]
-                //std::vector<T> sqrt_Kj_1;
+                std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>> Q_1_Q_T;
             };
 
             // [x_n, ..., x_2, x_1] -> N
-            [[nodiscard]] Eigen::Index index(const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _i, const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _e) noexcept;
+            [[nodiscard]] Eigen::Index index(const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& /*_i*/, const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& /*_e*/) noexcept;
 
             template<class T>
-            [[nodiscard]] std::complex<T> phi_0 (
-                    const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x, 
-                    T _epsilon,
-                    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _p,
-                    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _q,
-                    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _Q, 
-                    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _P) noexcept;
+            [[nodiscard]] std::complex<T> phi_0 ( size_t /*_t*/, const Eigen::Matrix<T, Eigen::Dynamic, 1>& /*_x*/, const Detail::Invariants<T>& /*_inv*/) noexcept;
 
             template<class T>
             [[nodiscard]] Eigen::Matrix<std::complex<T>, -1, 1> phi (
-                    const std::vector<std::complex<T>>& _phis,
-                    const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _k, 
-                    const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _index,
-                    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _x_q,
-                    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _Q_1_Qc) noexcept; 
+                    size_t /*_t*/,
+                    const Eigen::Matrix<T, Eigen::Dynamic, 1>& /*_x*/,
+                    const std::vector<std::complex<T>>& /*_phis*/,
+                    const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& /*_index*/,
+                    const Detail::Invariants<T>& /*_inv*/
+            ) noexcept; 
 
         } //Detail
 
-        template<class T>
-        [[nodiscard]] std::vector<std::complex<T>> compute (
-            const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x, 
-            T _epsilon,
-            const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _k,
-            const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _p,
-            const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _q,
-            const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _Q, 
-            const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _P) noexcept;
+        template<typename T, template<typename> class File>
+        [[nodiscard]] const Detail::Invariants<T> computeInvariants(const File<T>& /*_file*/) noexcept;
 
+        template<class T>
+        [[nodiscard]] std::vector<std::complex<T>> compute ( size_t /*_t*/, const Eigen::Matrix<T, Eigen::Dynamic, 1>& /*_x*/, const Detail::Invariants<T>& /*_inv*/) noexcept;
 
     } //Hagedorn
 
@@ -69,32 +57,46 @@ namespace Math {
 
 }
 
+template<typename T, template<typename> class File>
+inline const Math::Hagedorn::Detail::Invariants<T> Math::Hagedorn::computeInvariants(const File<T>& _file) noexcept {
+    using Vector = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>;
+    using Matrix = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>;
+
+    Detail::Invariants<T> out;
+    out.dimensions = _file.dimensions;
+    out.k = _file.k_max;
+    out.i_2_E_2 = std::complex<T>(0., 1.) / (2. * _file.epsilon * _file.epsilon);
+    out.p = _file.p;
+    out.q = _file.q;
+
+    for(size_t t = 0; t < _file.timesteps; ++t){
+        //phi0
+        out.pre.push_back( std::pow(T(M_PI) * _file.epsilon * _file.epsilon, -T(_file.dimensions) / 4.) * std::pow(_file.Q[t].determinant(), -0.5) );
+        out.P_Q_1.push_back( _file.P[t] * _file.Q[t].inverse() );
+
+        out.i_E_2_p.push_back( (std::complex<T>(0., 1.) / _file.epsilon * _file.epsilon) * _file.p[t].transpose() );
+        //phi
+        out.Q_1.push_back( std::sqrt(2. / (_file.epsilon * _file.epsilon)) * _file.Q[t].inverse() );
+        out.Q_1_Q_T.push_back( _file.Q[t].inverse() * _file.Q[t].conjugate() );
+    }
+    return out;
+}
+
 template <class T>
-inline std::vector<std::complex<T>> Math::Hagedorn::compute (
-    const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x,
-    T _epsilon,
-    const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _k,
-    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _p,
-    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _q,
-    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _Q,
-    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _P) noexcept {
+inline std::vector<std::complex<T>> Math::Hagedorn::compute (size_t _t, const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x, const Detail::Invariants<T>& _inv) noexcept {
 
     using Index = Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>;
     using Vector = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>;
     using Matrix = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>;
 
-    const size_t dim = _k.rows();
+    const size_t dim = _inv.dimensions;
 
-    size_t size = _k(0) + 1;
-    for (size_t i = 1; i < _k.size(); ++i)
-        size *= (_k(i)+1);
+    size_t size = _inv.k(0) + 1;
+    for (size_t i = 1; i < _inv.k.size(); ++i)
+        size *= (_inv.k(i)+1);
 
     std::vector<std::complex<T>> phis;
     phis.resize(size);
-
-    const Matrix Qi = _Q.inverse();
-    const Vector x_q = std::sqrt(2. / (_epsilon * _epsilon)) * Qi * (_x - _q);
-    const Matrix Q_1_Qc = Qi * _Q.conjugate();
 
     //iterate over ks
     Index index(dim);
@@ -103,21 +105,20 @@ inline std::vector<std::complex<T>> Math::Hagedorn::compute (
     bool first = true;
 
     while (true) {
-        for (index(dim-1) = 0; index(dim-1) <= _k(dim-1); ++index(dim-1)) { 
+        for (index(dim-1) = 0; index(dim-1) <= _inv.k(dim-1); ++index(dim-1)) { 
             if (first) {
                 first = false;
-                const auto phi0 = Detail::phi_0(_x, _epsilon, _p, _q, _Q, _P);
+                const auto phi0 = Detail::phi_0(_t, _x, _inv);
                 phis[0] = phi0;
                 continue;
             }
 
-            const auto phi = Detail::phi(phis, _k, index, x_q, Q_1_Qc);
-            //std::cout << phi << std::endl;
+            const auto phi = Detail::phi(_t, _x, phis, index, _inv);
 
             for (size_t d = 0; d < dim; ++d) {
                 Index ni = index;
                 ni(d) += 1;
-                const Eigen::Index ii = Detail::index(ni, _k);
+                const Eigen::Index ii = Detail::index(ni, _inv.k);
                 phis[ii] = phi(d);
             }
         }
@@ -125,7 +126,7 @@ inline std::vector<std::complex<T>> Math::Hagedorn::compute (
         bool done = false;
         for (Eigen::Index d = dim - 2; d >= 0; --d) {
             index(d) += 1;
-            if (index(d) >= _k(d)) {
+            if (index(d) >=  _inv.k(d)) {
                 if (d == 0)
                     done = true;
                 else
@@ -135,11 +136,6 @@ inline std::vector<std::complex<T>> Math::Hagedorn::compute (
         }
         if (done) break;
     }
-
-    //for (size_t i = 0; i < dim; ++i) {
-        //const std::complex<T> ki(T(_k(i)) + 1., 0.);
-      //  phis(i) /= sqrt(ki);
-    //}
 
     return phis;
 }; //compute
@@ -159,47 +155,32 @@ inline Eigen::Index Math::Hagedorn::Detail::index(const Eigen::Matrix<Eigen::Ind
 };  //index
 
 template <class T>
-inline std::complex<T> Math::Hagedorn::Detail::phi_0 (
-    const Eigen::Matrix<T, -1, 1>& _x,
-    T _epsilon,
-    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _p,
-    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _q,
-    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _Q,
-    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _P) noexcept {
-
-    const size_t dims = _x.rows();
-    const auto xq = _x - _q;
-    const T e2 = _epsilon * _epsilon;
-
-    const auto v1_a = std::pow(_Q.determinant(), -0.5);
-    const auto v1_b = std::pow(T(M_PI) * e2, -T(dims) / 4.);
-
-    const std::complex<T> v2 = ((std::complex<T>(0., 1.) / (2. * e2)) * xq.transpose() * _P * _Q.inverse() * xq);
-    const std::complex<T> v3 = (std::complex<T>(0., 1.) / e2) * _p.transpose() * xq;
-
-    return v1_a * v1_b * std::exp(v2 + v3);
+inline std::complex<T> Math::Hagedorn::Detail::phi_0 (size_t _t, const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x, const Detail::Invariants<T>& _inv) noexcept {
+    const auto xq = _x - _inv.q[_t];
+    const auto xqt = xq.transpose();
+    const std::complex<T> tmp = _inv.i_2_E_2;// * xqt * _inv.P_Q_1[_t] * xq + _inv.i_E_2_p[_t] * xq;
+    return _inv.pre[_t] * std::exp(tmp);
 };  //phi_0
 
 template <class T>
 inline Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> Math::Hagedorn::Detail::phi (
+    size_t _t,
+    const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x,
     const std::vector<std::complex<T>>& _phis,
-    const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _k,
     const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _index,
-    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>& _x_q,
-    const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>& _Q_1_Qc) noexcept {
+    const Detail::Invariants<T>& _inv
+) noexcept {
 
     using Index = Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>;
     using Vector = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>;
     using Matrix = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>;
 
-    const size_t dim = _k.rows();
+    const auto xq = _x - _inv.q[_t];
 
-    //std::cout << _index << std::endl << std::endl << _k << std::endl;
+    Vector res (_inv.dimensions);
 
-    Vector res (dim);
-
-    Vector kp (dim);
-    for (size_t j = 0; j < dim; ++j) {
+    Vector kp (_inv.dimensions);
+    for (size_t j = 0; j < _inv.dimensions; ++j) {
         //early out
         if (_index(j) - 1 < 0) {
             kp(j) = 0;
@@ -208,19 +189,16 @@ inline Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> Math::Hagedorn::Detail:
 
         Index k_1 = _index;
         k_1(j) = std::max(k_1(j) - 1, 0ll);
-        //std::cout << _index << std::endl << k_1 << std::endl;
-        //std::cout << _k << std::endl << std::endl;
-        const Eigen::Index ii = Detail::index(k_1, _k);
+        const Eigen::Index ii = Detail::index(k_1, _inv.k);
         kp(j) = std::sqrt(_index(j)) * _phis[ii];  
     }
 
-    const Eigen::Index ii = Detail::index(_index, _k);
-    const auto lhs = _x_q *_phis[ii];
-    const auto rhs = _Q_1_Qc * kp;
-    auto phi_t = lhs - rhs;
+    const Eigen::Index ii = Detail::index(_index, _inv.k);
 
-    Vector phi (dim);
-    for(size_t i = 0; i < dim; ++i){
+    auto phi_t = _inv.Q_1[_t] * xq * _phis[ii] - _inv.Q_1_Q_T[_t] * kp;
+
+    Vector phi (_inv.dimensions);
+    for(size_t i = 0; i < _inv.dimensions; ++i){
         const T sk = std::sqrt(T(_index(i)) + 1.);
         const std::complex<T> skc = std::complex<T>(sk, 0.);
         phi(i) = phi_t(i) / skc;

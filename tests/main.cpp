@@ -193,53 +193,53 @@ TEST_CASE( "PSI00", "Hagedorn" ){
     };
 
     const Eigen::Matrix<std::complex<double>, 4, 1> psis[] = {
-        { //0
-            std::complex<double>( -2.5764351288030696E-4, 2.3086258535329378E-5 ),
-            std::complex<double>( -2.017463661539884E-4, -7.296617474412838E-4 ),
-            std::complex<double>( -0.0033647777455862405, 0.001606718287491552 ),
-            std::complex<double>( 0.0053542062144028065, 0.003011827401759797 )
+       { //0
+            std::complex<double>( 4.2759628436366524E-4, -0.0060297147736623 ),
+            std::complex<double>( -0.0017348507365289182, -0.00279245198230175 ) ,
+            std::complex<double>( -0.0021267173532104246, 6.8227618326086E-4 ),
+            std::complex<double>( -1.640221599278481E-5, 6.177924623080655E-4 )
         },
         { //1
-            std::complex<double>( -0.0019037423701981498, 1.705856594319653E-4 ),
-            std::complex<double>( -0.0021306839429229315, -0.0022376220120880973 ),
-            std::complex<double>( -0.008716921270252179, 0.005413664935008528 ),
-            std::complex<double>( 0.012503059677549187, 0.015051890401318983 )
+            std::complex<double>( 0.0031595329328574255, -0.044553900723141665 ),
+            std::complex<double>( -0.011619113072803113, -0.0067101602532227776 ),
+            std::complex<double>( -0.005610469970741988, 0.0025101920159417727 ),
+            std::complex<double>( -7.516389213715678E-4, 0.0018193580853363175 )
         },
         { //2
-            std::complex<double>( -0.014066859171305332, 0.0012604670072158689 ),
-            std::complex<double>( -0.007974469976778167, 0.004174531091377546 ),
-            std::complex<double>( 0.004668885146053407, 0.011071782004597415 ),
-            std::complex<double>( 0.009269953213273835, -0.005291568321759274 )
+            std::complex<double>( 0.0011623272097023578, -0.016390464100037277 ),
+            std::complex<double>( -0.003068618180823126, -0.007237567042780243 ),
+            std::complex<double>( -0.005448637723801008, -0.0016043287803900958 ),
+            std::complex<double>( -0.002363036219306998, 0.0012327875742295601 )
         },
         { //3
-            std::complex<double>( -0.10394081155253222, 0.00931366142716928 ),
-            std::complex<double>( -0.020663344988212103, 0.030374818341262003 ),
-            std::complex<double>( 0.01612322413953675, 0.02887012417400934 ),
-            std::complex<double>( 0.03359942211752717, -0.0051970607454832046 )
+            std::complex<double>( 0.008588500957804251, -0.12111005872268431 ),
+            std::complex<double>( -0.02497617884667305, -0.02014020498992675 ),
+            std::complex<double>( -0.015389129281395773, -0.002738280154887019 ),
+            std::complex<double>( -0.008432858273859735, 9.793735686233036E-4 )
         },
         { //4
-            std::complex<double>( 6.371232637838709E-4, 0. ),
-            std::complex<double>( 0.00268385888001607, -0.0010982025708083298 ),
-            std::complex<double>( -0.007294919348626058, 0.0013302910794410344 ),
-            std::complex<double>( 0.01575300569585211, -0.006315080272382563 )
+            std::complex<double>( 0.014420108039292305, 0.007877740925681847 ),
+            std::complex<double>( 0.017732340728101176, -0.022463734867819145 ),
+            std::complex<double>( -0.02109325449900746, -0.010039166609591596 ),
+            std::complex<double>( -0.005009741986883563, 0.009532377061236885 )
         },
         { //5
-            std::complex<double>( 0.004707739538032813, 0. ),
-            std::complex<double>( 0.007544906279154069, -0.0091188278204724 ),
-            std::complex<double>( -0.019550494103090458, 0.005847683493585132 ),
-            std::complex<double>( 0.0540518151274769, -8.66617388045509E-4 )
+            std::complex<double>( 0.1065509872549717, 0.05820906963270503 ),
+            std::complex<double>( 0.02057390754367418, -0.11498019525269601 ),
+            std::complex<double>( -0.060735062668945114, -0.02107210459395533 ),
+            std::complex<double>( -0.025749316760644556, 0.022660742765194992 )
         },
         { //6
-            std::complex<double>( 0.03478575154567832, 0. ),
-            std::complex<double>( -0.019493977361911066, -0.02843880805256412 ),
-            std::complex<double>( 0.003191225092967026, 0.023681855459629093 ),
-            std::complex<double>( 0.004652496458874799, -0.02911937169654548 )
+            std::complex<double>( 0.03919791764762447, 0.0214139200075891 ),
+            std::complex<double>( 0.050182407182365524, -0.04653171658681759 ),
+            std::complex<double>( -0.030021576480039475, -0.05126365458065782 ),
+            std::complex<double>( -0.046428837805969805, 0.0010921629782298797 )
         },
         { //7
-            std::complex<double>( 0.25703386961448066, 0. ),
-            std::complex<double>( -0.12490250632425211, -0.06482239926588476 ),
-            std::complex<double>( 0.015900014838436553, 0.06380911520337551 ),
-            std::complex<double>( 0.046969874365269504, -0.08134119466712524 )
+            std::complex<double>( 0.28963561245956093, 0.15822865623408933 ),
+            std::complex<double>( 0.09102740526178693, -0.2640659112791267 ),
+            std::complex<double>( -0.09763959445402326, -0.13112717703052806 ),
+            std::complex<double>( -0.13937474840293745, -0.04957106660448522 )
         }
     };
 
@@ -260,8 +260,8 @@ TEST_CASE( "PSI00", "Hagedorn" ){
             const double rl2 = std::abs(res);
             error += (rl2*rl2);
 
-            std::cout << "Result:" << res.real() << "+i*" << res.imag() << "\t\tSolution:" << psis[i](t).real() << " +i*" << psis[i](t).imag() << "\t\t|Solution - Result|: " << std::abs(psis[i](t).real() - res.real()) << "+i*" << std::abs(psis[i](t).imag() - res.imag()) << std::endl;
-
+            std::cout << "Result:" << res.real() << "+i*" << res.imag() << "\t\tSolution:" << psis[i](t).real() << " +i*" << psis[i](t).imag() << "\t\t|Solution - Result|: " << std::abs(psis[i](t).real() - res.real()) << "+i*" << std::abs(psis[i](t).imag() - res.imag()) << " [" << std::abs(std::abs(res) - std::abs(psis[i](t))) << "]" << std::endl;
+            //std::cout << std::abs(std::abs(res) - std::abs(psis[i](t))) << std::endl;
             //REQUIRE(res == psis[i](t));
         }
 
@@ -373,11 +373,49 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
 using Now = std::chrono::high_resolution_clock::time_point;
 //375.3 gflops
 
-TEST_CASE( "Compute itensity double", "Hagedorn" ) {
+TEST_CASE( "performance example", "Hagedorn" ) {
 
     using Vector = Eigen::Matrix<double, Eigen::Dynamic, 1>;
 
     const auto file = IO::getExample();
+    const auto inv = Math::Hagedorn::computeInvariants(file);
+
+    Vector pos (3);
+    pos.setZero();
+
+    Vector dir(3);
+    dir.setZero();
+    dir(2) = 1. / 1000.;
+
+    for(size_t k = 0; k < 10; ++k){
+        double mean = 0.f;
+        double last = 0.f;
+        for(size_t i = 0; i < 1000; ++i){
+
+            pos + double(i) * dir;
+
+            const Now start = std::chrono::high_resolution_clock::now();
+
+            const std::vector<std::complex<double>> phis = Math::Hagedorn::compute(
+                0,
+                pos,
+                inv
+            );
+            const Now end = std::chrono::high_resolution_clock::now();
+            const double time = std::chrono::duration<double>(end - start).count();
+            mean += 1./ double(i+1) * (time - last);
+            last =  time;
+        }
+        std::cout << "Mean for 1000 hagedorn iterations: " << mean *1000 << "ms" << std::endl;
+    }
+
+}
+
+TEST_CASE( "performance example1", "Hagedorn" ) {
+
+    using Vector = Eigen::Matrix<double, Eigen::Dynamic, 1>;
+
+    const auto file = IO::getExample1();
     const auto inv = Math::Hagedorn::computeInvariants(file);
 
     Vector pos (3);

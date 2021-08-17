@@ -60,7 +60,7 @@ namespace GL {
         std::atomic<size_t> steps = 1500;
         std::atomic<double> k;
         std::atomic<float> scale = 7.5;
-        std::atomic<float> MAX = 25.f;
+        std::atomic<float> MAX = 50.f;
         std::atomic<size_t> curT = 2;
         std::atomic<size_t> maxT = 0;
 //51
@@ -82,10 +82,6 @@ inline Eigen::Matrix<T, 3, 1> GL::Detail::c_to_HSL(T _max, const std::complex<T>
     const T H = std::clamp(std::abs(std::fmod(std::arg(_c), 2. * M_PI)), 0., 2. * M_PI);
     const T S = 1.;
     const T L = std::clamp(std::abs(_max * std::atan(std::abs(_c)) / (0.5 * M_PI)), 0., 1.);
-    //std::cout << H << " " << L << std::endl;
-    //const T z2 = std::pow(std::abs(_c), 2);
-    //const T L = std::clamp(_max * z2 / (1. + z2), 0., 1.);
-    //const T L = std::clamp(std::abs(_max * std::atan(std::abs(_c)) / (0.5 * M_PI)), 0., 1.);
     return { H, S, L };
 }; //c_to_HSL
 
@@ -331,7 +327,9 @@ inline GL::HagedornRenderer<T, Camera>::HagedornRenderer(const Camera& _cam) noe
 template<class T, class Camera>
 inline void GL::HagedornRenderer<T, Camera>::start(const Camera& _cam) noexcept{
 
-    renderer.start(8, width, height, [&](size_t _threat_index, size_t _x, size_t _y){
+    const auto inv = Math::Hagedorn::computeInvariants(file);
+
+    renderer.start(8, width, height, [&, inv = std::move(inv)](size_t _threat_index, size_t _x, size_t _y){
 
         //std::cout << _index << std::endl;
 
@@ -396,13 +394,10 @@ inline void GL::HagedornRenderer<T, Camera>::start(const Camera& _cam) noexcept{
                     //calculate basis function
                     
                     const std::vector<std::complex<T>> phis = Math::Hagedorn::compute(
+                        curT,
                         pos,
-                        1.,
-                        file.k_max,
-                        file.p[curT],
-                        file.q[curT],
-                        file.Q[curT],
-                        file.P[curT]);
+                        inv
+                    );
                         
 
                     //calculate linear combination 

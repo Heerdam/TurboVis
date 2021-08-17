@@ -118,7 +118,7 @@ int main() {
     //GL::RaymarchTester rayM;
 
     //load file
-    const auto file = IO::getExample();
+    const auto file = IO::getExample1();
     GL::HagedornRenderer<double, GL::Camera> hager(camera);
     hager.set(file);
     

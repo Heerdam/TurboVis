@@ -29,7 +29,7 @@ with h5py.File(hdf5file,'r') as f:
         print(q)
     print("\n")
 
-    dataset = f['datablock_0/wavepacket/basisshapes/basis_shape_-2083794085692656251/']
+    dataset = f['datablock_0/wavepacket/basisshapes/basis_shape_-3317942120629146494/']
 
     int_in_bytes = dataset.attrs['K'].tobytes()
     K = pickle.loads(int_in_bytes)

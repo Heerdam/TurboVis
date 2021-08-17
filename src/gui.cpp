@@ -332,7 +332,7 @@ void Gui::FrontendGui::drawRenderWindow(RenderInfo& _info){
     ImGui::Begin("renderer", &window_render);
     ImGui::SliderInt("steps", &_info.steps, 0, 10000);
     ImGui::SliderFloat("scaling", &_info.scale, 0.f, 10.f);
-    ImGui::SliderFloat("MAX", &_info.max, 0.f, 25.f);
+    ImGui::SliderFloat("MAX", &_info.max, 0.f, 50.f);
     ImGui::End();
 }
 

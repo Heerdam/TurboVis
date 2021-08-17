@@ -3,6 +3,8 @@
 
 #include <Eigen/Eigen>
 
+#include "filepathresolver.hpp"
+
 #include <highfive/H5File.hpp>
 #include <highfive/h5easy_bits/H5Easy_Eigen.hpp>
 
@@ -10,6 +12,7 @@
 #include <filesystem>
 #include <string>
 #include <iostream>
+#include <regex>
 
 namespace IO {
 
@@ -86,6 +89,7 @@ namespace IO {
     }; //loadFromFile
 
     [[nodiscard]] File<double> getExample() noexcept;
+    [[nodiscard]] File<double> getExample1() noexcept;
     [[nodiscard]] std::vector<Eigen::Matrix<Eigen::Index, -1, 1>> hyperbolicCutShape(size_t /*_dim*/, size_t /*_K*/) noexcept;
 
 }
@@ -176,7 +180,7 @@ inline IO::File<double> IO::getExample() noexcept{
 
     // -------------- p --------------
     {
-        //step 1
+        //step 0
         Eigen::Matrix<std::complex<double>, -1, 1> p(3);
         p(0) = std::complex(1., 0.);
         p(1) = std::complex(0., 0.);
@@ -186,58 +190,58 @@ inline IO::File<double> IO::getExample() noexcept{
     {
         //step 1
         Eigen::Matrix<std::complex<double>, -1, 1> p(3);
-        p(0) = std::complex(0.7602446, 0.);
-        p(1) = std::complex(-0.45936268, 0.);
+        p(0) = std::complex(0.9899259395420181, 0.);
+        p(1) = std::complex(0.2296813424663948, 0.);
         p(2) = std::complex(0., 0.);
         out.p.push_back(std::move(p));
     }
     {
-        //step 1
+        //step 2
         Eigen::Matrix<std::complex<double>, -1, 1> p(3);
-        p(0) = std::complex(0.15594369, 0.);
-        p(1) = std::complex(-0.698456, 0.);
+        p(0) = std::complex(0.5051716940837586, 0.);
+        p(1) = std::complex(0.34922799931828014, 0.);
         p(2) = std::complex(0., 0.);
         out.p.push_back(std::move(p));
     }
     {
-        //step 1
+        //step 3
         Eigen::Matrix<std::complex<double>, -1, 1> p(3);
-        p(0) = std::complex(-0.52313389, 0.);
-        p(1) = std::complex(-0.60263211, 0.);
+        p(0) = std::complex(-0.22181783749679396, 0.);
+        p(1) = std::complex(0.3013160567921123, 0.);
         p(2) = std::complex(0., 0.);
         out.p.push_back(std::move(p));
     }
 
     // -------------- q --------------
     {
-        //step 1
+        //step 0
         Eigen::Matrix<std::complex<double>, -1, 1> q(3);
-        q(0) = std::complex(0., 0.);
-        q(1) = std::complex(1., 0.);
+        q(0) = std::complex(-0.5, 0.);
+        q(1) = std::complex(-0.5, 0.);
         q(2) = std::complex(0., 0.);
         out.q.push_back(std::move(q));
     }
     {
         //step 1
         Eigen::Matrix<std::complex<double>, -1, 1> q(3);
-        q(0) = std::complex(0.9187253698655619, 0.);
-        q(1) = std::complex(0.760244597075633, 0.);
+        q(0) = std::complex(0.5386030713277431, 0. );
+        q(1) = std::complex(-0.3801222985378165, 0.);
         q(2) = std::complex(0., 0.);
         out.q.push_back(std::move(q));
     }
     {
-        //step 1
+        //step 2
         Eigen::Matrix<std::complex<double>, -1, 1> q(3);
-        q(0) = std::complex(1.3969119972732962, 0.);
-        q(1) = std::complex(0.15594369476536343, 0.);
+        q(0) = std::complex(1.3189401498906073, 0.);
+        q(1) = std::complex(-0.07797184738268172, 0.);
         q(2) = std::complex(0., 0.);
         out.q.push_back(std::move(q));
     }
     {
-        //step 1
+        //step 3
         Eigen::Matrix<std::complex<double>, -1, 1> q(3);
-        q(0) = std::complex(1.205264227168689, 0.);
-        q(1) = std::complex(-0.5231338942889137, 0.);
+        q(0) = std::complex(1.4668311743131408, 0.);
+        q(1) = std::complex(0.26156694714445683, 0.);
         q(2) = std::complex(0., 0.);
         out.q.push_back(std::move(q));
     }
@@ -309,9 +313,9 @@ inline IO::File<double> IO::getExample() noexcept{
     {
         out.S.resize(4);
         out.S(0) = { 0., 0. };
-        out.S(1) = { 0.17461399965914637, 0. };
-        out.S(2) = { 0.05445990452930107, 0. };
-        out.S(3) = { -0.15762864220149592, 0. };
+        out.S(1) = { 0.47293507579737626, 0. };
+        out.S(2) = { 0.5695306388253558, 0. };
+        out.S(3) = { 0.12672250102084176, 0. };
     }
 
     out.Ks = hyperbolicCutShape(out.dimensions, out.K);
@@ -327,6 +331,211 @@ inline IO::File<double> IO::getExample() noexcept{
 
     return out;
 }; //IO::getExample
+
+inline IO::File<double> IO::getExample1() noexcept{
+       File<double> out;
+
+    out.dimensions = 3;
+    out.timesteps = 4;
+    out.K = 30;
+    out.epsilon = 1.;
+
+    // -------------- P --------------
+    {
+        //step 1
+        Eigen::Matrix<std::complex<double>, -1, -1> P(3, 3);
+        P.setZero();
+        P(0, 0) = std::complex(0., 1.);
+        P(1, 1) = std::complex(0., 1.);
+        P(2, 2) = std::complex(0., 1.);
+        out.P.push_back(std::move(P));
+    }
+    {
+        //step 2
+        Eigen::Matrix<std::complex<double>, -1, -1> P(3, 3);
+        P.setZero();
+        P(0, 0) = std::complex(-0.45936268, 0.7602446);
+        P(1, 1) = std::complex(-0.45936268, 0.7602446);
+        P(2, 2) = std::complex(-0.45936268, 0.7602446);
+        out.P.push_back(std::move(P));
+    }
+    {
+        //step 3
+        Eigen::Matrix<std::complex<double>, -1, -1> P(3, 3);
+        P.setZero();
+        P(0, 0) = std::complex(-0.698456, 0.15594369);
+        P(1, 1) = std::complex(-0.698456, 0.15594369);
+        P(2, 2) = std::complex(-0.698456, 0.15594369);
+        out.P.push_back(std::move(P));
+    }
+    {
+        //step 4
+        Eigen::Matrix<std::complex<double>, -1, -1> P(3, 3);
+        P.setZero();
+        P(0, 0) = std::complex(-0.60263211, -0.52313389);
+        P(1, 1) = std::complex(-0.60263211, -0.52313389);
+        P(2, 2) = std::complex(-0.60263211, -0.52313389);
+        out.P.push_back(std::move(P));
+    }
+
+    // -------------- Q --------------
+    {
+        //step 1
+        Eigen::Matrix<std::complex<double>, -1, -1> Q(3, 3);
+        Q.setZero();
+        Q(0, 0) = std::complex(1., 0.);
+        Q(1, 1) = std::complex(1., 0.);
+        Q(2, 2) = std::complex(1., 0.);
+        out.Q.push_back(std::move(Q));
+    }
+    {
+        //step 2
+        Eigen::Matrix<std::complex<double>, -1, -1> Q(3, 3);
+        Q.setZero();
+        Q(0, 0) = std::complex(0.7602446, 0.91872537);
+        Q(1, 1) = std::complex(0.7602446, 0.91872537);
+        Q(2, 2) = std::complex(0.7602446, 0.91872537);
+        out.Q.push_back(std::move(Q));
+    }
+    {
+        //step 3
+        Eigen::Matrix<std::complex<double>, -1, -1> Q(3, 3);
+        Q.setZero();
+        Q(0, 0) = std::complex(0.15594369, 1.396912);
+        Q(1, 1) = std::complex(0.15594369, 1.396912);
+        Q(2, 2) = std::complex(0.15594369, 1.396912);
+        out.Q.push_back(std::move(Q));
+    }
+    {
+        //step 4
+        Eigen::Matrix<std::complex<double>, -1, -1> Q(3, 3);
+        Q.setZero();
+        Q(0, 0) = std::complex(-0.52313389, 1.20526423);
+        Q(1, 1) = std::complex(-0.52313389, 1.20526423);
+        Q(2, 2) = std::complex(-0.52313389, 1.20526423);
+        out.Q.push_back(std::move(Q));
+    }
+
+    // -------------- p --------------
+    {
+        //step 0
+        Eigen::Matrix<std::complex<double>, -1, 1> p(3);
+        p(0) = std::complex(1., 0.);
+        p(1) = std::complex(0., 0.);
+        p(2) = std::complex(0., 0.);
+        out.p.push_back(std::move(p));
+    }
+    {
+        //step 1
+        Eigen::Matrix<std::complex<double>, -1, 1> p(3);
+        p(0) = std::complex(0.9899259395420181, 0.);
+        p(1) = std::complex(0.2296813424663948, 0.);
+        p(2) = std::complex(0., 0.);
+        out.p.push_back(std::move(p));
+    }
+    {
+        //step 2
+        Eigen::Matrix<std::complex<double>, -1, 1> p(3);
+        p(0) = std::complex(0.5051716940837586, 0.);
+        p(1) = std::complex(0.34922799931828014, 0.);
+        p(2) = std::complex(0., 0.);
+        out.p.push_back(std::move(p));
+    }
+    {
+        //step 3
+        Eigen::Matrix<std::complex<double>, -1, 1> p(3);
+        p(0) = std::complex(-0.22181783749679396, 0.);
+        p(1) = std::complex(0.3013160567921123, 0.);
+        p(2) = std::complex(0., 0.);
+        out.p.push_back(std::move(p));
+    }
+
+    // -------------- q --------------
+    {
+        //step 0
+        Eigen::Matrix<std::complex<double>, -1, 1> q(3);
+        q(0) = std::complex(-0.5, 0.);
+        q(1) = std::complex(-0.5, 0.);
+        q(2) = std::complex(0., 0.);
+        out.q.push_back(std::move(q));
+    }
+    {
+        //step 1
+        Eigen::Matrix<std::complex<double>, -1, 1> q(3);
+        q(0) = std::complex(0.5386030713277431, 0. );
+        q(1) = std::complex(-0.3801222985378165, 0.);
+        q(2) = std::complex(0., 0.);
+        out.q.push_back(std::move(q));
+    }
+    {
+        //step 2
+        Eigen::Matrix<std::complex<double>, -1, 1> q(3);
+        q(0) = std::complex(1.3189401498906073, 0.);
+        q(1) = std::complex(-0.07797184738268172, 0.);
+        q(2) = std::complex(0., 0.);
+        out.q.push_back(std::move(q));
+    }
+    {
+        //step 3
+        Eigen::Matrix<std::complex<double>, -1, 1> q(3);
+        q(0) = std::complex(1.4668311743131408, 0.);
+        q(1) = std::complex(0.26156694714445683, 0.);
+        q(2) = std::complex(0., 0.);
+        out.q.push_back(std::move(q));
+    }
+
+    // -------------- c_0 --------------
+    {
+        const auto splitter = [](const std::string& _in, std::vector<std::string>& _out, const std::string& _delimeter) {
+            const std::regex r(_delimeter);
+            std::sregex_token_iterator begin(_in.begin(), _in.end(), r, -1);
+            if (std::distance(begin, std::sregex_token_iterator()) == 0) return;
+            for (auto it = begin; it != std::sregex_token_iterator(); ++it) {
+                if((*it).str().empty()) continue;
+                _out.push_back(*it);
+            }
+        };
+
+        const auto path = FilePathResolver::ASSETDIR() + "c0.txt";
+        std::ifstream file (path);
+        std::string line;
+        for(size_t i = 0; i < 4; ++i) {
+
+            std::getline(file, line);
+            std::vector<std::string> vals;
+            splitter(line, vals, "\t");
+
+            Eigen::Matrix<std::complex<double>, -1, 1> c_0(vals.size());
+            for(size_t k = 0; k < vals.size(); ++k){
+                c_0(k) = std::stod(vals[k]);
+            }
+            out.c_0.push_back(std::move(c_0));
+        }
+ 
+    }
+
+    // -------------- S --------------
+    {
+        out.S.resize(4);
+        out.S(0) = { 0, 0 };
+        out.S(1) = { 0.47293507579737626, 0 };
+        out.S(2) = { 0.5695306388253558, 0 };
+        out.S(3) = { 0.12672250102084176, 0 };
+    }
+
+    out.Ks = hyperbolicCutShape(out.dimensions, out.K);
+
+    out.k_max = Eigen::Matrix<Eigen::Index, -1, 1>(out.dimensions);
+    out.k_max.setZero();
+
+    for(size_t i = 0; i < out.dimensions; ++i){
+        for(const auto& k : out.Ks){
+            out.k_max(i) = std::max(out.k_max(i), k(i));
+        }
+    }
+
+    return out;
+} //IO::getExample1
 
 inline std::vector<Eigen::Matrix<Eigen::Index, -1, 1>> IO::hyperbolicCutShape(size_t _dim, size_t _K) noexcept {
     std::vector<Eigen::Matrix<Eigen::Index, -1, 1>> out;

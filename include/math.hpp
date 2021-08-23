@@ -12,7 +12,8 @@ namespace Math {
             template<class T>
             struct Invariants {
                 size_t dimensions;
-                Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> k;
+                Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> k; //k extends
+                std::unordered_map<Eigen::Index, bool> k_shape; //lookup for shape
                 std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>> p;
                 std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>> q;
                 //phi_0
@@ -37,7 +38,7 @@ namespace Math {
             [[nodiscard]] Eigen::Matrix<std::complex<T>, -1, 1> phi (
                     size_t /*_t*/,
                     const Eigen::Matrix<T, Eigen::Dynamic, 1>& /*_x*/,
-                    const std::vector<std::complex<T>>& /*_phis*/,
+                    const std::unordered_map<Eigen::Index, std::complex<T>>& /*_phis*/,
                     const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& /*_index*/,
                     const Detail::Invariants<T>& /*_inv*/
             ) noexcept; 
@@ -48,7 +49,7 @@ namespace Math {
         [[nodiscard]] const Detail::Invariants<T> computeInvariants(const File<T>& /*_file*/) noexcept;
 
         template<class T>
-        [[nodiscard]] std::vector<std::complex<T>> compute ( size_t /*_t*/, const Eigen::Matrix<T, Eigen::Dynamic, 1>& /*_x*/, const Detail::Invariants<T>& /*_inv*/) noexcept;
+        [[nodiscard]] std::unordered_map<Eigen::Index, std::complex<T>> compute ( size_t /*_t*/, const Eigen::Matrix<T, Eigen::Dynamic, 1>& /*_x*/, const Detail::Invariants<T>& /*_inv*/) noexcept;
 
     } //Hagedorn
 
@@ -68,6 +69,7 @@ inline const Math::Hagedorn::Detail::Invariants<T> Math::Hagedorn::computeInvari
     out.i_2_E_2 = std::complex<T>(0., 1.) / (2. * _file.epsilon * _file.epsilon);
     out.p = _file.p;
     out.q = _file.q;
+    out.k_shape = _file.b_Ks;
 
     for(size_t t = 0; t < _file.timesteps; ++t){
         //phi0
@@ -83,7 +85,7 @@ inline const Math::Hagedorn::Detail::Invariants<T> Math::Hagedorn::computeInvari
 }
 
 template <class T>
-inline std::vector<std::complex<T>> Math::Hagedorn::compute (size_t _t, const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x, const Detail::Invariants<T>& _inv) noexcept {
+inline std::unordered_map<Eigen::Index, std::complex<T>> Math::Hagedorn::compute (size_t _t, const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x, const Detail::Invariants<T>& _inv) noexcept {
 
     using Index = Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>;
     using Vector = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>;
@@ -95,8 +97,8 @@ inline std::vector<std::complex<T>> Math::Hagedorn::compute (size_t _t, const Ei
     for (size_t i = 1; i < _inv.k.size(); ++i)
         size *= (_inv.k(i)+1);
 
-    std::vector<std::complex<T>> phis;
-    phis.resize(size);
+    std::unordered_map<Eigen::Index, std::complex<T>> phis;
+    //phis.resize(size);
 
     //iterate over ks
     Index index(dim);
@@ -109,17 +111,25 @@ inline std::vector<std::complex<T>> Math::Hagedorn::compute (size_t _t, const Ei
             if (first) {
                 first = false;
                 const auto phi0 = Detail::phi_0(_t, _x, _inv);
-                phis[0] = phi0;
+                phis.insert( {0, phi0} );
+                --index(dim-1);
                 continue;
             }
 
+            //check if have reached the end of the shape
+            const Eigen::Index ii = Detail::index(index, _inv.k);
+            if(!_inv.k_shape.contains(ii))
+                break;
+
+            //compute phi for index
             const auto phi = Detail::phi(_t, _x, phis, index, _inv);
 
             for (size_t d = 0; d < dim; ++d) {
                 Index ni = index;
                 ni(d) += 1;
                 const Eigen::Index ii = Detail::index(ni, _inv.k);
-                phis[ii] = phi(d);
+                phis.insert( {ii, phi(d)} );
+                //phis[ii] = phi(d);
             }
         }
 
@@ -167,7 +177,7 @@ template <class T>
 inline Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> Math::Hagedorn::Detail::phi (
     size_t _t,
     const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x,
-    const std::vector<std::complex<T>>& _phis,
+    const std::unordered_map<Eigen::Index, std::complex<T>>& _phis,
     const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _index,
     const Detail::Invariants<T>& _inv
 ) noexcept {
@@ -184,19 +194,22 @@ inline Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> Math::Hagedorn::Detail:
     for (size_t j = 0; j < _inv.dimensions; ++j) {
         //early out
         if (_index(j) - 1 < 0) {
-            kp(j) = 0;
+            kp(j) = { 0., 0. };
             continue;
         }
 
         Index k_1 = _index;
         k_1(j) = std::max(k_1(j) - 1, 0ll);
         const Eigen::Index ii = Detail::index(k_1, _inv.k);
-        kp(j) = std::sqrt(_index(j)) * _phis[ii];  
+        assert(_phis.contains(ii));
+        const std::complex<double>& p = (*_phis.find(ii)).second;
+        kp(j) = std::sqrt(_index(j)) * p;  
     }
 
     const Eigen::Index ii = Detail::index(_index, _inv.k);
-
-    auto phi_t = _inv.Q_1[_t] * xq * _phis[ii] - _inv.Q_1_Q_T[_t] * kp;
+    assert(_phis.contains(ii));
+    const std::complex<double>& p = (*_phis.find(ii)).second;
+    auto phi_t = _inv.Q_1[_t] * xq * p - _inv.Q_1_Q_T[_t] * kp;
 
     Vector phi (_inv.dimensions);
     for(size_t i = 0; i < _inv.dimensions; ++i){

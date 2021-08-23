@@ -342,7 +342,7 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
     for(size_t t = 0; t < 4; ++t){
         for( size_t i = 0; i < 8; ++i){
         
-            const auto phis = Math::Hagedorn::compute(
+            const std::unordered_map<Eigen::Index, std::complex<double>> phis = Math::Hagedorn::compute(
                 t,
                 grid[i],
                 inv
@@ -353,7 +353,9 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
  
             for(size_t k = 0; k < file.Ks.size(); ++k){ 
                 const size_t idx = Math::Hagedorn::Detail::index(file.Ks[k], file.k_max);
-                res += file.c_0[t](k) * phis[idx];
+                REQUIRE(phis.contains(idx));
+                const std::complex<double>& p = (*phis.find(idx)).second;
+                res += file.c_0[t](k) * p;
             } 
             res *= std::exp(std::complex<double>(0., 1.) * file.S(0));
             const double rl2 = std::abs(res);
@@ -396,7 +398,7 @@ TEST_CASE( "performance example", "Hagedorn" ) {
 
             const Now start = std::chrono::high_resolution_clock::now();
 
-            const std::vector<std::complex<double>> phis = Math::Hagedorn::compute(
+            const std::unordered_map<Eigen::Index, std::complex<double>> phis = Math::Hagedorn::compute(
                 0,
                 pos,
                 inv
@@ -434,7 +436,7 @@ TEST_CASE( "performance example1", "Hagedorn" ) {
 
             const Now start = std::chrono::high_resolution_clock::now();
 
-            const std::vector<std::complex<double>> phis = Math::Hagedorn::compute(
+            const std::unordered_map<Eigen::Index, std::complex<double>> phis = Math::Hagedorn::compute(
                 0,
                 pos,
                 inv

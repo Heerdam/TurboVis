@@ -4,95 +4,158 @@
 #include <Eigen/Eigen>
 
 #include "filepathresolver.hpp"
+#include "math.hpp"
 
 #include <highfive/H5File.hpp>
 #include <highfive/h5easy_bits/H5Easy_Eigen.hpp>
 
 #include <vector>
 #include <filesystem>
-#include <string>
+#include <string>   
 #include <iostream>
 #include <regex>
+#include <exception>
 
 namespace IO {
 
-    namespace Details {
-
-        template<class Node>
-        std::vector<unsigned char> extractOpaque(const Node& _node){
-            char* data = new char[_node.getStorageSize()];
-            _node.read(data, _node.getDataType());
-            std::vector<unsigned char> out;
-            for (size_t i = 0; i < _node.getStorageSize(); ++i){
-                if(data[i] < 0x41 || data[i] > 0x7A) continue;
-                //std::cout << size_t(data[i]) << " ";
-                out.push_back(data[i]);
-            }
-
-
-            //std::cout << std::endl;
-            std::string ss (out.begin(), out.end());
-            std::cout << ss << std::endl;
-            return out;
-        }
-
-    }
+    namespace Details {}
 
     template<class T>
     struct File {
         size_t dimensions;
         size_t timesteps;
         size_t K;
-        T epsilon;
-        Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> k_max;
-        Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> S;
-        std::vector<Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>> Ks; //shapefunction
+        T epsilon = 1.;  
+        Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> S;       
         std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>> c_0;
         std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>> p, q;
         std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>> P, Q;
+
+        //shapefunction
+        std::vector<Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>> Ks; 
+        Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> k_max; //max k in d direction
+        std::unordered_map<Eigen::Index, bool> b_Ks;
     }; //Options
 
-    template <class T, size_t Dim>
-    [[nodiscard]] const File<T> loadFromFile(std::filesystem::path _path) {
-        File<T> out;
-        using Matrix = Eigen::Matrix<std::complex<double>, -1, -1>;
-        //file
-        HighFive::File file(_path.string(), HighFive::File::ReadOnly);
-
-        //basishapes
-        {
-            const Eigen::Matrix<Eigen::Index, -1, 1> hashes = H5Easy::load<Eigen::Matrix<Eigen::Index, -1, 1>>(file, "datablock_0/wavepacket/basis_shape_hash");
-            std::cout << hashes << std::endl
-                      << std::endl;
-            for (Eigen::Index i = 0; i < hashes.rows(); ++i) {
-                std::stringstream ss;
-                ss << "/datablock_0/wavepacket/basisshapes/basis_shape_" << hashes(i);
-                const auto dataset = file.getDataSet(ss.str());
-                auto dd = dataset.listAttributeNames();
-                const auto a_k = dataset.getAttribute("K");
-                const auto a_d = dataset.getAttribute("dimension");
-                const auto a_t = dataset.getAttribute("type");
-                
-
-                const auto test1 = Details::extractOpaque(a_k);
-                const auto test2 = Details::extractOpaque(a_d);
-                const auto test3 = Details::extractOpaque(a_t);
-
-                auto sf = a_k.getDataType();
-                
-            }
-        }
-
-        Matrix c_0 = H5Easy::load<Matrix>(file, "datablock_0/wavepacket/coefficients/c_0");
-
-        return out;
-    }; //loadFromFile
+    template <class T>
+    [[nodiscard]] const File<T> loadFromFile(std::filesystem::path /*_path*/, size_t /*_dims*/, size_t /*_K*/);
 
     [[nodiscard]] File<double> getExample() noexcept;
     [[nodiscard]] File<double> getExample1() noexcept;
     [[nodiscard]] std::vector<Eigen::Matrix<Eigen::Index, -1, 1>> hyperbolicCutShape(size_t /*_dim*/, size_t /*_K*/) noexcept;
 
 }
+
+template <class T>
+inline const IO::File<T> loadFromFile(std::filesystem::path _path, size_t _dims, size_t _K) {
+
+    using Vector = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>;
+    using Matrix = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>;
+
+    IO::File<T> out;
+    out.dimensions = _dims;
+    out.K = _K;
+
+    try {
+
+        //file
+        HighFive::File file(_path.string(), HighFive::File::ReadOnly);
+
+        //timesteps
+        {
+            const Vector steps = H5Easy::load<Vector>(file, "datablock_0/wavepacket/timegrid");
+            out.timesteps = steps.rows();
+        }
+
+        //S
+        {
+            out.S = H5Easy::load<Vector>(file, "datablock_0/wavepacket/Pi/S");
+        }
+
+        //c_0
+        {
+            out.c_0 = H5Easy::load<Vector>(file, "datablock_0/wavepacket/coefficients/c_0");
+        }
+        
+        //p
+        {
+            out.p = H5Easy::load<Vector>(file, "datablock_0/wavepacket/Pi/p");
+        }
+
+        //q
+        {
+            out.q = H5Easy::load<Vector>(file, "datablock_0/wavepacket/Pi/q");
+        }
+
+        //P
+        {
+            for(size_t i = 0; i < out.timesteps; ++i){
+                Matrix P (out.dimensions, out.dimensions);
+
+                for(size_t x = 0; x < out.dimensions; ++x){
+                    for(size_t y = 0; y < out.dimensions; ++y){
+
+                        std::vector<size_t> idx;
+                        idx.push_back(x);
+                        idx.push_back(i);
+                        idx.push_back(y);         
+                        const T val = H5Easy::load(file, "datablock_0/wavepacket/Pi/P", idx);
+                        P(x, y) = val;
+
+                    }
+                }
+                out.P.push_back(std::move(P));
+            }
+        }
+
+        //Q
+        {
+            for(size_t i = 0; i < out.timesteps; ++i){
+                Matrix Q (out.dimensions, out.dimensions);
+
+                for(size_t x = 0; x < out.dimensions; ++x){
+                    for(size_t y = 0; y < out.dimensions; ++y){
+
+                        std::vector<size_t> idx;
+                        idx.push_back(x);
+                        idx.push_back(i);
+                        idx.push_back(y);         
+                        const T val = H5Easy::load(file, "datablock_0/wavepacket/Pi/Q", idx);
+                        Q(x, y) = val;
+
+                    }
+                }
+                out.Q.push_back(std::move(Q));
+            }
+        }
+        
+
+    } catch(const std::exception& _e){
+        std::cout << _e.what() << std::endl;
+    }
+
+    // -------------- cut shape --------------
+    {
+        out.Ks = hyperbolicCutShape(out.dimensions, out.K);
+
+        out.k_max = Eigen::Matrix<Eigen::Index, -1, 1>(out.dimensions);
+        out.k_max.setZero();
+
+        for(size_t i = 0; i < out.dimensions; ++i){
+            for(const auto& k : out.Ks){
+                out.k_max(i) = std::max(out.k_max(i), k(i));
+            }
+        }
+ 
+        for(const auto& c : out.Ks){
+            const Eigen::Index ii = Math::Hagedorn::Detail::index(c, out.k_max);
+            //std::cout << c(0) << ", " << c(1) << ", " << c(2) << " | " << out.k_max(0) << ", " << out.k_max(1) << ", " << out.k_max(2) << " | " << ii << std::endl;
+            out.b_Ks.insert( {ii, true} );
+        }
+    }
+
+    return out;
+}; //loadFromFile
 
 inline IO::File<double> IO::getExample() noexcept{
     File<double> out;
@@ -318,14 +381,23 @@ inline IO::File<double> IO::getExample() noexcept{
         out.S(3) = { 0.12672250102084176, 0. };
     }
 
-    out.Ks = hyperbolicCutShape(out.dimensions, out.K);
+    // -------------- cut shape --------------
+    {
+        out.Ks = hyperbolicCutShape(out.dimensions, out.K);
 
-    out.k_max = Eigen::Matrix<Eigen::Index, -1, 1>(out.dimensions);
-    out.k_max.setZero();
+        out.k_max = Eigen::Matrix<Eigen::Index, -1, 1>(out.dimensions);
+        out.k_max.setZero();
 
-    for(size_t i = 0; i < out.dimensions; ++i){
-        for(const auto& k : out.Ks){
-            out.k_max(i) = std::max(out.k_max(i), k(i));
+        for(size_t i = 0; i < out.dimensions; ++i){
+            for(const auto& k : out.Ks){
+                out.k_max(i) = std::max(out.k_max(i), k(i));
+            }
+        }
+ 
+        for(const auto& c : out.Ks){
+            const Eigen::Index ii = Math::Hagedorn::Detail::index(c, out.k_max);
+            //std::cout << c(0) << ", " << c(1) << ", " << c(2) << " | " << out.k_max(0) << ", " << out.k_max(1) << ", " << out.k_max(2) << " | " << ii << std::endl;
+            out.b_Ks.insert( {ii, true} );
         }
     }
 
@@ -523,14 +595,23 @@ inline IO::File<double> IO::getExample1() noexcept{
         out.S(3) = { 0.12672250102084176, 0 };
     }
 
-    out.Ks = hyperbolicCutShape(out.dimensions, out.K);
+    // -------------- cut shape --------------
+    {
+        out.Ks = hyperbolicCutShape(out.dimensions, out.K);
 
-    out.k_max = Eigen::Matrix<Eigen::Index, -1, 1>(out.dimensions);
-    out.k_max.setZero();
+        out.k_max = Eigen::Matrix<Eigen::Index, -1, 1>(out.dimensions);
+        out.k_max.setZero();
 
-    for(size_t i = 0; i < out.dimensions; ++i){
-        for(const auto& k : out.Ks){
-            out.k_max(i) = std::max(out.k_max(i), k(i));
+        for(size_t i = 0; i < out.dimensions; ++i){
+            for(const auto& k : out.Ks){
+                out.k_max(i) = std::max(out.k_max(i), k(i));
+            }
+        }
+ 
+        for(const auto& c : out.Ks){
+            const Eigen::Index ii = Math::Hagedorn::Detail::index(c, out.k_max);
+            //std::cout << c(0) << ", " << c(1) << ", " << c(2) << " | " << out.k_max(0) << ", " << out.k_max(1) << ", " << out.k_max(2) << " | " << ii << std::endl;
+            out.b_Ks.insert( {ii, true} );
         }
     }
 

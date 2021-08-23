@@ -61,7 +61,7 @@ namespace GL {
         std::atomic<double> k;
         std::atomic<float> scale = 7.5;
         std::atomic<float> MAX = 50.f;
-        std::atomic<size_t> curT = 2;
+        std::atomic<size_t> curT = 0;
         std::atomic<size_t> maxT = 0;
 //51
     public:
@@ -393,7 +393,7 @@ inline void GL::HagedornRenderer<T, Camera>::start(const Camera& _cam) noexcept{
                 if constexpr (true){
                     //calculate basis function
                     
-                    const std::vector<std::complex<T>> phis = Math::Hagedorn::compute(
+                    const std::unordered_map<Eigen::Index, std::complex<double>> phis = Math::Hagedorn::compute(
                         curT,
                         pos,
                         inv
@@ -415,7 +415,9 @@ inline void GL::HagedornRenderer<T, Camera>::start(const Camera& _cam) noexcept{
                     std::complex<T> res (0., 0.);
                     for(Eigen::Index k = 0; k < file.Ks.size(); ++k){ 
                         const Eigen::Index idx = Math::Hagedorn::Detail::index(file.Ks[k], file.k_max);
-                        res += file.c_0[curT](k) * phis[idx];
+                        assert(phis.contains(idx));
+                        const std::complex<double>& p = (*phis.find(idx)).second;
+                        res += file.c_0[curT](k) * p;
                     } 
                     res *= std::exp(std::complex<T>(0., 1.) * file.S(Eigen::Index(curT)));
 

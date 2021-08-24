@@ -337,7 +337,7 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
         }
     };
 
-    const auto file = IO::simulation_results_phi000();
+    const auto file = IO::simulation_results();
     REQUIRE(file.has_value());
     const auto inv = Math::Hagedorn::computeInvariants(file.value());
 
@@ -365,7 +365,7 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
             const double rl2 = std::abs(res);
             error += (rl2*rl2);
 
-            std::cout << "Result:" << res.real() << "+i*" << res.imag() << "\t\tSolution:" << psis[i](t).real() << " +i*" << psis[i](t).imag() << "\t\t|Solution - Result|: " << std::abs(psis[i](t).real() - res.real()) << "+i*" << std::abs(psis[i](t).imag() - res.imag()) << std::endl;
+            std::cout << "Result:" << res.real() << "+i*" << res.imag() << "\t\tSolution:" << psis[i](t).real() << " +i*" << psis[i](t).imag() << "\t\t|Solution - Result|: " << std::abs(psis[i](t).real() - res.real()) << "+i*" << std::abs(psis[i](t).imag() - res.imag()) << " [" << std::abs(std::abs(res) - std::abs(psis[i](t))) << "]" << std::endl;
 
             //REQUIRE(res == psis[i](t));
         }

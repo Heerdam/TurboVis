@@ -52,7 +52,7 @@ namespace IO {
 
 inline const std::optional<IO::File<double>> IO::simulation_results() {
     try {
-        const auto path = FilePathResolver::ASSETDIR() + "simulations_results.hdf5";
+        const auto path = FilePathResolver::ASSETDIR() + "simulation_results.hdf5";
         return loadFromFile<double>(path, 3, 4);
     } catch(const std::exception& _e){
         std::cout << _e.what() << std::endl;
@@ -140,8 +140,8 @@ inline const std::optional<IO::File<T>> IO::loadFromFile(std::filesystem::path _
         {
             const Matrix tmp = H5Easy::load<Matrix>(file, "datablock_0/wavepacket/coefficients/c_0");
             for(size_t t = 0; t < out.timesteps; ++t){
-                Vector c_0(out.K);
-                for(size_t d = 0; d < out.K; ++d)
+                Vector c_0(tmp.cols());
+                for(size_t d = 0; d < tmp.cols(); ++d)
                     c_0(d) = tmp(t, d);
                 out.c_0.push_back(std::move(c_0));
             }

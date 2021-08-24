@@ -194,6 +194,8 @@ else()
 	target_link_libraries(tv "${TV_LIBS_LINUX}"	)
 endif()
 
+
+
 #if(TURBOVIS_BUILD_TESTS)
 
 	# ------------------ CATCH2 ------------------
@@ -222,3 +224,18 @@ endif()
 		target_link_libraries( tv_tests "${TV_LIBS_LINUX}" Catch2 )
 	endif()
 #endif()
+
+
+
+
+add_executable( tv_gui_less	"src/maingl.cpp" )
+
+set(TV_LIBS_GUI_LESS 
+	"glfw"	
+	"spdlog::spdlog"	
+	"lodepng"
+	"HighFive"
+)
+
+target_include_directories(tv_gui_less PUBLIC "${eigen3_SOURCE_DIR}")
+target_link_libraries(tv_gui_less "${TV_LIBS_GUI_LESS}" )

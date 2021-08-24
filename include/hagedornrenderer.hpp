@@ -57,11 +57,11 @@ namespace GL {
              
 
     public:
-        std::atomic<size_t> steps = 1500;
+        std::atomic<size_t> steps = 500;
         std::atomic<double> k;
-        std::atomic<float> scale = 7.5;
+        std::atomic<float> scale = 5.f;
         std::atomic<float> MAX = 50.f;
-        std::atomic<size_t> curT = 0;
+        std::atomic<size_t> curT = 1;
         std::atomic<size_t> maxT = 0;
 //51
     public:
@@ -160,10 +160,10 @@ inline GL::HagedornRenderer<T, Camera>::HagedornRenderer(const Camera& _cam) noe
     lower.resize(3);
     upper.resize(3);
     for(size_t i = 0; i < 3; ++i){
-        lower(i) = -10.;
-        upper(i) = 10.;
+        lower(i) = -12;
+        upper(i) = 12;
     }
-
+ 
     // -------------- BUFFERS --------------
 
     const float quad[] = {
@@ -420,6 +420,9 @@ inline void GL::HagedornRenderer<T, Camera>::start(const Camera& _cam) noexcept{
                         res += file.c_0[curT](k) * p;
                     } 
                     res *= std::exp(std::complex<T>(0., 1.) * file.S(Eigen::Index(curT)));
+
+                    //if(res.real() > std::numeric_limits<T>::epsilon() || res.imag() > std::numeric_limits<T>::epsilon())
+                       //std::cout << res << std::endl;
 
                     //compute color
                     const auto hsl = GL::Detail::c_to_HSL(T(MAX), res);

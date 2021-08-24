@@ -35,6 +35,7 @@ namespace IO {
         std::vector<Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>> Ks; 
         Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> k_max; //max k in d direction
         std::unordered_map<Eigen::Index, bool> b_Ks;
+ 
     }; //Options
 
     template <class T>
@@ -48,6 +49,35 @@ namespace IO {
 
     [[nodiscard]] std::vector<Eigen::Matrix<Eigen::Index, -1, 1>> hyperbolicCutShape(size_t /*_dim*/, size_t /*_K*/) noexcept;
 
+    template<class T>
+    [[nodiscard]] std::ostream& operator<<(std::ostream& /*_s*/, IO::File<T> /*_f*/) noexcept;
+}
+
+template<class T>
+inline std::ostream& IO::operator<<(std::ostream& _s, IO::File<T> _f) noexcept{
+    _s << std::endl << "=====================================================" << std::endl;
+    _s << "Dimensions: " << _f.dimensions << std::endl;
+    _s << "Time steps: " << _f.timesteps << std::endl;
+    _s << "K: " << _f.K << std::endl;
+    _s << "Epsilon: " << _f.epsilon << std::endl << std::endl;
+    _s << "S: " << std::endl << _f.S << std::endl;
+    //_s << "c_0: " << std::endl;
+    //for(size_t i = 0; i < _f.c_0.size(); ++i)
+    //    _s << "[" << i << "]" << std::endl << _f.c_0[i];
+    _s << "p: " << std::endl;
+    for(size_t i = 0; i < _f.p.size(); ++i)
+        _s << "[" << i << "]" << std::endl << _f.p[i]<< std::endl;
+    _s << "q: " << std::endl;
+    for(size_t i = 0; i < _f.q.size(); ++i)
+        _s << "[" << i << "]" << std::endl << _f.q[i]<< std::endl;
+    _s << "P: " << std::endl;
+    for(size_t i = 0; i < _f.P.size(); ++i)
+        _s << "[" << i << "]" << std::endl << _f.P[i]<< std::endl;
+    _s << "Q: " << std::endl;    
+    for(size_t i = 0; i < _f.Q.size(); ++i)
+        _s << "[" << i << "]" << std::endl << _f.Q[i]<< std::endl;
+    _s << std::endl << "=====================================================" << std::endl;
+    return _s;
 }
 
 inline const std::optional<IO::File<double>> IO::simulation_results() {
@@ -73,7 +103,7 @@ inline const std::optional<IO::File<double>> IO::simulation_results_phi000() {
 inline const std::optional<IO::File<double>> IO::simulation_results_phi100() {
     try {
         const auto path = FilePathResolver::ASSETDIR() + "simulation_results_phi100.hdf5";
-        return loadFromFile<double>(path, 3, 4);
+        return loadFromFile<double>(path, 3, 2);
     } catch(const std::exception& _e){
         std::cout << _e.what() << std::endl;
     }
@@ -83,7 +113,7 @@ inline const std::optional<IO::File<double>> IO::simulation_results_phi100() {
 inline const std::optional<IO::File<double>> IO::simulation_results_phi121() {
     try {
         const auto path = FilePathResolver::ASSETDIR() + "simulation_results_phi121.hdf5";
-        return loadFromFile<double>(path, 3, 4);
+        return loadFromFile<double>(path, 3, 12);
     } catch(const std::exception& _e){
         std::cout << _e.what() << std::endl;
     }
@@ -93,7 +123,7 @@ inline const std::optional<IO::File<double>> IO::simulation_results_phi121() {
 inline const std::optional<IO::File<double>> IO::simulation_results_phi412() {
     try {
         const auto path = FilePathResolver::ASSETDIR() + "simulation_results_phi412.hdf5";
-        return loadFromFile<double>(path, 3, 4);
+        return loadFromFile<double>(path, 3, 30);
     } catch(const std::exception& _e){
         std::cout << _e.what() << std::endl;
     }

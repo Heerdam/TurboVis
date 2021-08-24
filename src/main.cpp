@@ -80,8 +80,8 @@ int main() {
     size_t frames = 0, fps = 0, maxfps = 0;
 
     // -------------- CAMERA --------------
-    GL::Camera camera = GL::Camera(int64_t(WIDTH), int64_t(HEIGHT), glm::radians(55.f), 0.01f, 5.f);
-    camera.position = { 0.f, 5.5f, 0.f };
+    GL::Camera camera = GL::Camera(int64_t(WIDTH), int64_t(HEIGHT), glm::radians(55.f), 0.01f, 100.f);
+    camera.position = { 0.f, 15.f, 0.f };
     camera.target = { 0.f, 0.f, 0.f };
     //camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
     camera.combined = glm::lookAt(camera.position, camera.target, camera.upAxis);
@@ -118,9 +118,10 @@ int main() {
     //GL::RaymarchTester rayM;
 
     //load file
-    const auto file = IO::getExample();
+    const auto file = IO::simulation_results_phi412();
+    std::cout << file.value();
     GL::HagedornRenderer<double, GL::Camera> hager(camera);
-    hager.set(file);
+    hager.set(file.value());
     
     Gui::InputMultiplexer::keyCallback([&](GLFWwindow* _window, int _key, int _scancode, int _action, int _mods)-> void {
         if(_key == GLFW_KEY_X && _action == GLFW_PRESS){

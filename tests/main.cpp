@@ -379,8 +379,9 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
 using Now = std::chrono::high_resolution_clock::time_point;
 //375.3 gflops
 
-TEST_CASE( "performance example", "Hagedorn" ) {
+TEST_CASE( "performance simulation_results_phi000", "Hagedorn" ) {
 
+    std::cout << "performance simulation_results_phi000" << std::endl;
     using Vector = Eigen::Matrix<double, Eigen::Dynamic, 1>;
 
     const auto file = IO::simulation_results_phi000();
@@ -414,12 +415,57 @@ TEST_CASE( "performance example", "Hagedorn" ) {
             last =  time;
         }
         std::cout << "Mean for 1000 hagedorn iterations: " << mean *1000 << "ms" << std::endl;
+        std::cout << "File with 500 steps: " << (mean*1920*1080*500)/(60*8) << "min" << std::endl;
     }
+    std::cout << std::endl;
 
 }
 
-TEST_CASE( "performance example1", "Hagedorn" ) {
+TEST_CASE( "performance simulation_results_phi121", "Hagedorn" ) {
 
+    std::cout << "performance simulation_results_phi121" << std::endl;
+    using Vector = Eigen::Matrix<double, Eigen::Dynamic, 1>;
+
+    const auto file = IO::simulation_results_phi121();
+    REQUIRE(file.has_value());
+    const auto inv = Math::Hagedorn::computeInvariants(file.value());
+
+    Vector pos (3);
+    pos.setZero();
+
+    Vector dir(3);
+    dir.setZero();
+    dir(2) = 1. / 1000.;
+
+    for(size_t k = 0; k < 10; ++k){
+        double mean = 0.f;
+        double last = 0.f;
+        for(size_t i = 0; i < 1000; ++i){
+
+            pos + double(i) * dir;
+
+            const Now start = std::chrono::high_resolution_clock::now();
+
+            const std::unordered_map<Eigen::Index, std::complex<double>> phis = Math::Hagedorn::compute(
+                0,
+                pos,
+                inv
+            );
+            const Now end = std::chrono::high_resolution_clock::now();
+            const double time = std::chrono::duration<double>(end - start).count();
+            mean += 1./ double(i+1) * (time - last);
+            last =  time;
+        }
+        std::cout << "Mean for 1000 hagedorn iterations: " << mean *1000 << "ms" << std::endl;
+        std::cout << "File with 500 steps: " << (mean*1920*1080*500)/(60*8) << "min" << std::endl;
+    }
+    std::cout << std::endl;
+
+}
+
+TEST_CASE( "performance simulation_results_phi412", "Hagedorn" ) {
+
+    std::cout << "performance simulation_results_phi412" << std::endl;
     using Vector = Eigen::Matrix<double, Eigen::Dynamic, 1>;
 
     const auto file = IO::simulation_results_phi412();
@@ -453,6 +499,9 @@ TEST_CASE( "performance example1", "Hagedorn" ) {
             last =  time;
         }
         std::cout << "Mean for 1000 hagedorn iterations: " << mean *1000 << "ms" << std::endl;
+        std::cout << "File with 500 steps: " << (mean*1920*1080*500)/(60*8) << "min" << std::endl; 
     }
+
+    std::cout << std::endl;
 
 }

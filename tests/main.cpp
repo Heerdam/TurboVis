@@ -243,8 +243,11 @@ TEST_CASE( "PSI00", "Hagedorn" ){
         }
     };
 
-    const auto file = IO::getExample();
-    const auto inv = Math::Hagedorn::computeInvariants(file);
+    FilePathResolver::resolve();
+
+    const auto file = IO::simulation_results_phi000();
+    REQUIRE(file.has_value());
+    const auto inv = Math::Hagedorn::computeInvariants(file.value());
     double error = 0.;
     std::cout << "Hagedorn - PSI00" << std::endl;
     for(size_t t = 0; t < 4; ++t){
@@ -334,8 +337,9 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
         }
     };
 
-    const auto file = IO::getExample();
-    const auto inv = Math::Hagedorn::computeInvariants(file);
+    const auto file = IO::simulation_results_phi000();
+    REQUIRE(file.has_value());
+    const auto inv = Math::Hagedorn::computeInvariants(file.value());
 
     double error = 0.;
     std::cout << "Hagedorn - Function Values" << std::endl;
@@ -351,13 +355,13 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
             //calculate linear combination
             std::complex<double> res (0., 0.);
  
-            for(size_t k = 0; k < file.Ks.size(); ++k){ 
-                const size_t idx = Math::Hagedorn::Detail::index(file.Ks[k], file.k_max);
+            for(size_t k = 0; k < file.value().Ks.size(); ++k){ 
+                const size_t idx = Math::Hagedorn::Detail::index(file.value().Ks[k], file.value().k_max);
                 REQUIRE(phis.contains(idx));
                 const std::complex<double>& p = (*phis.find(idx)).second;
-                res += file.c_0[t](k) * p;
+                res += file.value().c_0[t](k) * p;
             } 
-            res *= std::exp(std::complex<double>(0., 1.) * file.S(0));
+            res *= std::exp(std::complex<double>(0., 1.) * file.value().S(0));
             const double rl2 = std::abs(res);
             error += (rl2*rl2);
 
@@ -379,8 +383,9 @@ TEST_CASE( "performance example", "Hagedorn" ) {
 
     using Vector = Eigen::Matrix<double, Eigen::Dynamic, 1>;
 
-    const auto file = IO::getExample();
-    const auto inv = Math::Hagedorn::computeInvariants(file);
+    const auto file = IO::simulation_results_phi000();
+    REQUIRE(file.has_value());
+    const auto inv = Math::Hagedorn::computeInvariants(file.value());
 
     Vector pos (3);
     pos.setZero();
@@ -417,8 +422,9 @@ TEST_CASE( "performance example1", "Hagedorn" ) {
 
     using Vector = Eigen::Matrix<double, Eigen::Dynamic, 1>;
 
-    const auto file = IO::getExample1();
-    const auto inv = Math::Hagedorn::computeInvariants(file);
+    const auto file = IO::simulation_results_phi412();
+    REQUIRE(file.has_value());
+    const auto inv = Math::Hagedorn::computeInvariants(file.value());
 
     Vector pos (3);
     pos.setZero();

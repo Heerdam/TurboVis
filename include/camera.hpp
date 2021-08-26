@@ -1,13 +1,25 @@
 #ifndef CAMERA_HPP
 #define CAMERA_HPP
 
-#include "defines.hpp"
+#define GLM_ENABLE_EXPERIMENTAL
+//#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#include <glm/ext/matrix_float4x4.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/ext.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/string_cast.hpp>
+#include <glm/gtx/transform.hpp>
+
+using Vec2 = glm::vec2;
+using Vec3 = glm::vec3;
+using Mat4 = glm::mat4x4;
+using Quat = glm::quat;
 
 namespace GL {
 
     class Camera {
     public:
-        const Vec3 upAxis = Vec3(0.f, 0.f, 1.f);
+        Vec3 upAxis = Vec3(0.f, 0.f, 1.f);
 
         Camera(int64_t _width, int64_t _height, float _fov, float _near, float _far) noexcept
             : width(_width), height(_height), fov(_fov), near(_near), far(_far) {}

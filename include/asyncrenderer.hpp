@@ -94,7 +94,7 @@ inline void AsyncRenderer::start(size_t _numThreads, size_t _width, size_t _heig
 
     started = std::chrono::high_resolution_clock::now();
 
-    std::cout << "started: " << std::endl;
+    //std::cout << "started: " << std::endl;
 
 };
 
@@ -102,7 +102,7 @@ inline void AsyncRenderer::stop() noexcept {
     {
         std::lock_guard<std::mutex> lock(mutex);
         b_isShutdown = true;
-        std::cout << "shutdown recieved" << std::endl;
+        //std::cout << "shutdown recieved" << std::endl;
     }
 
     cv.notify_all();
@@ -197,7 +197,7 @@ inline void AsyncRenderer::work(size_t _index, size_t _min, size_t _max) noexcep
             finishedCounter -= 1; 
             if(finishedCounter == 0){
                 finished = std::chrono::high_resolution_clock::now();
-                std::cout << "finished after " << std::chrono::duration<double>(finished - started).count() << "s" << std::endl;
+                //std::cout << "finished after " << std::chrono::duration<double>(finished - started).count() << "s" << std::endl;
             }
             //if(_index == 0)
                 //std::cout << "waiting for restart [" << _index << "]" << std::endl;   

@@ -415,7 +415,7 @@ TEST_CASE( "performance simulation_results_phi000", "Hagedorn" ) {
             last =  time;
         }
         std::cout << "Mean for 1000 hagedorn iterations: " << mean *1000 << "ms" << std::endl;
-        std::cout << "File with 500 steps: " << (mean*1920*1080*500)/(60*8) << "min" << std::endl;
+        std::cout << "File with 1500 steps: " << (mean*1920*1080*1500)/(60*60*64) << "h" << std::endl;
     }
     std::cout << std::endl;
 
@@ -457,7 +457,7 @@ TEST_CASE( "performance simulation_results_phi121", "Hagedorn" ) {
             last =  time;
         }
         std::cout << "Mean for 1000 hagedorn iterations: " << mean *1000 << "ms" << std::endl;
-        std::cout << "File with 500 steps: " << (mean*1920*1080*500)/(60*8) << "min" << std::endl;
+        std::cout << "File with 1500 steps: " << (mean*1920*1080*1500)/(60*60*64) << "h" << std::endl;
     }
     std::cout << std::endl;
 
@@ -499,7 +499,7 @@ TEST_CASE( "performance simulation_results_phi412", "Hagedorn" ) {
             last =  time;
         }
         std::cout << "Mean for 1000 hagedorn iterations: " << mean *1000 << "ms" << std::endl;
-        std::cout << "File with 500 steps: " << (mean*1920*1080*500)/(60*8) << "min" << std::endl; 
+        std::cout << "File with 1500 steps: " << (mean*1920*1080*1500)/(60*60*64) << "h" << std::endl;
     }
 
     std::cout << std::endl;

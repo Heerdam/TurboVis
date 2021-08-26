@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.16)
 
 project(TurboVis)
 
-set(CMAKE_GENERATOR_PLATFORM x64)
+if (MSVC)
+	set(CMAKE_GENERATOR_PLATFORM x64)
+endif()	
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -235,7 +237,9 @@ set(TV_LIBS_GUI_LESS
 	"spdlog::spdlog"	
 	"lodepng"
 	"HighFive"
+	"glm"
 )
 
 target_include_directories(tv_gui_less PUBLIC "${eigen3_SOURCE_DIR}")
+target_include_directories(tv_gui_less PUBLIC "${lodepng_SOURCE_DIR}")
 target_link_libraries(tv_gui_less "${TV_LIBS_GUI_LESS}" )

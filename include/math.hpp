@@ -1,7 +1,15 @@
 #ifndef MATH_HPP
 #define MATH_HPP
 
-#include "defines.hpp"
+#include <Eigen/Eigen>
+#include <Eigen/Core>
+
+#include <vector>
+#include <memory>
+#include <functional>
+#include <iostream>
+#include <complex>
+#include <algorithm>
 
 namespace Math {
 
@@ -55,6 +63,21 @@ namespace Math {
 
     template<class Vec, class T>
     [[nodiscard]] bool intersect(const Vec& /*_r_o*/, const Vec& /*_r_o*/, const Vec& /*_low*/, const Vec& /*_high*/, T /*_tMax*/, T& /*_t*/) noexcept;
+
+    template <class T>
+    [[nodiscard]] Eigen::Matrix<T, 3, 1> c_to_HSL(T /*_max*/, const std::complex<T>& /*_c*/) noexcept;
+
+    template <class T>
+    [[nodiscard]] Eigen::Matrix<T, 3, 1> HSL_to_RGB_rad(const Eigen::Matrix<T, 3, 1>& /*_hsl*/) noexcept;
+
+    template <class T>
+    [[nodiscard]] Eigen::Matrix<T, 3, 1> HSL_to_RGB_deg(const Eigen::Matrix<T, 3, 1>& /*_hsl*/) noexcept;
+
+    template <class T>
+    [[nodiscard]] Eigen::Matrix<T, 3, 1> rgb_to_gs(const Eigen::Matrix<T, 3, 1>& /*_rgb*/) noexcept;
+
+    template <class T>
+    [[nodiscard]] constexpr T depth(const Eigen::Array<T, 4, 1>& /*_ps*/) noexcept;
 
 }
 
@@ -199,7 +222,7 @@ inline Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> Math::Hagedorn::Detail:
         }
 
         Index k_1 = _index;
-        k_1(j) = std::max(k_1(j) - 1, 0ll);
+        k_1(j) = std::max<Eigen::Index>(k_1(j) - 1, 0ll);
         const Eigen::Index ii = Detail::index(k_1, _inv.k);
         assert(_phis.contains(ii));
         const std::complex<double>& p = (*_phis.find(ii)).second;
@@ -240,5 +263,68 @@ inline bool Math::intersect(const Vec& _r_o, const Vec& _r_d, const Vec& _low, c
     }
     return true;
 }; //intersect
+
+template <class T>
+inline Eigen::Matrix<T, 3, 1> Math::c_to_HSL(T _max, const std::complex<T>& _c) noexcept {
+    const T H = std::clamp(std::abs(std::fmod(std::arg(_c), 2. * M_PI)), 0., 2. * M_PI);
+    const T S = 1.;
+    const T L = std::clamp(std::abs(_max * std::atan(std::abs(_c)) / (0.5 * M_PI)), 0., 1.);
+    return { H, S, L };
+}; //c_to_HSL
+
+/*
+    h: [0, 2pi]
+    s: [0, 1]
+    l: [0, 1]
+    rgb: [0, 1]
+*/
+template <class T>
+inline Eigen::Matrix<T, 3, 1> Math::HSL_to_RGB_rad(const Eigen::Matrix<T, 3, 1>& _hsl) noexcept {
+    return HSL_to_RGB_deg<T>( { _hsl(0) * T( 180. / M_PI), _hsl(1), _hsl(2) } );
+}; //HSL_to_RGB
+
+/*
+    h: [0, 360]
+    s: [0, 1]
+    l: [0, 1]
+    rgb: [0, 1]
+*/
+template <class T>
+inline Eigen::Matrix<T, 3, 1> Math::HSL_to_RGB_deg(const Eigen::Matrix<T, 3, 1>& _hsl) noexcept {
+
+    const T H = _hsl(0);
+    const T S = _hsl(1);
+    const T L = _hsl(2);
+
+    assert(0. <= H && H <= 360.);
+    assert(0. <= S && S <= 1.);
+    assert(0. <= L && L <= 1.);
+
+    const T C = ( T(1.) - std::abs( T(2.) * L - T(1.) ) ) * S;
+    const T X = C * (T(1.) - std::abs(std::fmod(H / T(60.), T(2.)) - T(1.)));
+    const T m = L - C * T(0.5);
+
+    switch(size_t(H / 60.)){
+        case 0: return { C + m, X + m, m};
+        case 1: return { X + m, C + m, m};
+        case 2: return { m, C + m, X + m};
+        case 3: return { m, X + m, C + m};
+        case 4: return { X + m, m, C + m};
+        case 5: return { C + m, m, X + m};
+        default: return { 0., 0., 0.};
+    }
+
+}; //HSL_to_RGB
+
+template <class T>
+inline Eigen::Matrix<T, 3, 1> Math::rgb_to_gs(const Eigen::Matrix<T, 3, 1>& _rgb) noexcept {
+    const T gs = (_rgb(0) + _rgb(1) + _rgb(2)) / 3.;
+    return { gs, gs, gs };
+}; //HSL_to_RGB
+
+template <class T>
+inline constexpr T Math::depth(const Eigen::Array<T, 4, 1>& _p) noexcept{
+    return (_p.z / _p.z + 1.) * 0.5;
+} //depth
 
 #endif /* MATH_HPP */

@@ -54,15 +54,19 @@ int main() {
         w.width = 1500;
         w.height = 1500;
         w.steps = 1500;
-        w.name = "sm_121_z_0.png";
-        w.file = File::simulation_results_phi121;
+        w.name = "sm_000_z_0.png";
+        w.file = File::simulation_results_phi000;
         w.position = Vec3(0.f, 0.f, -25.f);
         w.target = Vec3(0.f, 0.f, 0.f);
         w.upAxis = Vec3(0.f, 1.f, 0.f);
         w.lower.resize(3);
         w.upper.resize(3);
-        w.lower(0) = w.lower(1) = w.lower(2) = -25.;
-        w.upper(0) = w.upper(1) = w.upper(2) = 25.;
+        w.lower(0) = -100.;
+        w.lower(1) = -100.;
+        w.lower(2) = -24.;
+        w.upper(0) = 100.;
+        w.upper(1) = 100.;
+        w.upper(2) = 100.;
         w.scale = 4.; 
         w.maxDist = 30.;
         w.curT = 0;
@@ -74,8 +78,32 @@ int main() {
         w.width = 1500;
         w.height = 1500;
         w.steps = 1500;
-        w.name = "sm_121_z_1.png";
-        w.file = File::simulation_results_phi121;
+        w.name = "sm_000_z_1.png";
+        w.file = File::simulation_results_phi000;
+        w.position = Vec3(0.f, 0.f, -25.f);
+        w.target = Vec3(0.f, 0.f, 0.f);
+        w.upAxis = Vec3(0.f, 1.f, 0.f);
+        w.lower.resize(3);
+        w.upper.resize(3);
+        w.lower(0) = -100.;
+        w.lower(1) = -100.;
+        w.lower(2) = -24.;
+        w.upper(0) = 100.;
+        w.upper(1) = 100.;
+        w.upper(2) = 100.;
+        w.scale = 4.; 
+        w.maxDist = 30.;
+        w.curT = 1;
+
+        todo.push(std::move(w));
+    }
+    if constexpr(true){
+        Work w;
+        w.width = 1500;
+        w.height = 1500;
+        w.steps = 1500;
+        w.name = "sm_000_z_2.png";
+        w.file = File::simulation_results_phi000;
         w.position = Vec3(1.f, 0.f, -25.f);
         w.target = Vec3(1.f, 0.f, 0.f);
         w.upAxis = Vec3(0.f, 1.f, 0.f);
@@ -87,30 +115,7 @@ int main() {
         w.upper(0) = 100.;
         w.upper(1) = 100.;
         w.upper(2) = 100.;
-        w.scale = 4.5; 
-        w.maxDist = 30.;
-        w.curT = 1;
-
-        todo.push(std::move(w));
-    }
-    if constexpr(true){
-        Work w;
-        w.width = 1500;
-        w.height = 1500;
-        w.steps = 1500;
-        w.name = "sm_121_z_2.png";
-        w.file = File::simulation_results_phi121;
-        w.position = Vec3(1.f, 0.f, -25.f);
-        w.target = Vec3(1.f, 0.f, 0.f);
-        w.upAxis = Vec3(0.f, 1.f, 0.f);
-        w.lower.resize(3);
-        w.upper.resize(3);
-        w.lower(0) = -25.;
-        w.lower(1) = -25.;
-        w.lower(2) = -25.;
-        w.upper(0) = 25.;
-        w.upper(1) = 25.;
-        w.scale = 4.75; 
+        w.scale = 4.; 
         w.maxDist = 30.;
         w.curT = 2;
 
@@ -121,19 +126,20 @@ int main() {
         w.width = 1500;
         w.height = 1500;
         w.steps = 1500;
-        w.name = "sm_121_z_3.png";
-        w.file = File::simulation_results_phi121;
-        w.position = Vec3(0.f, 0.f, -25.f);
+        w.name = "sm_000_z_3.png";
+        w.file = File::simulation_results_phi000;
+        w.position = Vec3(1.f, 0.f, -25.f);
         w.target = Vec3(1.f, 0.f, 0.f);
         w.upAxis = Vec3(0.f, 1.f, 0.f);
         w.lower.resize(3);
         w.upper.resize(3);
-        w.lower(0) = -25.;
-        w.lower(1) = -25.;
-        w.lower(2) = -25.;
-        w.upper(0) = 25.;
-        w.upper(1) = 25.;
-        w.scale = 4.75; 
+        w.lower(0) = -100.;
+        w.lower(1) = -100.;
+        w.lower(2) = -24.;
+        w.upper(0) = 100.;
+        w.upper(1) = 100.;
+        w.upper(2) = 100.;
+        w.scale = 4.; 
         w.maxDist = 30.;
         w.curT = 3;
 
@@ -273,7 +279,7 @@ int main() {
         std::cout << "]" << std::endl;
         renderer.stop();
         
-        const double ftime = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start).count();
+        const double ftime = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - fstart).count();
         std::cout << "finished file: " << w.name << " [" << ftime / (60.) << "mins]" << std::endl;
 
         //save file

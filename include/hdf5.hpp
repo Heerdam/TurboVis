@@ -37,7 +37,7 @@ namespace IO {
         Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> k_max; //max k in d direction
         std::unordered_map<Eigen::Index, bool> b_Ks;
  
-    }; //Options
+    };//File
 
     template <class T>
     [[nodiscard]] const std::optional<IO::File<T>> loadFromFile(std::filesystem::path /*_path*/, size_t /*_dims*/, size_t /*_K*/);

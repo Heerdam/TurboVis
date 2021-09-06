@@ -34,6 +34,10 @@ namespace Math {
                 std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>> Q_1;
                 //Q-1*QT
                 std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>> Q_1_Q_T;
+
+                Invariants() noexcept = default;
+                Invariants(Invariants&& _in) noexcept = default;               
+                [[nodiscard]] Invariants& operator=(Invariants&& _in) noexcept = default;
             };
 
             // [x_n, ..., x_2, x_1] -> N
@@ -108,7 +112,11 @@ inline const Math::Hagedorn::Detail::Invariants<T> Math::Hagedorn::computeInvari
 }
 
 template <class T>
-inline std::unordered_map<Eigen::Index, std::complex<T>> Math::Hagedorn::compute (size_t _t, const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x, const Detail::Invariants<T>& _inv) noexcept {
+inline std::unordered_map<Eigen::Index, std::complex<T>> Math::Hagedorn::compute (
+    size_t _t, 
+    const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x, 
+    const Detail::Invariants<T>& _inv
+) noexcept {
 
     using Index = Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>;
     using Vector = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>;
@@ -121,7 +129,6 @@ inline std::unordered_map<Eigen::Index, std::complex<T>> Math::Hagedorn::compute
         size *= (_inv.k(i)+1);
 
     std::unordered_map<Eigen::Index, std::complex<T>> phis;
-    //phis.resize(size);
 
     //iterate over ks
     Index index(dim);
@@ -171,13 +178,16 @@ inline std::unordered_map<Eigen::Index, std::complex<T>> Math::Hagedorn::compute
     }
 
     return phis;
-}; //compute
+};//Math::Hagedorn::compute
 
 /*
     i: index
     e: extends, # units
 */
-inline Eigen::Index Math::Hagedorn::Detail::index(const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _i, const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _e) noexcept {
+inline Eigen::Index Math::Hagedorn::Detail::index(
+    const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _i, 
+    const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _e
+) noexcept {
     assert(_i.size() == _e.size());
     Eigen::Index out = _i(0);
     for (Eigen::Index k = 1; k < _i.size(); ++k) {
@@ -185,16 +195,20 @@ inline Eigen::Index Math::Hagedorn::Detail::index(const Eigen::Matrix<Eigen::Ind
         out += _i(k);
     }
     return out;
-};  //index
+}; //Math::Hagedorn::Detail::index
 
 template <class T>
-inline std::complex<T> Math::Hagedorn::Detail::phi_0 (size_t _t, const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x, const Detail::Invariants<T>& _inv) noexcept {
+inline std::complex<T> Math::Hagedorn::Detail::phi_0 (
+    size_t _t, 
+    const Eigen::Matrix<T, Eigen::Dynamic, 1>& _x, 
+    const Detail::Invariants<T>& _inv
+) noexcept {
     const Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> xq = _x - _inv.q[_t];
     const Eigen::Matrix<std::complex<T>, 1, Eigen::Dynamic> xqt = xq.transpose();
     const std::complex<T> e1 = _inv.i_2_E_2 * xqt * _inv.P_Q_1[_t] * xq;
     const std::complex<T> e2 = _inv.i_E_2_p[_t] * xq;
     return _inv.pre[_t] * std::exp(e1 + e2);
-};  //phi_0
+}; //Math::Hagedorn::Detail::phi_0
 
 template <class T>
 inline Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> Math::Hagedorn::Detail::phi (
@@ -215,7 +229,6 @@ inline Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> Math::Hagedorn::Detail:
 
     Vector kp (_inv.dimensions);
     for (size_t j = 0; j < _inv.dimensions; ++j) {
-        //early out
         if (_index(j) - 1 < 0) {
             kp(j) = { 0., 0. };
             continue;
@@ -242,7 +255,7 @@ inline Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> Math::Hagedorn::Detail:
     }
 
     return phi;
-};  //phi
+}; //Math::Hagedorn::Detail::phi
 
 template<class Vec, class T>
 inline bool Math::intersect(const Vec& _r_o, const Vec& _r_d, const Vec& _low, const Vec& _high, T _tmax, T& _t) noexcept {

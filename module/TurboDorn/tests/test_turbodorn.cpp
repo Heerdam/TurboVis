@@ -1,7 +1,5 @@
 
-#include "../include/hagedornrenderer.hpp"
-#include "../include/math.hpp"
-#include "../include/hdf5.h"
+#include <TurboDorn/turbodorn.hpp>
 
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
@@ -13,35 +11,35 @@ TEST_CASE( "rgb-hsl conversion", "UtilFunctions" ) {
     // ---------------- DEG ----------------
     { //black
         const Color c = { 0., 0., 0. };
-        const Color c_rgb = GL::Detail::HSL_to_RGB_deg(c);
+        const Color c_rgb = Math::HSL_to_RGB_deg(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 0);
     }
     { //white
         const Color c = { 0., 0., 1. };
-        const Color c_rgb = GL::Detail::HSL_to_RGB_deg(c);
+        const Color c_rgb = Math::HSL_to_RGB_deg(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 255);
     }
     { //red
         const Color c = { 0., 1., 0.5 };
-        const Color c_rgb = GL::Detail::HSL_to_RGB_deg(c);
+        const Color c_rgb = Math::HSL_to_RGB_deg(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 0);
     }
     { //green
         const Color c = { 120, 1., 0.5 };
-        const Color c_rgb = GL::Detail::HSL_to_RGB_deg(c);
+        const Color c_rgb = Math::HSL_to_RGB_deg(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 0);
     }
     { //blue
         const Color c = { 240., 1., 0.5 };
-        const Color c_rgb = GL::Detail::HSL_to_RGB_deg(c);
+        const Color c_rgb = Math::HSL_to_RGB_deg(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 255);
@@ -50,49 +48,49 @@ TEST_CASE( "rgb-hsl conversion", "UtilFunctions" ) {
     // ---------------- RAD ----------------
     { //black
         const Color c = { 0., 0., 0. };
-        const Color c_rgb = GL::Detail::HSL_to_RGB_rad(c);
+        const Color c_rgb = Math::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 0);
     }
     { //white
         const Color c = { 0., 0., 1. };
-        const Color c_rgb = GL::Detail::HSL_to_RGB_rad(c);
+        const Color c_rgb =Math::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 255);
     }
     { //red
         const Color c = { 0., 1., 0.5 };
-        const Color c_rgb = GL::Detail::HSL_to_RGB_rad(c);
+        const Color c_rgb = Math::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 0);
     }
     { //green
         const Color c = { 120 * ( M_PI / 180.), 1., 0.5 };
-        const Color c_rgb = GL::Detail::HSL_to_RGB_rad(c);
+        const Color c_rgb = Math::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 0);
     }
     { //blue
         const Color c = { 240. * (M_PI / 180.), 1., 0.5 };
-        const Color c_rgb = GL::Detail::HSL_to_RGB_rad(c);
+        const Color c_rgb = Math::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 255);
     }
     {
         const Color c = { 180. * (M_PI / 180.), 1., 0.1 };
-        const Color c_rgb = GL::Detail::HSL_to_RGB_rad(c);
+        const Color c_rgb = Math::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 51);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 51);
     }
     {
         const Color c = { 200. * (M_PI / 180.), 0.5, 0.88 };
-        const Color c_rgb = GL::Detail::HSL_to_RGB_rad(c);
+        const Color c_rgb = Math::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 209);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 230);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 240);
@@ -104,8 +102,8 @@ TEST_CASE( "complex to hsl conversion", "UtilFunctions" ) {
     using Color = Eigen::Matrix<float, 3, 1>;
     
     std::complex<float> cn (0.f, 1.f);
-    Color col = GL::Detail::c_to_HSL(10.f, cn);
-    const Color c_rgb = GL::Detail::HSL_to_RGB_deg(col);
+    Color col = Math::c_to_HSL(10.f, cn);
+    const Color c_rgb = Math::HSL_to_RGB_deg(col);
 
     //REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
 
@@ -260,7 +258,7 @@ TEST_CASE( "PSI00", "Hagedorn" ){
                 inv
             );
 
-            const double rl2 = std::abs(res);
+            const double rl2 = std::abs(psis[i](t)) - std::abs(res);
             error += (rl2*rl2);
 
             std::cout << "Result:" << res.real() << "+i*" << res.imag() << "\t\tSolution:" << psis[i](t).real() << " +i*" << psis[i](t).imag() << "\t\t|Solution - Result|: " << std::abs(psis[i](t).real() - res.real()) << "+i*" << std::abs(psis[i](t).imag() - res.imag()) << " [" << std::abs(std::abs(res) - std::abs(psis[i](t))) << "]" << std::endl;
@@ -362,7 +360,7 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
                 res += file.value().c_0[t](k) * p;
             } 
             res *= std::exp(std::complex<double>(0., 1.) * file.value().S(0));
-            const double rl2 = std::abs(res);
+            const double rl2 = std::abs(psis[i](t)) - std::abs(res);
             error += (rl2*rl2);
 
             std::cout << "Result:" << res.real() << "+i*" << res.imag() << "\t\tSolution:" << psis[i](t).real() << " +i*" << psis[i](t).imag() << "\t\t|Solution - Result|: " << std::abs(psis[i](t).real() - res.real()) << "+i*" << std::abs(psis[i](t).imag() - res.imag()) << " [" << std::abs(std::abs(res) - std::abs(psis[i](t))) << "]" << std::endl;

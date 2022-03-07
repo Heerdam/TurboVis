@@ -1,250 +1,303 @@
 
-#include "../include/defines.hpp"
-#include "../include/gui.hpp"
-#include "../include/hagedornrenderer.hpp"
-#include "../include/bench.hpp"
-#include "../include/filepathresolver.hpp"
-#include "../include/camera.hpp"
+#include "../include/math.hpp"
 #include "../include/hdf5.hpp"
-#include "../include/shaderprogram.hpp"
+#include "../include/camera.hpp"
+#include "../include/asyncrenderer.hpp"
 
-void GLAPIENTRY MessageCallback(GLenum /*source*/, GLenum type, GLuint /*id*/, GLenum severity, GLsizei /*length*/, const GLchar* message, const void* /*userParam*/) {
-	if (type != GL_DEBUG_TYPE_ERROR) return;
-	fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
-		(type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
-		type, severity, message);
-}
+#include <lodepng.h>
+
+#include <queue>
+
+using namespace std::chrono_literals;
 
 int main() {
 
     FilePathResolver::resolve();
 
-    spdlog::set_level(spdlog::level::trace);
-    if (!glfwInit()) {
-        spdlog::error("Failed to init glfw. Shutting down...", true);
-        return EXIT_FAILURE;
-    }
-
-    GL::ShaderProgram::SHADERFOLDERPATH = FilePathResolver::SHADERDIR();
-    GL::ShaderProgram::cb_debug = [&](const std::string& _msg){
-        spdlog::debug(_msg);
+    enum class File {
+        simulation_results,
+        simulation_results_phi000,
+        simulation_results_phi100,
+        simulation_results_phi121,
+        simulation_results_phi412
     };
 
-    glfwWindowHint(GLFW_REFRESH_RATE, 144);
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
-    glfwWindowHint(GLFW_DEPTH_BITS, 24);
-    glfwWindowHint(GLFW_STENCIL_BITS, 8);
+    struct Work{
+        std::string name;
+        size_t width = 1500, height = 1500;
+        File file;
+        //camera
+        Vec3 position, target;
+        Vec3 upAxis;
+        Eigen::Matrix<double, -1, 1> lower, upper;
+        double scale = 1.;
+        double maxDist = 35.;
+        size_t steps = 1000;
+        size_t curT = 0;
+        double MAX = 10.f;
+    };
 
-    const int WIDTH = 1920;
-    const int HEIGHT = 1080;
-    const float HALFWIDTH = WIDTH * 0.5f;
-    const float HALFHEIGHT = HEIGHT * 0.5f;
-
-    auto window = glfwCreateWindow(WIDTH, HEIGHT, "TurboVis", NULL, NULL);
-    if (!window) {
-        spdlog::error("Failed to create window. Shutting down...", true);
-        return EXIT_FAILURE;
-    }
-
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1);
-
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        spdlog::error("ERROR:\tFailed to init GLAD. Shutting down...", true);
-        return EXIT_FAILURE;
-    }
-
-    if (!glfwExtensionSupported("GL_ARB_buffer_storage")) {
-        spdlog::error("extension GL_ARB_buffer_storage not supported");
-        return EXIT_FAILURE;
-    }
-
-	glDebugMessageCallback(MessageCallback, 0);
-
-    glEnable(GL_STENCIL_TEST);
-    glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEPTH_TEST);
-    // glEnable(GL_SRGB); //why error?
-
-    // -------------- GUI --------------
-    Gui::InputMultiplexer::init(window);
-    Gui::FrontendGui gui(window, WIDTH, HEIGHT);
-    double time = glfwGetTime();
-    double deltaTime = 0.;
-    unsigned long long frame = 0;
-    size_t frames = 0, fps = 0, maxfps = 0;
-
-    // -------------- CAMERA --------------
-    GL::Camera camera = GL::Camera(int64_t(WIDTH), int64_t(HEIGHT), glm::radians(55.f), 0.01f, 100.f);
-    camera.position = { 0.f, 15.f, 0.f };
-    camera.target = { 0.f, 0.f, 0.f };
-    //camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
-    camera.combined = glm::lookAt(camera.position, camera.target, camera.upAxis);
-    camera.comb = glm::ortho(-float(WIDTH)/2.f, float(WIDTH)/2.f, -float(HEIGHT)/2.f, float(HEIGHT)/2.f, -1000.f, 1000.f)* camera.combined;
-    //camera.comb = glm::ortho(0.f, 0.f, float(WIDTH), float(HEIGHT), 0.1f, 50.f)* camera.combined;
-    //camera.comb = glm::perspectiveFov(glm::radians(55.f), float(WIDTH), float(HEIGHT), 0.1f, 100.f)* camera.combined;
-    //camera.comb =  glm::perspective(glm::radians(55.f), float(HEIGHT)/float(WIDTH), 0.1f, 100.f) * camera.combined;
-    camera.update();
-
-    // -------------- GIMBEL CAMERA --------------
-    GL::Camera gCamera = GL::Camera(int64_t(250), int64_t(250), glm::radians(55.f), 0.1f, 1500.f);
-    gCamera.position = { 0.f, 0.f, 100.f };
-    gCamera.target = { 0.f, 0.f, 0.f };
-    gCamera.update();
-
-    bool RMB_down = false;
-
-    double mX, mY;
-    glfwGetCursorPos(window, &mX, &mY);
-    Vec2 oldPosition = Vec2((float)mY - HALFHEIGHT, (float)mX - HALFWIDTH);
-    Vec2 newPosition = oldPosition;
-
-    Gui::InputMultiplexer::mouseButtonCallback([&](GLFWwindow*, int _button, int _action, int _mods)-> void{
-        if(_button == GLFW_MOUSE_BUTTON_RIGHT && _mods == 0x0){
-            RMB_down = _action == GLFW_PRESS ? true : _action == GLFW_RELEASE ? false : RMB_down;
+    const auto getFile = [](File _file){
+        switch(_file){
+            case File::simulation_results: return IO::simulation_results();
+            case File::simulation_results_phi000: return IO::simulation_results_phi000();
+            case File::simulation_results_phi100: return IO::simulation_results_phi100();
+            case File::simulation_results_phi121: return IO::simulation_results_phi121();
+            case File::simulation_results_phi412: return IO::simulation_results_phi412();
+            default: return std::optional<IO::File<double>>();
         }
-    });
+    };
 
-    bool camKeys[] = {false, false, false};
+    std::queue<Work> todo;
+    if constexpr(true){
+        Work w;
+        w.width = 1500;
+        w.height = 1500;
+        w.steps = 1500;
+        w.name = "sm_000_z_0.png";
+        w.file = File::simulation_results_phi000;
+        w.position = Vec3(0.f, 0.f, -25.f);
+        w.target = Vec3(0.f, 0.f, 0.f);
+        w.upAxis = Vec3(0.f, 1.f, 0.f);
+        w.lower.resize(3);
+        w.upper.resize(3);
+        w.lower(0) = -100.;
+        w.lower(1) = -100.;
+        w.lower(2) = -24.;
+        w.upper(0) = 100.;
+        w.upper(1) = 100.;
+        w.upper(2) = 100.;
+        w.scale = 4.; 
+        w.maxDist = 30.;
+        w.curT = 0;
 
-    // -------------- RENDERER --------------
-    //GL::ShapeRenderer shape (100);
-    //GL::DepthBufferVisualizer depthr(camera);
-    //GL::RaymarchTester rayM;
+        todo.push(std::move(w));
+    }    
+    if constexpr(true){
+        Work w;
+        w.width = 1500;
+        w.height = 1500;
+        w.steps = 1500;
+        w.name = "sm_000_z_1.png";
+        w.file = File::simulation_results_phi000;
+        w.position = Vec3(0.f, 0.f, -25.f);
+        w.target = Vec3(0.f, 0.f, 0.f);
+        w.upAxis = Vec3(0.f, 1.f, 0.f);
+        w.lower.resize(3);
+        w.upper.resize(3);
+        w.lower(0) = -100.;
+        w.lower(1) = -100.;
+        w.lower(2) = -24.;
+        w.upper(0) = 100.;
+        w.upper(1) = 100.;
+        w.upper(2) = 100.;
+        w.scale = 4.; 
+        w.maxDist = 30.;
+        w.curT = 1;
 
-    //load file
-    const auto file = IO::simulation_results_phi412();
-    std::cout << file.value();
-    GL::HagedornRenderer<double, GL::Camera> hager(camera);
-    hager.set(file.value());
-    
-    Gui::InputMultiplexer::keyCallback([&](GLFWwindow* _window, int _key, int _scancode, int _action, int _mods)-> void {
-        if(_key == GLFW_KEY_X && _action == GLFW_PRESS){
-            hager.steps = 250;
-            //hager.k += 0.001;
-            std::cout << hager.k << std::endl;
-            camera.hasMoved = true; 
-        } 
-        if(_key == GLFW_KEY_Z && _action == GLFW_PRESS){
-            hager.steps += 250;
-            std::cout << hager.steps << std::endl;
-            camera.hasMoved = true;
-        } 
+        todo.push(std::move(w));
+    }
+    if constexpr(true){
+        Work w;
+        w.width = 1500;
+        w.height = 1500;
+        w.steps = 1500;
+        w.name = "sm_000_z_2.png";
+        w.file = File::simulation_results_phi000;
+        w.position = Vec3(1.f, 0.f, -25.f);
+        w.target = Vec3(1.f, 0.f, 0.f);
+        w.upAxis = Vec3(0.f, 1.f, 0.f);
+        w.lower.resize(3);
+        w.upper.resize(3);
+        w.lower(0) = -100.;
+        w.lower(1) = -100.;
+        w.lower(2) = -24.;
+        w.upper(0) = 100.;
+        w.upper(1) = 100.;
+        w.upper(2) = 100.;
+        w.scale = 4.; 
+        w.maxDist = 30.;
+        w.curT = 2;
 
-        if(_key == GLFW_KEY_R)
-            camera.hasMoved = true;
+        todo.push(std::move(w));
+    }
+    if constexpr(true){
+        Work w;
+        w.width = 1500;
+        w.height = 1500;
+        w.steps = 1500;
+        w.name = "sm_000_z_3.png";
+        w.file = File::simulation_results_phi000;
+        w.position = Vec3(1.f, 0.f, -25.f);
+        w.target = Vec3(1.f, 0.f, 0.f);
+        w.upAxis = Vec3(0.f, 1.f, 0.f);
+        w.lower.resize(3);
+        w.upper.resize(3);
+        w.lower(0) = -100.;
+        w.lower(1) = -100.;
+        w.lower(2) = -24.;
+        w.upper(0) = 100.;
+        w.upper(1) = 100.;
+        w.upper(2) = 100.;
+        w.scale = 4.; 
+        w.maxDist = 30.;
+        w.curT = 3;
 
-    });
+        todo.push(std::move(w));
+    }
 
-    Gui::InputMultiplexer::cursorPosCallback([&](GLFWwindow*, double _xpos, double _ypos)-> void{
-        oldPosition = newPosition;
-        newPosition = Vec2(float(_xpos) - HALFWIDTH, (HEIGHT - float(_ypos) - HALFHEIGHT));
+    const auto start = std::chrono::high_resolution_clock::now();
+    while(!todo.empty()){
+        const Work w = todo.front();
+        todo.pop();
 
-        
-        if(RMB_down){
-            camera.hasMoved = !(oldPosition == newPosition);
-            const auto rot = GL::Camera::trackball_holroyd(oldPosition, newPosition, 250.f);
-            const glm::mat4 RotationMatrix = glm::toMat4(glm::normalize(rot));
+        GL::Camera cam(int64_t(w.width), int64_t(w.height), glm::radians(55.f), 0.01f, 100.f);
+        cam.position = w.position;
+        cam.target = w.target;
+        cam.upAxis = w.upAxis;
+        cam.update();
 
-            camera.combined *= RotationMatrix;
-            camera.comb *= RotationMatrix;
-            //std::cout << glm::to_string(camera.combined) << std::endl;
+        std::vector<double> buffer;
+        buffer.resize(w.width * w.height * 4);
+
+        //render
+        const auto file = getFile(w.file);
+        if(!file.has_value()){
+            std::cout << "could not load file: " << w.name << std::endl;
+            continue;
+        }
+        const auto inv = Math::Hagedorn::computeInvariants(file.value());
+
+        AsyncRenderer renderer;
+        renderer.start(64, w.width, w.height, [&](size_t _threat_index, size_t _x, size_t _y){
+
+            using Vector = Eigen::Matrix<double, Eigen::Dynamic, 1>;
+
+            const Eigen::Matrix<double, 2, 1> bounds = Eigen::Matrix<double, 2, 1>(double(w.width), double(w.height));
+            const Eigen::Matrix<double, 2, 1> uv = Eigen::Matrix<double, 2, 1>(double(_x), double(_y));
+            const Eigen::Matrix<double, 2, 1> pp = (2. * uv - bounds) / bounds(1);  //eye ray
+
+            const Vec3 r_o_glm = cam.position + w.scale*(pp(0) * cam.right + pp(1) * cam.up );
+            const Vec3 r_d_glm = cam.dir;
+
+            Vector r_o (3);
+            r_o(0) = r_o_glm.x;
+            r_o(1) = r_o_glm.y;
+            r_o(2) = r_o_glm.z;
+
+            Vector r_d (3);
+            r_d(0) = r_d_glm.x;
+            r_d(1) = r_d_glm.y;
+            r_d(2) = r_d_glm.z;
+
+            const double dS = w.maxDist / double(w.steps);
+
+            Eigen::Matrix<double, 3, 1> col;
+            col.setZero();
+
+            double t = 0.;
+            double transmission = 1.;
             
-            camera.position = glm::transpose(glm::mat3(camera.combined)) * Vec3(glm::column(camera.combined, 3)); //3
-            camera.dir = glm::normalize(Vec3(-glm::row(camera.combined, 2))); //-2
-            camera.right = glm::normalize(Vec3(glm::row(camera.combined, 0))); //0
-            camera.up = glm::normalize(Vec3(glm::row(camera.combined, 1))); //1
+            //intersect bounding box for early out
+            const bool hit = Math::intersect(r_o, r_d, w.lower, w.upper, w.maxDist, t); 
+            t +=dS;
+            if(!hit){   
 
-            //std::cout << glm::to_string(camera.position) << std::endl;
+                col(0) = col(1) = col(2) = 0.;
 
-            //camera.update();
-            //camera.combined = glm::perspectiveFov(camera.fov, float(camera.width), float(camera.height), camera.near, camera.far);
-            //camera.combined *= glm::lookAt(camera.position, camera.target, camera.upAxis);
+            } else if(w.steps == 1){   
+
+                col(0) = 1.;
+                transmission = 0.;
+                
+            } else {
+    
+                for (size_t s = 0; s < w.steps; ++s) {
+                    const Vector pos = r_o + t * r_d;
+                    t += dS;
+
+                    if(t > w.maxDist || 
+                        pos(0) < w.lower(0) || 
+                        pos(1) < w.lower(1) ||
+                        pos(2) < w.lower(2) ||
+                        pos(0) > w.upper(0) ||
+                        pos(1) > w.upper(1) ||
+                        pos(2) > w.upper(2)
+                    )
+                        break;
+
+                    //calculate basis function
+                    const std::unordered_map<Eigen::Index, std::complex<double>> phis = Math::Hagedorn::compute(
+                        w.curT,
+                        pos,
+                        inv
+                    );
+
+                    std::complex<double> res (0., 0.);
+                    for(Eigen::Index k = 0; k < file.value().Ks.size(); ++k){ 
+                        const Eigen::Index idx = Math::Hagedorn::Detail::index(file.value().Ks[k], file.value().k_max);
+                        assert(phis.contains(idx));
+                        const std::complex<double>& p = (*phis.find(idx)).second;
+                        res += file.value().c_0[w.curT](k) * p;
+                    } 
+                    res *= std::exp(std::complex<double>(0., 1.) * file.value().S(Eigen::Index(w.curT)));
+
+                    //compute color
+                    const auto hsl = Math::c_to_HSL(double(w.MAX), res);
+                    transmission *= std::exp(-hsl(2) * dS);
+                    const auto rgb = Math::HSL_to_RGB_rad(hsl);
+                    col += transmission * rgb * dS;
+
+                    if(renderer.isShutdown() || renderer.isRestart(_threat_index))
+                        return;
+                }
+            }        
+
+            const size_t idx = _y * cam.width + _x;
+            buffer[4 * idx] = col(0);//uint16_t(std::round(col(0) * 255.));
+            buffer[4 * idx + 1] = col(1);//uint16_t(std::round(col(1) * 255.));
+            buffer[4 * idx + 2] = col(2);//uint16_t(std::round(col(2) * 255.));;
+            buffer[4 * idx + 3] = (1. - transmission);//uint16_t(std::round((1. - transmission) * 255.));
+
+        });
+
+        const auto fstart = std::chrono::high_resolution_clock::now();
+        std::cout << "started file: " << w.name << std::endl;
+        std::cout << "Progress: [";
+        std::cout.flush();
+        double lastProg = 0.;
+        while(true){
+            if(renderer.getProgress() >= 1.) break;
+            const double p = renderer.getProgress();
+            if((p - lastProg) >= 0.1){
+                std::cout << "x";
+                std::cout.flush();
+                lastProg = p;
+            } 
+            std::this_thread::sleep_for(5s);
         }
-    });
-
-    hager.start(camera);
-
-    while (!glfwWindowShouldClose(window)) {
-        const double ctime = glfwGetTime();
-
-        glClearColor(0.f, 0.f, 0.f, 1.f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-        glfwPollEvents();
-
-        glEnable(GL_DEPTH_TEST);
-
-        // -------------- FUNCTION --------------  
-        //rayM.render(camera, uniforms);
-        //hager.k += 1./60.;
-        hager.render(camera);
-        camera.hasMoved = false;
-         //depthr.render();
-
-/*
-        // -------------- GIMBEL --------------  
-        glViewport(0, 0, gCamera.width, gCamera.height);
-        const Mat3 rot = Mat3(camera.dir, camera.up, camera.right);
-        //shape.drawAxisWidget(rot);
-        //shape.render(gCamera);
-        glViewport(0, 0, WIDTH, HEIGHT);
-       
-*/
-        // -------------- GUI --------------     
-        Gui::RenderInfo info;
-        info.width = WIDTH;
-        info.height = HEIGHT;
-        info.fps = fps;
-        info.maxfps = maxfps;
-        info.progress = hager.getProgress();
-        info.steps = hager.steps;
-        info.scale = hager.scale;
-        info.max = hager.MAX;
-        info.T = hager.curT;
-        info.maxT = hager.maxT;
-        gui.draw(window, info);   
-
-        if(hager.steps != info.steps){
-            hager.steps = info.steps;
-            camera.hasMoved = true;
-        }    
+        std::cout << "]" << std::endl;
+        renderer.stop();
         
-        if(hager.scale != info.scale){
-            hager.scale = info.scale;
-            camera.hasMoved = true;
-        }
+        const double ftime = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - fstart).count();
+        std::cout << "finished file: " << w.name << " [" << ftime / (60.) << "mins]" << std::endl;
 
-        if(hager.MAX != info.max){
-            hager.MAX = info.max;
-            camera.hasMoved = true;
+        //save file
+        std::vector<unsigned char> out (buffer.size());
+        double maxVal = 0.f;
+        for(size_t i = 0; i < buffer.size(); ++i){
+            maxVal = std::max(maxVal, buffer[i]);
         }
-
-        if(hager.curT != info.T){
-            hager.curT = info.T;
-            camera.hasMoved = true;
+        for(size_t i = 0; i < buffer.size(); ++i){
+            out[i] = uint16_t(std::round((buffer[i]/maxVal) * 255.));
         }
-
-        glfwSwapBuffers(window);
-
-        frame++;
-        if (ctime - time >= 1.) {
-            fps = frame;
-            maxfps = std::max(fps, maxfps);
-            frame = 0;
-            time = ctime;
-        }
-        deltaTime = glfwGetTime() - ctime;
-        //if(uniforms.tt) 
-            //uniforms.t += deltaTime;
+        const uint32_t error = lodepng::encode(w.name, out, uint32_t(w.width), uint32_t(w.height));
+        if(error) std::cout << "encoder error " << error << ": "<< lodepng_error_text(error) << std::endl;
+        else std::cout << "file successfully saved [" << w.name << "]" << std::endl;
     }
-    hager.stop();
-    glfwTerminate();
 
-    return EXIT_SUCCESS;
+    const double time = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start).count();
+    std::cout << "ALl finished after " << time / (60.) << "mins" << std::endl;
+    std::cout << "all done. goodbye" << std::endl;
+
 }

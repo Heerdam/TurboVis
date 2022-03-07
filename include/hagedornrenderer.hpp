@@ -351,9 +351,9 @@ inline void GL::HagedornRenderer<T, Camera>::start(const Camera& _cam) noexcept{
                        //std::cout << res << std::endl;
 
                     //compute color
-                    const auto hsl = GL::Detail::c_to_HSL(T(MAX), res);
+                    const auto hsl = Math::c_to_HSL(T(MAX), res);
                     transmission *= std::exp(-hsl(2) * dS);
-                    const auto rgb = Detail::HSL_to_RGB_rad(hsl);
+                    const auto rgb = Math::HSL_to_RGB_rad(hsl);
                     col += transmission * rgb * dS;
 
                 } else {

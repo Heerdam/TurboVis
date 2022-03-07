@@ -21,23 +21,7 @@ namespace IO {
 
     namespace Details {}
 
-    template<class T>
-    struct File {
-        size_t dimensions;
-        size_t timesteps;
-        size_t K;
-        T epsilon = 1.;  
-        Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> S;       
-        std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>> c_0;
-        std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>> p, q;
-        std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>> P, Q;
 
-        //shapefunction
-        std::vector<Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>> Ks; 
-        Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> k_max; //max k in d direction
-        std::unordered_map<Eigen::Index, bool> b_Ks;
- 
-    };//File
 
     template <class T>
     [[nodiscard]] const std::optional<IO::File<T>> loadFromFile(std::filesystem::path /*_path*/, size_t /*_dims*/, size_t /*_K*/);

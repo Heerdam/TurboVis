@@ -5,64 +5,174 @@
 #include <numeric>
 #include <chrono>
 #include <vector>
+#include <filesystem>
+#include <fstream>
+#include <cassert>
+#include <exception>
+#include <optional>
+#include <unordered_map>
 
 #include <Eigen/Eigen>
-#include <tsl/robin_map.h>
-#include <nlohmann/json.hpp>
 
-namespace Hagedorn {
+#include "bresenham.hpp"
+
+namespace TurboDorn {
 
     namespace Detail {
 
-        [[nodiscard]] unsigned long long nanoTime() noexcept {
-            using namespace std;
-            using namespace chrono;
-            return duration_cast<nanoseconds>(high_resolution_clock::now().time_since_epoch()).count();
-        }//nanoTime
-
-        template<size_t run_length = 300, typename Function, typename... Ts>
-        [[nodiscard]] double bench(Function f, Ts&&... args) noexcept{
-                unsigned int since_best = 0;
-                unsigned long long best_time = -1;
-                unsigned long long accum = 0;
-                while(true){
-                        auto t1 = Detail::nanoTime();
-                        f(std::forward<Ts>(args)...);
-                        auto t2 = Detail::nanoTime();
-                        if(t2 - t1 < best_time){
-                                best_time = t2 - t1;
-                                since_best = 0;
-                                accum = 0;
-                                accum += (t2 - t1);
-                        }
-                        else {
-                                since_best++;
-                                accum += (t2 - t1);
-                        }
-                        if(since_best >= run_length){
-                                break;
-                        }
-                }
-                return accum / double(run_length);
-        }//bench
-
-        template<class T>
-        struct File {
+        struct Invariants {
             size_t dimensions;
-            size_t timesteps;
-            size_t K;
-            T epsilon = 1.;  
-            Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1> S;       
-            std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>> c_0;
-            std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>> p, q;
-            std::vector<Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>> P, Q;
+            Eigen::VectorXi k; //k extends
+            std::unordered_map<Eigen::Index, bool> k_shape; //lookup for shape
+            std::vector<Eigen::VectorXcd> p;
+            std::vector<Eigen::VectorXcd> q;
+            //phi_0
+            std::vector<std::complex<double>> pre;
+            std::complex<double> i_2_E_2;
+            std::vector<Eigen::MatrixXcd> P_Q_1;
+            std::vector<Eigen::RowVectorXcd> i_E_2_p;
+            //phi
+            //sqrt*Q-1
+            std::vector<Eigen::MatrixXcd> Q_1;
+            //Q-1*QT
+            std::vector<Eigen::MatrixXcd> Q_1_Q_T;
 
-            //shapefunction
-            std::vector<Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>> Ks; 
-            Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1> k_max; //max k in d direction
-            std::unordered_map<Eigen::Index, bool> b_Ks;
-    
-        };//File
+            Invariants() = default;
+            Invariants(Invariants&& _in) = default;               
+            [[nodiscard]] Invariants& operator=(Invariants&& _in) noexcept = default;
+        };//Invariants
+
+        
+
+        const Detail::Invariants computeInvariants(const File& _file) {
+
+            Detail::Invariants out;
+            out.dimensions = _file.dimensions;
+            out.k = _file.k_max;
+            out.i_2_E_2 = std::complex<double>(0., 1.) / (2. * _file.epsilon * _file.epsilon);
+            out.p = _file.p;
+            out.q = _file.q;
+            out.k_shape = _file.b_Ks;
+
+            for(size_t t = 0; t < _file.timesteps; ++t){
+                //phi0
+                out.pre.push_back( std::pow(double(M_PI) * _file.epsilon * _file.epsilon, - double(_file.dimensions) / 4.) * std::pow(_file.Q[t].determinant(), -0.5) );
+                out.P_Q_1.push_back( _file.P[t] * _file.Q[t].inverse() );
+
+                out.i_E_2_p.push_back( (std::complex<double>(0., 1.) / _file.epsilon * _file.epsilon) * _file.p[t].transpose() );
+                //phi
+                out.Q_1.push_back( std::sqrt(2. / (_file.epsilon * _file.epsilon)) * _file.Q[t].inverse() );
+                out.Q_1_Q_T.push_back( _file.Q[t].inverse() * _file.Q[t].conjugate() );
+            }
+            return out;
+        }
+
+        /*
+        i: index
+        e: extends, # units
+        */
+        inline Eigen::Index index(const Eigen::VectorXi& _i, const Eigen::VectorXi& _e ) {
+            assert(_i.size() == _e.size());
+            Eigen::Index out = _i(0);
+            for (Eigen::Index k = 1; k < _i.size(); ++k) {
+                out *= _e(k);
+                out += _i(k);
+            }
+            return out;
+        }; //index
+
+        struct StreamingOctreeOptions {
+
+        };
+
+        /*
+            voxel size: size of a voxel in world coords
+            depth: how many subdivides the octree has
+            chunk size: symmetric 2^n extends -> size: 4*2*(2^n)^3 bytes (n = 32 (262'144 bytes) or 64 (2'097'152 bytes))
+
+            only lowest level has data. rest only boolmaps
+
+            format:
+            double                              voxel size
+            size_t                              depth
+            size_t                              chunk size
+            n bits with 1 byte/subdivision      ((8^(n+1))-1)/7-1 nodes
+            chunks...                           chunk_size^3 bytes for every none-empty chunk
+
+        */
+
+        template<class T = double>
+        class Chunkerator {
+
+            
+
+            iVec extends;
+
+            bVec bmap;
+            cVec temp_chunk;
+
+            //iterator state
+            const bool isEndIterator = false;
+
+            //file meta information
+            std::filesystem::path path;
+            dVec camPos, camPlaneNorm, halfExtCamPlane;
+
+
+        public:
+
+            using iterator_category = std::forward_iterator_tag;
+
+            /*
+                path - path to the file
+                p - position of the camera plane in world coords
+                n - normalized plane normal of the camera plane
+                e - half extends of the camera plane in world units
+            */
+            Chunkerator(std::filesystem::path&& _path, dVec&& _p, dVec&& _n, dVec&& _e) : 
+                path(std::move(_path)), camPos(std::move(_p)),  camPlaneNorm(std::move(_n)), halfExtCamPlane(std::move(_e)){}
+
+            //creates an end chunkerator
+            Chunkerator() : isEndIterator(true) {};
+
+            void intitialise() {
+                if(!isEndIterator) throw std::runtime_error("Can't initialize an end chunkerator!");
+                
+            }
+
+            void operator*() {
+
+            }
+
+            void operator++() {
+
+            }
+
+            void operator++(int) {
+
+            }
+
+            bool operator==(const Chunkerator<T>& _other) const noexcept {
+                if(isEndIterator && _other.isEndIterator) return true;
+            }
+
+        };//Chunkerator
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         template<class Vec, class T>
         [[nodiscard]] bool intersect(const Vec& _r_o, const Vec& _r_d, const Vec& _low, const Vec& _high, T _tmax, T& _t) noexcept {
@@ -82,7 +192,7 @@ namespace Hagedorn {
                 }
             }
             return true;
-        }; //intersect
+        }//intersect
 
         template <class T>
         [[nodiscard]] Eigen::Matrix<T, 3, 1> c_to_HSL(T _max, const std::complex<T>& _c) noexcept {
@@ -90,7 +200,7 @@ namespace Hagedorn {
             const T S = 1.;
             const T L = std::clamp(std::abs(_max * std::atan(std::abs(_c)) / (0.5 * M_PI)), 0., 1.);
             return { H, S, L };
-        }; //c_to_HSL
+        }//c_to_HSL
 
         /*
             h: [0, 2pi]
@@ -103,7 +213,7 @@ namespace Hagedorn {
             return HSL_to_RGB_deg<T>( { _hsl(0) * T( 180. / M_PI), _hsl(1), _hsl(2) } );
         }; //HSL_to_RGB_rad
 
-        /*
+        /*.
             h: [0, 360]
             s: [0, 1]
             l: [0, 1]
@@ -141,23 +251,6 @@ namespace Hagedorn {
             const T gs = (_rgb(0) + _rgb(1) + _rgb(2)) / 3.;
             return { gs, gs, gs };
         }; //rgb_to_gs
-
-        /*
-        i: index
-        e: extends, # units
-        */
-        inline Eigen::Index index(
-            const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _i, 
-            const Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>& _e
-        ) noexcept {
-            assert(_i.size() == _e.size());
-            Eigen::Index out = _i(0);
-            for (Eigen::Index k = 1; k < _i.size(); ++k) {
-                out *= _e(k);
-                out += _i(k);
-            }
-            return out;
-        }; //index
 
         template <class T>
         inline std::complex<T> phi_0 (
@@ -291,7 +384,7 @@ namespace Hagedorn {
     }//Detail
 
     template<typename T, template<typename> class File>
-    inline const Math::Hagedorn::Detail::Invariants<T> computeInvariants(const File<T>& _file) noexcept {
+    inline const Detail::Invariants<T> computeInvariants(const File<T>& _file) noexcept {
         using Vector = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>;
         using Matrix = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>;
 
@@ -333,15 +426,15 @@ namespace Hagedorn {
 
     }
 
-    void voxeling() noexcept {
-
-    }
-
     void voxelsToFile() noexcept {
 
     }
 
     void fileToVoxels() noexcept {
+
+    }
+
+    void voxeling() noexcept {
 
     }
 

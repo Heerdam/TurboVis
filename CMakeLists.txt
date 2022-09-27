@@ -2,21 +2,13 @@ cmake_minimum_required(VERSION 3.16)
 
 project(TurboVis)
 
-if (MSVC)
-	set(CMAKE_GENERATOR_PLATFORM x64)
-endif()	
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-if (MSVC)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /openmp")
-	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od ")
-	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /DNDEBUG")
-else()
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions -mavx2")
-	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG -O0 -g3 -ggdb -fsanitize=address -fsanitize=undefined -D_GLIBCXX_DEBUG" )
-	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native -ffast-math -DNDEBUG -flto -fomit-frame-pointer")
-endif()
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g" )
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native")
 
 include(FetchContent)
 
@@ -60,23 +52,28 @@ if(NOT lodepng_POPULATED)
 	target_include_directories(tv PUBLIC "${lodepng_SOURCE_DIR}")
 endif()
 
-# ------------------ JSON ------------------
-message(STATUS "Fetching json...")
-FetchContent_Declare(json
-  GIT_REPOSITORY https://github.com/ArthurSonzogni/nlohmann_json_cmake_fetchcontent.git
-  GIT_TAG v3.10.4
-  GIT_SHALLOW TRUE
+# ------------------ HIGHFIVE ------------------
+message(STATUS "Fetching HighFive...")
+set(USE_BOOST OFF CACHE BOOL "Enable Boost Support")
+set(USE_EIGEN OFF CACHE BOOL "Enable Eigen testing")
+set(USE_XTENSOR OFF CACHE BOOL "Enable xtensor testing")
+set(USE_OPENCV OFF CACHE BOOL "Enable OpenCV testing")
+FetchContent_Declare(
+	HighFive 
+	GIT_REPOSITORY https://github.com/BlueBrain/HighFive.git
+	GIT_SHALLOW TRUE
+	GIT_TAG v2.3
 )
-FetchContent_MakeAvailable(json)
-
-# ------------------ ROBIN-MAP ------------------
-message(STATUS "Fetching robinmap...")
-FetchContent_Declare(robin_map
-  GIT_REPOSITORY https://github.com/Tessil/robin-map.git
-  GIT_TAG v0.6.3
-  GIT_SHALLOW TRUE
-)
-FetchContent_MakeAvailable(robin_map)
+FetchContent_GetProperties(HighFive)
+FetchContent_MakeAvailable(HighFive)
+#if(NOT HighFive_POPULATED)
+	#FetchContent_Populate(HighFive)
+	#option(HIGHFIVE_UNIT_TESTS "Enable unit tests" OFF)
+	#option(HIGHFIVE_EXAMPLES "Compile examples" OFF)
+	##option(HIGHFIVE_PARALLEL_HDF5 "Enable Parallel HDF5 support" ON)
+	#option(HIGHFIVE_BUILD_DOCS "Enable documentation building" OFF)
+	#add_subdirectory("${HighFive_SOURCE_DIR}" "${HighFive_BINARY_DIR}")
+#endif()
 
 # ------------------ CATCH2 ------------------
 message(STATUS "Fetching Catch2...")
@@ -87,6 +84,9 @@ FetchContent_Declare(
 		GIT_SHALLOW	        TRUE
 )
 
+find_package(HDF5 REQUIRED)
+find_package(OpenMP REQUIRED)
+
 option(CATCH_INSTALL_DOCS "Install documentation alongside library" OFF)
 option(CATCH_INSTALL_EXTRAS "Install extras alongside library" OFF)
 FetchContent_MakeAvailable(Catch2)
@@ -94,4 +94,4 @@ FetchContent_MakeAvailable(Catch2)
 include("${CMAKE_CURRENT_SOURCE_DIR}/module/TurboDorn/module.cmake")
 
 # ------------------------------------
-target_link_libraries(tv turbodorn lodepng json robin_map)
+target_link_libraries(tv turbodorn lodepng HDF5::HDF5 OpenMP::OpenMP_CXX HighFive)

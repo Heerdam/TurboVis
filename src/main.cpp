@@ -1,26 +1,84 @@
 
-#include "../include/math.hpp"
-#include "../include/hdf5.hpp"
-#include "../include/camera.hpp"
-#include "../include/asyncrenderer.hpp"
+#include <chrono>
+#include <iostream>
+#include <string>
 
-#include <lodepng.h>
-
-#include <queue>
+#include <TurboDorn/voxeliser.hpp>
 
 using namespace std::chrono_literals;
+
+enum class File : size_t {
+    none = 0,
+    simulation_results = 1,
+    simulation_results_phi000 = 2,
+    simulation_results_phi100 = 3,
+    simulation_results_phi121 = 4,
+    simulation_results_phi412 = 5,
+};
+
+int main(int argc, char* argv[]) {
+
+    if(argc == 1){
+        std::cout << "no valid input" << std::endl;
+        return 0;
+    }
+
+    std::vector<std::string_view> inputs;
+    for(size_t i = 0; i < argc; ++i)
+        inputs.emplace_back(argv[i]);
+
+    //-v [file] [grid size] [path]
+    if(inputs[1] == "-v"){
+
+        File file = File::none;
+        size_t gs = 1000;
+        std::filesystem::path path_in = std::filesystem::current_path();
+        std::filesystem::path path_out = std::filesystem::current_path();
+
+        //parse file
+        File file = File::none;
+        if(inputs[1] == "phi") file = File::simulation_results;
+        else if(inputs[1] == "phi000") file = File::simulation_results_phi000;
+        else if(inputs[1] == "phi100") file = File::simulation_results_phi100;
+        else if(inputs[1] == "phi121") file = File::simulation_results_phi121;
+        else if(inputs[1] == "phi412") file = File::simulation_results_phi412;
+        else {
+            std::cout << "no valid input" << std::endl;
+            return 0;
+        }
+
+        //grid size
+        if(inputs.size() < 3){
+            std::cout << "no valid input" << std::endl;
+            return 0;
+        } else {
+            gs = std::stoul(inputs[3].data());
+        }
+
+        //path
+        if(inputs.size() >= 4){
+            path_out = inputs[3];
+        }
+
+        TurboDorn::Voxeliser voxel;
+        voxel.compute(path_in, path_out);
+
+    } else if(inputs[1] == "-r"){
+
+    } else {
+        std::cout << "no valid input" << std::endl;
+        return 0;
+    }
+
+}
+
+/*
 
 int main() {
 
     FilePathResolver::resolve();
 
-    enum class File {
-        simulation_results,
-        simulation_results_phi000,
-        simulation_results_phi100,
-        simulation_results_phi121,
-        simulation_results_phi412
-    };
+    
 
     struct Work{
         std::string name;
@@ -301,3 +359,5 @@ int main() {
     std::cout << "all done. goodbye" << std::endl;
 
 }
+
+*/

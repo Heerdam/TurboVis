@@ -1,8 +1,23 @@
 
-#include <TurboDorn/turbodorn.hpp>
+//#include <TurboDorn/voxeliser.hpp>
+
+#include <TurboDorn/griderator.hpp>
 
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
+
+using namespace TurboDorn;
+
+TEST_CASE("test") {
+
+    Detail::Ray ray;
+
+    Eigen::Vector3i num_cells;
+
+    Griderator it(std::move(ray), num_cells);
+}
+
+/*
 
 TEST_CASE( "rgb-hsl conversion", "UtilFunctions" ) {
 
@@ -11,35 +26,35 @@ TEST_CASE( "rgb-hsl conversion", "UtilFunctions" ) {
     // ---------------- DEG ----------------
     { //black
         const Color c = { 0., 0., 0. };
-        const Color c_rgb = Math::HSL_to_RGB_deg(c);
+        const Color c_rgb = Detail::HSL_to_RGB_deg(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 0);
     }
     { //white
         const Color c = { 0., 0., 1. };
-        const Color c_rgb = Math::HSL_to_RGB_deg(c);
+        const Color c_rgb = Detail::HSL_to_RGB_deg(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 255);
     }
     { //red
         const Color c = { 0., 1., 0.5 };
-        const Color c_rgb = Math::HSL_to_RGB_deg(c);
+        const Color c_rgb = Detail::HSL_to_RGB_deg(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 0);
     }
     { //green
         const Color c = { 120, 1., 0.5 };
-        const Color c_rgb = Math::HSL_to_RGB_deg(c);
+        const Color c_rgb = Detail::HSL_to_RGB_deg(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 0);
     }
     { //blue
         const Color c = { 240., 1., 0.5 };
-        const Color c_rgb = Math::HSL_to_RGB_deg(c);
+        const Color c_rgb = Detail::HSL_to_RGB_deg(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 255);
@@ -48,49 +63,49 @@ TEST_CASE( "rgb-hsl conversion", "UtilFunctions" ) {
     // ---------------- RAD ----------------
     { //black
         const Color c = { 0., 0., 0. };
-        const Color c_rgb = Math::HSL_to_RGB_rad(c);
+        const Color c_rgb = Detail::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 0);
     }
     { //white
         const Color c = { 0., 0., 1. };
-        const Color c_rgb =Math::HSL_to_RGB_rad(c);
+        const Color c_rgb =Detail::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 255);
     }
     { //red
         const Color c = { 0., 1., 0.5 };
-        const Color c_rgb = Math::HSL_to_RGB_rad(c);
+        const Color c_rgb = Detail::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 0);
     }
     { //green
         const Color c = { 120 * ( M_PI / 180.), 1., 0.5 };
-        const Color c_rgb = Math::HSL_to_RGB_rad(c);
+        const Color c_rgb = Detail::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 255);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 0);
     }
     { //blue
         const Color c = { 240. * (M_PI / 180.), 1., 0.5 };
-        const Color c_rgb = Math::HSL_to_RGB_rad(c);
+        const Color c_rgb = Detail::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 255);
     }
     {
         const Color c = { 180. * (M_PI / 180.), 1., 0.1 };
-        const Color c_rgb = Math::HSL_to_RGB_rad(c);
+        const Color c_rgb = Detail::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 51);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 51);
     }
     {
         const Color c = { 200. * (M_PI / 180.), 0.5, 0.88 };
-        const Color c_rgb = Math::HSL_to_RGB_rad(c);
+        const Color c_rgb = Detail::HSL_to_RGB_rad(c);
         REQUIRE(int(std::round(c_rgb(0) * 255)) == 209);
         REQUIRE(int(std::round(c_rgb(1) * 255)) == 230);
         REQUIRE(int(std::round(c_rgb(2) * 255)) == 240);
@@ -102,8 +117,8 @@ TEST_CASE( "complex to hsl conversion", "UtilFunctions" ) {
     using Color = Eigen::Matrix<float, 3, 1>;
     
     std::complex<float> cn (0.f, 1.f);
-    Color col = Math::c_to_HSL(10.f, cn);
-    const Color c_rgb = Math::HSL_to_RGB_deg(col);
+    Color col = Detail::c_to_HSL(10.f, cn);
+    const Color c_rgb = Detail::HSL_to_RGB_deg(col);
 
     //REQUIRE(int(std::round(c_rgb(0) * 255)) == 0);
 
@@ -125,7 +140,7 @@ TEST_CASE( "Index flattening", "UtilFunctions") {
                 idx(0) = z;
                 idx(1) = y;
                 idx(2) = x;
-                const Eigen::Index i = Math::Hagedorn::Detail::index(idx, im);
+                const Eigen::Index i = Detail::index(idx, im);
                 REQUIRE(i >= 0);
                 REQUIRE(i <= maxIdx);     
                 REQUIRE(k == i);
@@ -245,14 +260,14 @@ TEST_CASE( "PSI00", "Hagedorn" ){
 
     const auto file = IO::simulation_results_phi000();
     REQUIRE(file.has_value());
-    const auto inv = Math::Hagedorn::computeInvariants(file.value());
+    const auto inv = Detail::computeInvariants(file.value());
     double error = 0.;
     std::cout << "Hagedorn - PSI00" << std::endl;
     for(size_t t = 0; t < 4; ++t){
         std::cout << "Time Step: " << t << std::endl;
         for( size_t i = 0; i < 8; ++i){
         
-            const auto res = Math::Hagedorn::Detail::phi_0(
+            const auto res = Detail::phi_0(
                 t,
                 grid[i],
                 inv
@@ -337,14 +352,14 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
 
     const auto file = IO::simulation_results();
     REQUIRE(file.has_value());
-    const auto inv = Math::Hagedorn::computeInvariants(file.value());
+    const auto inv = Detail::computeInvariants(file.value());
 
     double error = 0.;
     std::cout << "Hagedorn - Function Values" << std::endl;
     for(size_t t = 0; t < 4; ++t){
         for( size_t i = 0; i < 8; ++i){
         
-            const std::unordered_map<Eigen::Index, std::complex<double>> phis = Math::Hagedorn::compute(
+            const std::unordered_map<Eigen::Index, std::complex<double>> phis = Detail::compute(
                 t,
                 grid[i],
                 inv
@@ -354,7 +369,7 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
             std::complex<double> res (0., 0.);
  
             for(size_t k = 0; k < file.value().Ks.size(); ++k){ 
-                const size_t idx = Math::Hagedorn::Detail::index(file.value().Ks[k], file.value().k_max);
+                const size_t idx = Detail::index(file.value().Ks[k], file.value().k_max);
                 REQUIRE(phis.contains(idx));
                 const std::complex<double>& p = (*phis.find(idx)).second;
                 res += file.value().c_0[t](k) * p;
@@ -384,7 +399,7 @@ TEST_CASE( "performance simulation_results_phi000", "Hagedorn" ) {
 
     const auto file = IO::simulation_results_phi000();
     REQUIRE(file.has_value());
-    const auto inv = Math::Hagedorn::computeInvariants(file.value());
+    const auto inv = Detail::computeInvariants(file.value());
 
     Vector pos (3);
     pos.setZero();
@@ -402,7 +417,7 @@ TEST_CASE( "performance simulation_results_phi000", "Hagedorn" ) {
 
             const Now start = std::chrono::high_resolution_clock::now();
 
-            const std::unordered_map<Eigen::Index, std::complex<double>> phis = Math::Hagedorn::compute(
+            const std::unordered_map<Eigen::Index, std::complex<double>> phis = Detail::Hagedorn::compute(
                 0,
                 pos,
                 inv
@@ -426,7 +441,7 @@ TEST_CASE( "performance simulation_results_phi121", "Hagedorn" ) {
 
     const auto file = IO::simulation_results_phi121();
     REQUIRE(file.has_value());
-    const auto inv = Math::Hagedorn::computeInvariants(file.value());
+    const auto inv = Detail::computeInvariants(file.value());
 
     Vector pos (3);
     pos.setZero();
@@ -444,7 +459,7 @@ TEST_CASE( "performance simulation_results_phi121", "Hagedorn" ) {
 
             const Now start = std::chrono::high_resolution_clock::now();
 
-            const std::unordered_map<Eigen::Index, std::complex<double>> phis = Math::Hagedorn::compute(
+            const std::unordered_map<Eigen::Index, std::complex<double>> phis = Detail::Hagedorn::compute(
                 0,
                 pos,
                 inv
@@ -468,7 +483,7 @@ TEST_CASE( "performance simulation_results_phi412", "Hagedorn" ) {
 
     const auto file = IO::simulation_results_phi412();
     REQUIRE(file.has_value());
-    const auto inv = Math::Hagedorn::computeInvariants(file.value());
+    const auto inv = Detail::computeInvariants(file.value());
 
     Vector pos (3);
     pos.setZero();
@@ -486,7 +501,7 @@ TEST_CASE( "performance simulation_results_phi412", "Hagedorn" ) {
 
             const Now start = std::chrono::high_resolution_clock::now();
 
-            const std::unordered_map<Eigen::Index, std::complex<double>> phis = Math::Hagedorn::compute(
+            const std::unordered_map<Eigen::Index, std::complex<double>> phis = Detail::compute(
                 0,
                 pos,
                 inv
@@ -503,3 +518,5 @@ TEST_CASE( "performance simulation_results_phi412", "Hagedorn" ) {
     std::cout << std::endl;
 
 }
+
+*/

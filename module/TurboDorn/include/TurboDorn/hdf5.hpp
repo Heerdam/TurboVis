@@ -254,7 +254,7 @@ namespace IO {
         }; //hyperbolicCutShape
 
     template<class T>
-    [[nodiscard]] std::ostream& operator<<(std::ostream& _s, const Detail::File& _f) {
+    std::ostream& operator<<(std::ostream& _s, const Detail::File& _f) {
         _s << std::endl << "=====================================================" << std::endl;
         _s << "Dimensions: " << _f.dimensions << std::endl;
         _s << "Time steps: " << _f.timesteps << std::endl;

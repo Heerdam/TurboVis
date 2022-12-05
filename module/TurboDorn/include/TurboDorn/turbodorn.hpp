@@ -14,7 +14,7 @@
 
 #include <Eigen/Eigen>
 
-#include "bresenham.hpp"
+#include "griderator.hpp"
 
 namespace TurboDorn {
 
@@ -42,34 +42,31 @@ namespace TurboDorn {
             [[nodiscard]] Invariants& operator=(Invariants&& _in) noexcept = default;
         };//Invariants
 
-        
-
-        const Detail::Invariants computeInvariants(const File& _file) {
-
-            Detail::Invariants out;
-            out.dimensions = _file.dimensions;
-            out.k = _file.k_max;
-            out.i_2_E_2 = std::complex<double>(0., 1.) / (2. * _file.epsilon * _file.epsilon);
-            out.p = _file.p;
-            out.q = _file.q;
-            out.k_shape = _file.b_Ks;
+        std::unique_ptr<Detail::Invariants> computeInvariants(const File& _file) {
+            std::unique_ptr<Detail::Invariants> out = std::make_unique();
+            out->dimensions = _file.dimensions;
+            out->k = _file.k_max;
+            out->i_2_E_2 = std::complex<double>(0., 1.) / (2. * _file.epsilon * _file.epsilon);
+            out->p = _file.p;
+            out->q = _file.q;
+            out->k_shape = _file.b_Ks;
 
             for(size_t t = 0; t < _file.timesteps; ++t){
                 //phi0
-                out.pre.push_back( std::pow(double(M_PI) * _file.epsilon * _file.epsilon, - double(_file.dimensions) / 4.) * std::pow(_file.Q[t].determinant(), -0.5) );
-                out.P_Q_1.push_back( _file.P[t] * _file.Q[t].inverse() );
+                out->pre.push_back( std::pow(double(M_PI) * _file.epsilon * _file.epsilon, - double(_file.dimensions) / 4.) * std::pow(_file.Q[t].determinant(), -0.5) );
+                out->P_Q_1.push_back( _file.P[t] * _file.Q[t].inverse() );
 
-                out.i_E_2_p.push_back( (std::complex<double>(0., 1.) / _file.epsilon * _file.epsilon) * _file.p[t].transpose() );
+                out->i_E_2_p.push_back( (std::complex<double>(0., 1.) / _file.epsilon * _file.epsilon) * _file.p[t].transpose() );
                 //phi
-                out.Q_1.push_back( std::sqrt(2. / (_file.epsilon * _file.epsilon)) * _file.Q[t].inverse() );
-                out.Q_1_Q_T.push_back( _file.Q[t].inverse() * _file.Q[t].conjugate() );
+                out->Q_1.push_back( std::sqrt(2. / (_file.epsilon * _file.epsilon)) * _file.Q[t].inverse() );
+                out->Q_1_Q_T.push_back( _file.Q[t].inverse() * _file.Q[t].conjugate() );
             }
             return out;
         }
 
         /*
         i: index
-        e: extends, # units
+        e: extents, # units
         */
         inline Eigen::Index index(const Eigen::VectorXi& _i, const Eigen::VectorXi& _e ) {
             assert(_i.size() == _e.size());

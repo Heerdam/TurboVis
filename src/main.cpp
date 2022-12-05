@@ -2,10 +2,153 @@
 #include <chrono>
 #include <iostream>
 #include <string>
+#include <sstream>
+#include <filesystem>
+#include <fstream>
 
-#include <TurboDorn/voxeliser.hpp>
+#include <nlohmann/json.hpp>
+
+//#include <TurboDorn/voxeliser.hpp>
 
 using namespace std::chrono_literals;
+using namespace nlohmann;
+
+/*
+    //---------------------------------------------------------------------------------------//
+    //                                        TURBOVIS
+    //---------------------------------------------------------------------------------------//
+
+
+
+
+
+
+    ********************************** How to build TurboVis **********************************
+
+
+
+
+
+    ******************************** How to use and run TurboVis *******************************
+    to start the program: tv -c path/to/config/file
+    or just tv and it assumes config.json in the same folder as the binary
+
+    Cache Mode: Samples the provided function in hdf5 form into binary form.
+    Config Json valid options for build mode:
+    {
+        "mode": "build",
+        "input": "path/to/input/file.hdf5",
+        "output": "path/to/output/file.hdf5", //optional. appends out_[input].hdf
+
+        "aabb": [[x, y, z], [x, y, z]], //upper and lower position
+        "resolution": [x, y, z], //voxel resolution of the cube
+    }
+
+    Render Mode: Renders the provided function in binary form with the provided parameters in json to a png
+    Config Json valid options for render mode:
+    {
+        "mode": "render",
+        "input": "path/to/input/file.hdf5",
+        "output": "path/to/output/file.hdf5", //optional. appends out_[input].jpg
+
+        "pixels": [x, y],
+        "camera": [[x, y, z], [x, y, z]], //dir, up
+        "steps": X, //step size will be diagonale of the previously defined AABB / steps
+    }
+
+    ********************************** Example Json Build **********************************
+    {
+        "mode": "build",
+        "input": "path/to/input/file.hdf5",
+        "output": "path/to/output/file.hdf5", //optional. appends out_[input].hdf
+
+        "aabb": [[x, y, z], [x, y, z]], //upper and lower position
+        "resolution": [x, y, z], //voxel resolution of the cube
+    }
+    ****************************************************************************************
+
+    ********************************** Example Json Render *********************************
+    {
+        "mode": "render",
+        "input": "path/to/input/file.hdf5",
+        "output": "path/to/output/file.hdf5", //optional. appends out_[input].jpg
+
+        "pixels": [x, y],
+        "camera": [[x, y, z], [x, y, z]], //dir, up
+        "steps": X, //step size will be diagonale of the previously defined AABB / steps
+    }
+    ****************************************************************************************
+
+*/
+
+int main(int argc, char* argv[]) {
+
+    const auto getJsonPath = [&] {
+        if(argc == 0){
+            const auto out = std::filesystem::current_path() / "config.json";
+            if(!std::filesystem::exists(out) || out.extension() == "json") throw std::runtime_error("file error: no config.json in working directory found");
+            return out;
+        } else {
+            const auto out = std::filesystem::current_path() / argv[0]; 
+            if(!std::filesystem::exists(out) || out.extension() == "json"){
+                std::stringstream ss;
+                ss << "file error: no .json found at: " << argv[0] << std::endl;
+                throw std::runtime_error(ss.str());
+            }
+            return out;
+        }
+    };
+
+    const std::filesystem::path p_config = getJsonPath();
+    std::ifstream f_config(p_config);
+    if(!f_config.good()) throw std::runtime_error("file error: error reading provided config file");
+    const json config = json::parse(f_config);
+    
+    //parse mode: 0: invalid, 1: build, 2: render
+    const std::string mk = config["mode"];
+    const int mode = mk == "build" ? 1 : mk == "render" ? 2 : 0;
+    if(mode == 0) throw std::runtime_error("json error: key mode is missing or wrong value");
+
+    //input file (must exist)
+    const std::filesystem::path input = config["input"];
+    if(!std::filesystem::exists(input)) throw std::runtime_error("json error: input file does not exist");
+
+    //output file (optional)
+    std::filesystem::path output = config["output"];
+    if(output.empty()) {
+        std::stringstream ss;
+        ss << input.parent_path() << "/out_" << input.filename();
+        output = ss.str();
+    }
+
+    //build
+    if(mode == 1){
+
+
+    }
+    
+    //render
+    if(mode == 2){
+
+    }
+
+    return EXIT_SUCCESS;
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
 
 enum class File : size_t {
     none = 0,
@@ -15,9 +158,6 @@ enum class File : size_t {
     simulation_results_phi121 = 4,
     simulation_results_phi412 = 5,
 };
-
-int main(int argc, char* argv[]) {
-
     if(argc == 1){
         std::cout << "no valid input" << std::endl;
         return 0;
@@ -71,7 +211,7 @@ int main(int argc, char* argv[]) {
     }
 
 }
-
+*/
 /*
 
 int main() {

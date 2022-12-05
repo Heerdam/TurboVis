@@ -75,6 +75,14 @@ FetchContent_MakeAvailable(HighFive)
 	#add_subdirectory("${HighFive_SOURCE_DIR}" "${HighFive_BINARY_DIR}")
 #endif()
 
+# ------------------ Json ------------------
+FetchContent_Declare(json
+    GIT_REPOSITORY      https://github.com/ArthurSonzogni/nlohmann_json_cmake_fetchcontent.git
+	GIT_TAG				v3.11.2
+    GIT_SHALLOW         TRUE
+)
+FetchContent_MakeAvailable(json)
+
 # ------------------ CATCH2 ------------------
 message(STATUS "Fetching Catch2...")
 FetchContent_Declare(
@@ -94,4 +102,4 @@ FetchContent_MakeAvailable(Catch2)
 include("${CMAKE_CURRENT_SOURCE_DIR}/module/TurboDorn/module.cmake")
 
 # ------------------------------------
-target_link_libraries(tv turbodorn lodepng HDF5::HDF5 OpenMP::OpenMP_CXX HighFive)
+target_link_libraries(tv turbodorn lodepng HDF5::HDF5 OpenMP::OpenMP_CXX HighFive nlohmann_json::nlohmann_json)

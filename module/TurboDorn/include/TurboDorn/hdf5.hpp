@@ -170,88 +170,9 @@ namespace IO {
         return out ;
     }; //loadFromFile
 
-    const Detail::File simulation_results() {
-        try {
-            FilePathResolver file;
-            const auto path = file.example_files_path() /= "simulation_results.hdf5";
-            return Detail::loadFromFile(path, 3, 4);
-        } catch(const std::exception& _e){
-            throw _e;
-        }
-    }//simulation_results
+    
 
-    const Detail::File simulation_results_phi000() {
-        try {
-            FilePathResolver file;
-            const auto path = file.example_files_path() /= "simulation_results_phi000.hdf5";
-            return Detail::loadFromFile(path, 3, 1);
-        } catch(const std::exception& _e){
-            throw _e;
-        }
-    }//simulation_results_phi000
-
-    const Detail::File simulation_results_phi100() {
-        try {
-            FilePathResolver file;
-            const auto path = file.example_files_path() /= "simulation_results_phi100.hdf5";
-            return Detail::loadFromFile(path, 3, 2);
-        } catch(const std::exception& _e){
-            throw _e;
-        }
-    }//simulation_results_phi100
-
-    const Detail::File simulation_results_phi121() {
-        try {
-            FilePathResolver file;
-            const auto path = file.example_files_path() /= "simulation_results_phi121.hdf5";
-            return Detail::loadFromFile(path, 3, 12);
-        } catch(const std::exception& _e){
-            throw _e;
-        }
-    }//simulation_results_phi121
-
-    const Detail::File simulation_results_phi412() {
-        try {
-            FilePathResolver file;
-            const auto path = file.example_files_path() /= "simulation_results_phi412.hdf5";
-            return Detail::loadFromFile(path, 3, 30);
-        } catch(const std::exception& _e){
-            throw _e;
-        }
-    }//simulation_results_phi412
-
-    std::vector<Eigen::VectorXi> hyperbolicCutShape(size_t _dim, size_t _K) {
-            std::vector<Eigen::VectorXi> out;
-
-            Eigen::VectorXi index(_dim);
-            index.setZero();
-
-            while (true) {
-                for (index(_dim - 1) = 0; index(_dim - 1) <= _K; ++index(_dim - 1)) {
-                    Eigen::Index p = 1;
-                    for (Eigen::Index d = 0; d < _dim; ++d)
-                        p *= (1 + index(d));
-                    if (p <= _K)
-                        out.push_back(index);
-                }
-
-                bool done = false;
-                for (Eigen::Index d = _dim - 2; d >= 0; --d) {
-                    index(d) += 1;
-
-                    if (index(d) >= _K) {
-                        if (d == 0)
-                            done = true;
-                        else
-                            index(d) = 0;
-                    } else
-                        break;
-                }
-                if (done) break;
-            }
-
-            return out;
-        }; //hyperbolicCutShape
+    
 
     template<class T>
     std::ostream& operator<<(std::ostream& _s, const Detail::File& _f) {

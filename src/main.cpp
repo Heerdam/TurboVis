@@ -1,17 +1,5 @@
 
-#include <chrono>
-#include <iostream>
-#include <string>
-#include <sstream>
-#include <filesystem>
-#include <fstream>
-
-#include <nlohmann/json.hpp>
-
-//#include <TurboDorn/voxeliser.hpp>
-
-using namespace std::chrono_literals;
-using namespace nlohmann;
+#include <TurboDorn/turbodorn.hpp>
 
 /*
     //---------------------------------------------------------------------------------------//
@@ -33,15 +21,17 @@ using namespace nlohmann;
     to start the program: tv -c path/to/config/file
     or just tv and it assumes config.json in the same folder as the binary
 
-    Cache Mode: Samples the provided function in hdf5 form into binary form.
+    Sample Mode: Samples the provided function in hdf5 form into binary form.
     Config Json valid options for build mode:
     {
-        "mode": "build",
+        "mode": "sample",
         "input": "path/to/input/file.hdf5",
-        "output": "path/to/output/file.hdf5", //optional. appends out_[input].hdf
+        "output": "path/to/output/file.hdf5", //optional. appends out_[input]_[dim1]-[dim2]-[dim3].hdf
 
         "aabb": [[x, y, z], [x, y, z]], //upper and lower position
         "resolution": [x, y, z], //voxel resolution of the cube
+        "dimensions": [0, 1, 2], //index of dimensions to be used
+        "dim_val": [val, val,...], //constant values of the unused dimensions
     }
 
     Render Mode: Renders the provided function in binary form with the provided parameters in json to a png
@@ -56,7 +46,7 @@ using namespace nlohmann;
         "steps": X, //step size will be diagonale of the previously defined AABB / steps
     }
 
-    ********************************** Example Json Build **********************************
+    ********************************** Example Json Sample **********************************
     {
         "mode": "build",
         "input": "path/to/input/file.hdf5",
@@ -86,32 +76,50 @@ int main(int argc, char* argv[]) {
     const auto getJsonPath = [&] {
         if(argc == 0){
             const auto out = std::filesystem::current_path() / "config.json";
-            if(!std::filesystem::exists(out) || out.extension() == "json") throw std::runtime_error("file error: no config.json in working directory found");
+            if(!std::filesystem::exists(out) || out.extension() == "json") {
+                std::cerr << "file error: no config.json in working directory found" << std::endl;
+                std::terminate();
+            }
             return out;
         } else {
             const auto out = std::filesystem::current_path() / argv[0]; 
             if(!std::filesystem::exists(out) || out.extension() == "json"){
-                std::stringstream ss;
-                ss << "file error: no .json found at: " << argv[0] << std::endl;
-                throw std::runtime_error(ss.str());
+                std::cerr << "file error: no .json found at: " << argv[0] << std::endl;
+                std::terminate();
             }
             return out;
         }
     };
 
+    /*
+    ***********************************************************************************************************
+        We are doing only preliminary validation of the config file here and if a valid input file exists.
+        All the specific extraction and validation of the config file is done in the build and render modes.
+    ***********************************************************************************************************
+    */
+
     const std::filesystem::path p_config = getJsonPath();
     std::ifstream f_config(p_config);
-    if(!f_config.good()) throw std::runtime_error("file error: error reading provided config file");
+    if(!f_config.good()){
+        std::cerr << "file error: error reading provided config file" << std::endl;
+        std::terminate();
+    }
     const json config = json::parse(f_config);
     
-    //parse mode: 0: invalid, 1: build, 2: render
+    //parse mode: 0: invalid, 1: sample, 2: render
     const std::string mk = config["mode"];
-    const int mode = mk == "build" ? 1 : mk == "render" ? 2 : 0;
-    if(mode == 0) throw std::runtime_error("json error: key mode is missing or wrong value");
+    const int mode = mk == "sample" ? 1 : mk == "render" ? 2 : 0;
+    if(mode == 0){
+        std::cerr << "json error: key mode is missing or wrong value" << std::endl;
+        std::terminate();
+    }
 
     //input file (must exist)
     const std::filesystem::path input = config["input"];
-    if(!std::filesystem::exists(input)) throw std::runtime_error("json error: input file does not exist");
+    if(!std::filesystem::exists(input)){
+        std::cerr << "json error: key mode is missing or wrong value" << std::endl;
+        std::terminate();
+    }
 
     //output file (optional)
     std::filesystem::path output = config["output"];
@@ -121,15 +129,27 @@ int main(int argc, char* argv[]) {
         output = ss.str();
     }
 
+    /*
+    ***********************************************************************************************************
+        If we have reached this point the config file is valid and we can proceed with sampling or rendering.
+    ***********************************************************************************************************
+    */
+
     //build
     if(mode == 1){
 
+        TurboDorn::Sampler sampler (config);
 
+        if(sampler.success()) EXIT_SUCCESS;
+        else EXIT_FAILURE;
     }
     
     //render
     if(mode == 2){
-
+        TurboDorn::Renderer renderer (config);
+        
+        if(renderer.success()) EXIT_SUCCESS;
+        else EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;

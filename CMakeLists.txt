@@ -83,6 +83,15 @@ FetchContent_Declare(json
 )
 FetchContent_MakeAvailable(json)
 
+# ------------------ ROBIN-MAP ------------------
+message(STATUS "Fetching robin map...")
+FetchContent_Declare(robin_map
+  GIT_REPOSITORY        https://github.com/Tessil/robin-map.git
+  GIT_TAG               v1.0.1
+  GIT_SHALLOW           TRUE
+)
+FetchContent_MakeAvailable(robin_map)
+
 # ------------------ CATCH2 ------------------
 message(STATUS "Fetching Catch2...")
 FetchContent_Declare(
@@ -102,4 +111,4 @@ FetchContent_MakeAvailable(Catch2)
 include("${CMAKE_CURRENT_SOURCE_DIR}/module/TurboDorn/module.cmake")
 
 # ------------------------------------
-target_link_libraries(tv turbodorn lodepng HDF5::HDF5 OpenMP::OpenMP_CXX HighFive nlohmann_json::nlohmann_json)
+target_link_libraries(tv turbodorn lodepng HDF5::HDF5 OpenMP::OpenMP_CXX HighFive nlohmann_json::nlohmann_json tsl::robin_map)

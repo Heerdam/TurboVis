@@ -1,0 +1,12 @@
+{
+    "mode": "sample",
+    "input": "../example_files/simulation_results_phi.hdf5",
+    "time step": 0, 
+    "dims": 3,
+    "K": 4,
+    "cardinal": [0, 1, 2], 
+    "aabb min": [-100, -100, -24], 
+    "aabb max": [100, 100, 100], 
+    "lattice": [25, 25, 25],
+    "const dims": []
+}

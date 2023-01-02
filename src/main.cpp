@@ -26,12 +26,16 @@
     {
         "mode": "sample",
         "input": "path/to/input/file.hdf5",
-        "output": "path/to/output/file.hdf5", //optional. appends out_[input]_[dim1]-[dim2]-[dim3].hdf
+        "output": "path/to/output/file", //optional. appends samples_[input file name]_[dim1]-[dim2]-[dim3]
 
-        "aabb": [[x, y, z], [x, y, z]], //upper and lower position
-        "resolution": [x, y, z], //voxel resolution of the cube
-        "dimensions": [0, 1, 2], //index of dimensions to be used
-        "dim_val": [val, val,...], //constant values of the unused dimensions
+        "time step": 0, 
+        "dims": 3, //total dimensions
+        "K": 3,
+        "cardinal": [0, 1, 2], //index of dimensions to be used
+        "aabb min": [x, y, z], //lower position
+        "aabb max": [x, y, z], //upper position
+        "lattice": [x, y, z], //voxel resolution of the cube
+        "const dims": [val, val,...], //constant values of the unused dimensions
     }
 
     Render Mode: Renders the provided function in binary form with the provided parameters in json to a png
@@ -71,10 +75,29 @@
 
 */
 
+
+
 int main(int argc, char* argv[]) {
 
-    const auto getJsonPath = [&] {
-        if(argc == 0){
+    std::string test = 
+    "{"
+        "\"mode\": \"sample\","
+        "\"input\": \"../example_files/simulation_results_phi.hdf5\","
+        "\"time step\": 0," 
+        "\"dims\": 3,"
+        "\"K\": 4,"
+        "\"cardinal\": [0, 1, 2],"
+        "\"aabb min\": [-100, -100, -24],"
+        "\"aabb max\": [-100, -100, -100],"
+        "\"lattice\": [25, 25, 25],"
+        "\"const dims\": []"
+    "}";
+
+    std::string tt = "../example_files/config.json";
+    char* targv[] = { nullptr, tt.data() };
+
+    const auto getJsonPath = [](int _argc, char* _argv[]) {
+        if(_argc == 1){
             const auto out = std::filesystem::current_path() / "config.json";
             if(!std::filesystem::exists(out) || out.extension() == "json") {
                 std::cerr << "file error: no config.json in working directory found" << std::endl;
@@ -82,14 +105,16 @@ int main(int argc, char* argv[]) {
             }
             return out;
         } else {
-            const auto out = std::filesystem::current_path() / argv[0]; 
+            const auto out = std::filesystem::current_path() / _argv[1]; 
             if(!std::filesystem::exists(out) || out.extension() == "json"){
-                std::cerr << "file error: no .json found at: " << argv[0] << std::endl;
+                std::cerr << "file error: no .json found at: " << _argv[1] << std::endl;
                 std::terminate();
             }
             return out;
         }
     };
+
+
 
     /*
     ***********************************************************************************************************
@@ -98,7 +123,7 @@ int main(int argc, char* argv[]) {
     ***********************************************************************************************************
     */
 
-    const std::filesystem::path p_config = getJsonPath();
+    const std::filesystem::path p_config = getJsonPath(2, targv);
     std::ifstream f_config(p_config);
     if(!f_config.good()){
         std::cerr << "file error: error reading provided config file" << std::endl;
@@ -114,20 +139,7 @@ int main(int argc, char* argv[]) {
         std::terminate();
     }
 
-    //input file (must exist)
-    const std::filesystem::path input = config["input"];
-    if(!std::filesystem::exists(input)){
-        std::cerr << "json error: key mode is missing or wrong value" << std::endl;
-        std::terminate();
-    }
 
-    //output file (optional)
-    std::filesystem::path output = config["output"];
-    if(output.empty()) {
-        std::stringstream ss;
-        ss << input.parent_path() << "/out_" << input.filename();
-        output = ss.str();
-    }
 
     /*
     ***********************************************************************************************************
@@ -138,12 +150,12 @@ int main(int argc, char* argv[]) {
     //build
     if(mode == 1){
 
-        TurboDorn::Sampler sampler (config);
+        TurboDorn::Sampler<double> sampler (config);
 
-        if(sampler.success()) EXIT_SUCCESS;
-        else EXIT_FAILURE;
+        //if(sampler.success()) EXIT_SUCCESS;
+        //else EXIT_FAILURE;
     }
-    
+    /*
     //render
     if(mode == 2){
         TurboDorn::Renderer renderer (config);
@@ -151,7 +163,7 @@ int main(int argc, char* argv[]) {
         if(renderer.success()) EXIT_SUCCESS;
         else EXIT_FAILURE;
     }
-
+*/
     return EXIT_SUCCESS;
 
 }

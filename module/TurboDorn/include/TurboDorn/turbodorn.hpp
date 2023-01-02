@@ -4,9 +4,13 @@
 #include <complex>
 #include <numeric>
 #include <vector>
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <cassert>
+#include <cstring>
+#include <mutex>
+#include <cmath>
 
 #include <Eigen/Eigen>
 #include <tsl/robin_map.h>
@@ -16,12 +20,216 @@
 
 #include <nlohmann/json.hpp>
 
+#include <libmorton/morton.h>
+
 using namespace nlohmann;
 using namespace std::chrono_literals;
 
 namespace TurboDorn {
 
-    namespace Griderator {
+    namespace Hagedorn::Detail {
+        template<class T>
+        EIGEN_STRONG_INLINE uint_fast64_t morton_index(const Eigen::Vector3<T>& _x);
+    }
+
+    namespace Geometry {
+
+        namespace Detail {
+
+            //---------------------------------------------------------------------------------------//
+            //                                        Chunk
+            //---------------------------------------------------------------------------------------//
+
+            template<class T>
+            class Chunk {
+
+                std::filesystem::path path;
+
+                tsl::robin_map<uint_fast64_t, std::complex<T>> data;
+
+                Eigen::Vector3<T> cell_size;
+
+                bool is_loaded = false;
+
+            public:
+
+                //constructor for sampling
+                Chunk(std::filesystem::path _file, const Eigen::Vector3<T>& _cell_size) noexcept : path(std::move(_file)), cell_size(_cell_size) { }
+
+                bool load() {
+                    is_loaded = true;
+                    data = tsl::robin_map<uint_fast64_t, std::complex<T>>();
+                    std::fstream in (path, in.binary | in.trunc | in.in);
+                    if(in.good()){
+                        size_t s = 0;
+                        in >> s;
+                        data.reserve(s);
+                        for(size_t i = 0; i < s; ++i){
+                            uint_fast64_t idx = 0;
+                            std::complex<T> val; 
+                            in >> idx >> val;
+                            data[idx] = val;
+                        }
+                        return true;
+                    }
+                    return false;
+                }
+
+                bool unload() {
+                    if(is_loaded) {
+                        is_loaded = false;
+                        std::fstream in (path, in.binary | in.trunc | in.out);
+                        if(in.good()){
+                            in << data.size();
+                            for(auto it = data.begin(); it != data.end(); ++it){
+                                in << it.key() << it.value();
+                            }
+                        }
+                        data = tsl::robin_map<uint_fast64_t, std::complex<T>>();
+                        return true;
+                    }
+                    return false;
+                }
+
+                uint_fast64_t idx(const Eigen::VectorX<T>& _pos) const {
+                const Eigen::Vector3<T> pos = Eigen::Vector3<T>(_pos(cardinal(0)), _pos(cardinal(1)), _pos(cardinal(2)));
+                const T x = std::floor(pos(0) / cell_size(0));
+                const T y = std::floor(pos(1) / cell_size(1));
+                const T z = std::floor(pos(2) / cell_size(2));
+                return ::TurboDorn::Hagedorn::Detail::morton_index(Eigen::Vector3<T>(x, y, z));
+            }
+
+                bool insert(const Eigen::VectorX<T>& _pos, const std::complex<T>& _val) {
+                    if(!is_loaded) return false;
+                    data[idx(_pos)] =_val;
+                    return true;
+                }
+
+                std::complex<T> sample(const Eigen::VectorX<T>& _pos) const {
+                    const uint_fast64_t id = idx(_pos);
+                    if(is_loaded && data.contains(id)) return data[id];
+                    else return {0., 0.};
+                }
+
+            };//Chunk
+
+        }//Detail
+
+        //---------------------------------------------------------------------------------------//
+        //                                        ChunkGrid
+        //---------------------------------------------------------------------------------------//
+
+        /*
+            A 3d hashed infinite grid that automatically loads and unloads
+            chunks to keep the memory footprint under a certain value.
+            Uses a simple LRU policy.
+        */
+
+        template<class T>
+        class ChunkGrid {
+
+            Eigen::Vector3i cardinal;
+            Eigen::Vector3<T> cell_size;
+            Eigen::Vector3<T> chunk_size;
+
+            size_t chunk_extend;
+            size_t chunk_byte_size;
+            size_t max_byte_size_dense;
+
+            tsl::robin_map<uint_fast64_t, std::unique_ptr<Detail::Chunk<T>>> chunks;
+
+            size_t max_chunks_loaded;
+
+            std::vector<uint_fast64_t> lru;
+
+            std::filesystem::path path;
+
+            std::mutex mutex;
+
+            bool ensure_loaded(uint_fast64_t _idx) {
+
+                //check if chunk exists
+                if(!chunks.contains(_idx)) {
+                    std::stringstream ss;
+                    ss << "chunks/chunk_" << _idx;
+                    const auto np = path / ss.str();
+
+                    std::unique_ptr<Detail::Chunk<T>> nc = std::make_unique<Detail::Chunk<T>>(std::move(np), cell_size);
+                    nc->unload();
+                    chunks[_idx] = std::move(nc);
+                }
+
+                //check if already loaded
+                auto it = lru.begin();
+                for(; it != lru.end(); ++it){
+                    if(*it == _idx) break;
+                }
+
+                //if already loaded just push to the front
+                if(it != lru.end()){
+                    lru.erase(it);
+                    lru.insert(lru.begin(), _idx);
+                    return true;
+                }
+
+                //if new but lru has still space
+                if(lru.size() < max_chunks_loaded){
+                    lru.insert(lru.begin(), _idx);
+                    return chunks[_idx]->load();
+                }
+
+                //if new but lru is full
+                const uint_fast64_t toUnload = *(lru.end() - 1);
+                lru.erase(lru.end() - 1);
+                lru.insert(lru.begin(), _idx);
+                return chunks[toUnload]->unload() && chunks[_idx]->load();
+
+            }
+
+            uint_fast64_t idx(const Eigen::VectorX<T>& _pos) const {
+                const Eigen::Vector3<T> pos = Eigen::Vector3<T>(_pos(cardinal(0)), _pos(cardinal(1)), _pos(cardinal(2)));
+                const T x = std::floor(pos(0) / chunk_size(0));
+                const T y = std::floor(pos(1) / chunk_size(1));
+                const T z = std::floor(pos(2) / chunk_size(2));
+                return ::TurboDorn::Hagedorn::Detail::morton_index(Eigen::Vector3<T>(x, y, z));
+            }
+
+        public:
+
+            ChunkGrid(
+                std::filesystem::path _path, 
+                const Eigen::Vector3i& _cardinal, 
+                const Eigen::Vector3<T>& _cell_size, 
+                size_t max_chunk_size = 50000000
+            ) : cardinal(_cardinal), cell_size(_cell_size), path(std::move(_path)) {
+                chunk_extend = size_t(std::floor(std::sqrt(max_chunk_size / sizeof(std::complex<T>))));
+                chunk_size = cell_size * chunk_extend;
+            }
+
+            ~ChunkGrid() {
+                for(auto it = chunks.begin(); it != chunks.end(); ++it){
+                    it.value()->unload();
+                }
+            }
+
+            //snychronized
+            std::complex<T> operator[](const Eigen::VectorX<T>& _pos) {
+                std::lock_guard<std::mutex> lock (mutex);
+                if(ensure_loaded(idx(_pos))) return chunks[idx(_pos)]->sample(_pos);
+                return {0., 0.};                
+            }
+
+            //snychronized
+            bool insert(const Eigen::VectorX<T>& _pos, const std::complex<T>& _val){
+                if(std::abs(_val.real) < std::numeric_limits<T>::epsilon() && std::abs(_val.img) < std::numeric_limits<T>::epsilon()) return true;
+                std::lock_guard<std::mutex> lock (mutex);
+                if(ensure_loaded(idx(_pos))) return chunks[idx(_pos)]->insert(_pos, _val);
+                return false;
+            }
+
+        };
+
+        //---------------------------------------------------------------------------------------//
 
         using Vector3 = Eigen::Vector3d;
         using Point3 = Eigen::Vector3d;
@@ -606,9 +814,9 @@ namespace TurboDorn {
         };
 
     }//Griderator
-
+    
     namespace Hagedorn::Detail {
-        std::vector<Eigen::VectorXi> hyperbolic_cut_shape(size_t _dim, size_t _K) noexcept;
+        std::vector<Eigen::VectorXi> hyperbolic_cut_shape(size_t _dim, size_t _K);
         Eigen::Index index(const Eigen::VectorXi& _i, const Eigen::VectorXi& _e ) noexcept;
     }
 
@@ -875,6 +1083,7 @@ namespace TurboDorn {
                 std::complex<T> i_2_E_2;
                 std::vector<Eigen::MatrixX<std::complex<T>>> P_Q_1;
                 std::vector<Eigen::RowVectorX<std::complex<T>>> i_E_2_p;
+                //std::vector<Eigen::Matrix<std::complex<T>, 1, Eigen::Dynamic>> i_E_2_p;
                 //phi
                 //sqrt*Q-1
                 std::vector<Eigen::MatrixX<std::complex<T>>> Q_1;
@@ -923,6 +1132,19 @@ namespace TurboDorn {
             }
 
             //---------------------------------------------------------------------------------------//
+            //                                            morton_index
+            //---------------------------------------------------------------------------------------//
+
+            /*
+             * _x: indices to be encoded in signed form
+            */
+            template<class T>
+            EIGEN_STRONG_INLINE uint_fast64_t morton_index(const Eigen::Vector3<T>& _x) {
+                const uint_fast64_t out = libmorton::morton3D_64_encode(uint_fast64_t(std::abs(_x(0))), uint_fast64_t(std::abs(_x(1))), uint_fast64_t(std::abs(_x(2))));
+                return (out & 0x1FFFFFFFFFFFFFFF) | uint_fast64_t(std::signbit(_x(0))) << 63 | uint_fast64_t(std::signbit(_x(1))) << 62 | uint_fast64_t(std::signbit(_x(2))) << 61;
+            }
+
+            //---------------------------------------------------------------------------------------//
             //                                            index
             //---------------------------------------------------------------------------------------//
 
@@ -944,7 +1166,7 @@ namespace TurboDorn {
             //                             hyperbolic_cut_shape
             //---------------------------------------------------------------------------------------//
 
-            EIGEN_STRONG_INLINE std::vector<Eigen::VectorXi> hyperbolic_cut_shape(size_t _dim, size_t _K) noexcept {
+            EIGEN_STRONG_INLINE std::vector<Eigen::VectorXi> hyperbolic_cut_shape(size_t _dim, size_t _K) {
                 std::vector<Eigen::VectorXi> out;
 
                 Eigen::VectorXi index(_dim);
@@ -1084,11 +1306,11 @@ namespace TurboDorn {
             //                                        c_to_HSL
             //---------------------------------------------------------------------------------------//
 
-            template <class T, T MAX>
-            EIGEN_STRONG_INLINE constexpr Eigen::Vector3<T> c_to_HSL(const std::complex<T>& _c) noexcept {
+            template <class T>
+            EIGEN_STRONG_INLINE constexpr Eigen::Vector3<T> c_to_HSL(const std::complex<T>& _c, T MAXVALUE = 10.) noexcept {
                 const T H = std::clamp(std::abs(std::fmod(std::arg(_c), 2. * M_PI)), 0., 2. * M_PI);
                 const T S = 1.;
-                const T L = std::clamp(std::abs(MAX * std::atan(std::abs(_c)) / (0.5 * M_PI)), 0., 1.);
+                const T L = std::clamp(std::abs(MAXVALUE * std::atan(std::abs(_c)) / (0.5 * M_PI)), 0., 1.);
                 return { H, S, L };
             }//c_to_HSL
 
@@ -1165,7 +1387,7 @@ namespace TurboDorn {
                 const INVARIANTS<T>& _inv
             ) noexcept {
                 const Eigen::VectorX<std::complex<T>> xq = _x - _inv.q[_t];
-                const Eigen::VectorX<std::complex<T>> xqt = xq.transpose();
+                const Eigen::RowVectorX<std::complex<T>> xqt = xq.transpose();
                 const std::complex<T> e1 = _inv.i_2_E_2 * xqt * _inv.P_Q_1[_t] * xq;
                 const std::complex<T> e2 = _inv.i_E_2_p[_t] * xq;
                 return _inv.pre[_t] * std::exp(e1 + e2);
@@ -1180,11 +1402,11 @@ namespace TurboDorn {
                 size_t _t,
                 const Eigen::VectorX<T>& _x,
                 const tsl::robin_map<Eigen::Index, std::complex<T>>& _phis,
-                const Eigen::VectorX<T>& _index,
+                const Eigen::VectorXi& _index,
                 const INVARIANTS<T>& _inv
             ) noexcept {
 
-                using Index = Eigen::VectorX<Eigen::Index>;
+                using Index = Eigen::VectorXi;
                 using Vector = Eigen::VectorX<std::complex<T>>;
                 using Matrix = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>;
 
@@ -1233,7 +1455,7 @@ namespace TurboDorn {
                 const INVARIANTS<T>& _inv
             ) {
 
-                using Index = Eigen::Matrix<Eigen::Index, Eigen::Dynamic, 1>;
+                using Index = Eigen::VectorXi;
                 using Vector = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, 1>;
                 using Matrix = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>;
 
@@ -1255,7 +1477,7 @@ namespace TurboDorn {
                     for (index(dim-1) = 0; index(dim-1) <= _inv.k(dim-1); ++index(dim-1)) { 
                         if (first) {
                             first = false;
-                            const auto phi0 = Detail::phi_0(_t, _x, _inv);
+                            const auto phi0 = Detail::phi_0<T>(_t, _x, _inv);
                             phis.insert( {0, phi0} );
                             --index(dim-1);
                             continue;
@@ -1267,7 +1489,7 @@ namespace TurboDorn {
                             break;
 
                         //compute phi for index
-                        const auto phi = Detail::phi(_t, _x, phis, index, _inv);
+                        const auto phi = Detail::phi<T>(_t, _x, phis, index, _inv);
 
                         for (size_t d = 0; d < dim; ++d) {
                             Index ni = index;
@@ -1313,6 +1535,7 @@ namespace TurboDorn {
                     res +=  _inv.c_0[_time_step](k) * p;
                 } 
                 res *= std::exp(std::complex<double>(0., 1.) *  _inv.S(Eigen::Index(_time_step)));
+                return res;
             }
 
         }//Detail
@@ -1329,17 +1552,22 @@ namespace TurboDorn {
         public:
 
             template<template<typename> class INVARIANTS>
-            HyperCube(size_t _time_step, const Eigen::Vector3<T>& _pos, const INVARIANTS<T>& _inv) {
+            HyperCube(size_t _time_step, const Eigen::VectorX<T>& _pos, const INVARIANTS<T>& _inv) {
                 const auto phis = Detail::compute_cube(_time_step, _pos, _inv);
                 value = linear_combination(_time_step, phis, _inv);
+            }
+
+            HyperCube() = delete;
+
+            EIGEN_STRONG_INLINE std::complex<T> VAL() const noexcept {
+                return value;
             }
 
             /**
              * @brief Returns the functions value in HSL with max value of 10.
             */
-            template<T MAXVALUE = 10.>
-            EIGEN_STRONG_INLINE Eigen::Vector3<T> HSL() const noexcept {
-                return Detail::c_to_HSL<T, MAXVALUE>(value);
+            EIGEN_STRONG_INLINE Eigen::Vector3<T> HSL(T MAXVALUE = 10.) const noexcept {
+                return Detail::c_to_HSL<T>(value, MAXVALUE);
             }
 
             /**
@@ -1360,21 +1588,190 @@ namespace TurboDorn {
 
     }//Hagedorn
 
+    namespace Detail {
+        
+        //---------------------------------------------------------------------------------------//
+        //                                   insert_sample_into
+        //---------------------------------------------------------------------------------------//
+
+        template<class T, template<typename> class INVARIANTS>
+        EIGEN_STRONG_INLINE bool insert_sample_into_grid(
+            Geometry::ChunkGrid<T>& _grid,
+            Eigen::Index _time_step, 
+            const Eigen::Vector3i& _idx,
+            const Eigen::Vector3i& _cardinal,
+            const Eigen::Vector3<T>& _cell_extend,
+            const Eigen::VectorX<T>& _aabb_min,
+            const INVARIANTS<T>& _inv
+        ) {
+            Eigen::VectorX<T> pos = _aabb_min; //todo: errör
+            for(Eigen::Index i = 0; i < 3; ++i)
+                pos(_cardinal(i)) += _idx(i) * _cell_extend(i);
+            const Hagedorn::HyperCube<T> cube(_time_step, pos, _inv);
+            return _grid.insert(pos, cube.VAL());
+        }//insert_sample_into_grid
+
+        //---------------------------------------------------------------------------------------//
+        //                                   sample_grid
+        //---------------------------------------------------------------------------------------//
+
+        template<class T, template<typename> class INVARIANTS, class CHAR = char>
+        void sample_grid(
+            const std::filesystem::path& _output,
+            Eigen::Index _time_step, 
+            const Eigen::Vector3i& _cardinal,
+            const Eigen::Vector3i& _lattice,
+            const Eigen::Vector3<T>& _aabb_min,
+            const Eigen::Vector3<T>& _aabb_max,
+            const Eigen::VectorX<T>& _const_dims,
+            const INVARIANTS<T>& _inv
+        ){
+
+            const Eigen::Vector3<T> ext = _aabb_max - _aabb_min;
+            std::cout << ext << std::endl;
+            const Eigen::Vector3<T> c = { ext(_cardinal(0)) / T(_lattice(0)), ext(_cardinal(1)) / T(_lattice(1)), ext(_cardinal(2)) / T(_lattice(2)) };
+            std::cout << c << std::endl;
+
+            Geometry::ChunkGrid<T> grid(_output, _cardinal, c);
+
+            for(Eigen::Index z = 0; z < _lattice(2); ++z){
+                for(Eigen::Index y = 0; y < _lattice(1); ++y){
+                    for(Eigen::Index x = 0; x < _lattice(0); ++x){
+
+                        const bool s = insert_sample_into_grid<T>(grid, _time_step, Eigen::Vector3i(x, y, z), _cardinal, c, _aabb_min, _inv);
+                        if(!s){
+                            std::cerr << "Error" << std::endl;
+                        }
+
+                    }
+                }
+            }
+
+        }
+
+        //---------------------------------------------------------------------------------------//
+        //                                   
+        //---------------------------------------------------------------------------------------//
+    }
+
     //---------------------------------------------------------------------------------------//
     //                                        Sampler
     //---------------------------------------------------------------------------------------//
 
+    template<class T>
     class Sampler {
 
     public:
 
         Sampler(const json& _config) {
 
+            const auto extract = [](const json& _config) -> Eigen::VectorX<T> {
+                Eigen::VectorX<T> out;
+                out.resize(_config.size());
+                Eigen::Index i = 0;
+                for(auto it = _config.begin(); it != _config.end(); ++it){
+                    out.coeffRef(i++) = T(*it);
+                }
+                return out;
+            };
 
-        }
+            const auto extract3 = [](const json& _config) -> Eigen::Vector3<T> {
+                Eigen::Vector3<T> out;
+                Eigen::Index i = 0;
+                for(auto it = _config.begin(); it != _config.end(); ++it){
+                    out.coeffRef(i++) = T(*it);
+                }
+                return out;
+            };
 
-        bool success() {
-            return true; 
+            const auto extract3i = [](const json& _config) -> Eigen::Vector3i {
+                Eigen::Vector3i out;
+                Eigen::Index i = 0;
+                for(auto it = _config.begin(); it != _config.end(); ++it){
+                    out.coeffRef(i++) = int(*it);
+                }
+                return out;
+            };
+
+            //input file (must exist)
+            if(!_config.contains("input")) {
+                std::cerr << "[Json Error]: field 'input' missing. Aborting..." << std::endl;
+                std::terminate();
+            }
+
+            const std::filesystem::path input = std::filesystem::path(_config["input"]);
+            if(!std::filesystem::exists(input)){
+                std::cerr << "[IO Error]: Input file does not exist. Aborting..." << std::endl;
+                std::terminate();
+            }
+
+            if(!_config.contains("time step")) {
+                std::cerr << "[Json Error]: field 'time step' missing. Aborting..." << std::endl;
+                std::terminate();
+            }
+
+            if(!_config.contains("dims")) {
+                std::cerr << "[Json Error]: field 'dims' missing. Aborting..." << std::endl;
+                std::terminate();
+            }
+
+            if(!_config.contains("K")) {
+                std::cerr << "[Json Error]: field 'K' missing. Aborting..." << std::endl;
+                std::terminate();
+            }
+
+            if(!_config.contains("cardinal")) {
+                std::cerr << "[Json Error]: field 'cardinal' missing. Aborting..." << std::endl;
+                std::terminate();
+            }
+
+            if(!_config.contains("aabb min")) {
+                std::cerr << "[Json Error]: field 'aabb min' missing. Aborting..." << std::endl;
+                std::terminate();
+            }
+
+            if(!_config.contains("aabb max")) {
+                std::cerr << "[Json Error]: field 'aabb max' missing. Aborting..." << std::endl;
+                std::terminate();
+            }
+
+            if(!_config.contains("lattice")) {
+                std::cerr << "[Json Error]: field 'lattice' missing. Aborting..." << std::endl;
+                std::terminate();
+            }
+
+            if(!_config.contains("const dims")) {
+                std::cerr << "[Json Error]: field 'const dims' missing. Aborting..." << std::endl;
+                std::terminate();
+            }
+
+            const Eigen::Index time_step = _config["time step"];
+            const Eigen::Index dims = _config["dims"];
+            const Eigen::Index K = _config["K"];
+            const Eigen::Vector3i cardinal = extract3i(_config["cardinal"]);
+            const Eigen::Vector3i lattice = extract3i(_config["lattice"]);
+            const Eigen::Vector3<T> aabb_min = extract3(_config["aabb min"]);
+            const Eigen::Vector3<T> aabb_max = extract3(_config["aabb max"]);
+            const Eigen::VectorX<T> const_dims = extract(_config["const dims"]);
+
+            //output file (optional)
+            std::filesystem::path output;
+            if(!_config.contains("output")) {
+                std::stringstream ss;
+                ss << "out_" << input.stem().c_str() << "_" << cardinal(0) << "_" << cardinal(1) << "_" << cardinal(2);
+                output = input.parent_path() / ss.str();
+            } else output = std::filesystem::path(_config["output"]);
+
+            TurboDorn::IO::Detail::File<T> file = TurboDorn::IO::Detail::load_from_file<T, size_t>(input, dims, K, TurboDorn::Hagedorn::Detail::hyperbolic_cut_shape);
+
+            const auto inv = Hagedorn::Detail::prepare_invariants_from_file<T>(file);
+
+            std::cout << "Starting" << std::endl;
+
+            TurboDorn::Detail::sample_grid<T>(output, time_step, cardinal, lattice, aabb_min, aabb_max, const_dims, *inv);
+
+            std::cout << "Done" << std::endl;
+
         }
 
     };

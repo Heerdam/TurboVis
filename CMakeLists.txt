@@ -121,4 +121,4 @@ FetchContent_MakeAvailable(Catch2)
 include("${CMAKE_CURRENT_SOURCE_DIR}/module/TurboDorn/module.cmake")
 
 # ------------------------------------
-target_link_libraries(tv turbodorn lodepng HDF5::HDF5 OpenMP::OpenMP_CXX HighFive nlohmann_json::nlohmann_json tsl::robin_map libmorton)
+target_link_libraries(tv turbodorn)

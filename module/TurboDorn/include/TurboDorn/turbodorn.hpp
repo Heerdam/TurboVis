@@ -47,6 +47,7 @@ namespace TurboDorn {
 
                 tsl::robin_map<uint_fast64_t, std::complex<T>> data;
 
+                Eigen::Vector3i cardinal;
                 Eigen::Vector3<T> cell_size;
 
                 bool is_loaded = false;
@@ -54,7 +55,8 @@ namespace TurboDorn {
             public:
 
                 //constructor for sampling
-                Chunk(std::filesystem::path _file, const Eigen::Vector3<T>& _cell_size) noexcept : path(std::move(_file)), cell_size(_cell_size) { }
+                Chunk(std::filesystem::path _file, const Eigen::Vector3i& _cardinal, const Eigen::Vector3<T>& _cell_size) noexcept 
+                    : path(std::move(_file)), cardinal(_cardinal), cell_size(_cell_size) { }
 
                 bool load() {
                     is_loaded = true;
@@ -76,7 +78,7 @@ namespace TurboDorn {
                 }
 
                 bool unload() {
-                    if(is_loaded) {
+                    //if(is_loaded) {
                         is_loaded = false;
                         std::fstream in (path, in.binary | in.trunc | in.out);
                         if(in.good()){
@@ -84,7 +86,7 @@ namespace TurboDorn {
                             for(auto it = data.begin(); it != data.end(); ++it){
                                 in << it.key() << it.value();
                             }
-                        }
+                       // }
                         data = tsl::robin_map<uint_fast64_t, std::complex<T>>();
                         return true;
                     }
@@ -150,11 +152,14 @@ namespace TurboDorn {
 
                 //check if chunk exists
                 if(!chunks.contains(_idx)) {
+                    if(!std::filesystem::exists(path)){
+                        std::filesystem::create_directories(path / "chunks");
+                    }
                     std::stringstream ss;
                     ss << "chunks/chunk_" << _idx;
                     const auto np = path / ss.str();
 
-                    std::unique_ptr<Detail::Chunk<T>> nc = std::make_unique<Detail::Chunk<T>>(std::move(np), cell_size);
+                    std::unique_ptr<Detail::Chunk<T>> nc = std::make_unique<Detail::Chunk<T>>(std::move(np), cardinal, cell_size);
                     nc->unload();
                     chunks[_idx] = std::move(nc);
                 }
@@ -221,8 +226,9 @@ namespace TurboDorn {
 
             //snychronized
             bool insert(const Eigen::VectorX<T>& _pos, const std::complex<T>& _val){
-                if(std::abs(_val.real) < std::numeric_limits<T>::epsilon() && std::abs(_val.img) < std::numeric_limits<T>::epsilon()) return true;
+                if(std::abs(_val.real()) < std::numeric_limits<T>::epsilon() && std::abs(_val.imag()) < std::numeric_limits<T>::epsilon()) return true;
                 std::lock_guard<std::mutex> lock (mutex);
+                std::cout << _val << std::endl;
                 if(ensure_loaded(idx(_pos))) return chunks[idx(_pos)]->insert(_pos, _val);
                 return false;
             }
@@ -836,9 +842,9 @@ namespace TurboDorn {
                 FilePathResolver() {
                     //asset
                     {
-                        const auto s_path_1 = std::filesystem::current_path() /= "assets/";
-                        const auto s_path_2 = std::filesystem::current_path() /= "../assets/";
-                        const auto s_path_3 = std::filesystem::current_path() /= "../../assets/";
+                        const auto s_path_1 = std::filesystem::current_path() /= "example_files/";
+                        const auto s_path_2 = std::filesystem::current_path() /= "../example_files/";
+                        const auto s_path_3 = std::filesystem::current_path() /= "../../example_files/";
 
                         if(std::filesystem::exists(s_path_1))
                             path_asset = s_path_1;
@@ -846,7 +852,7 @@ namespace TurboDorn {
                             path_asset = s_path_2;
                         else if(std::filesystem::exists(s_path_3))
                             path_asset = s_path_3;
-                        else throw std::runtime_error("folder asset not found");
+                        else throw std::runtime_error("folder example_files not found");
                     }
                 }
 
@@ -1018,7 +1024,7 @@ namespace TurboDorn {
 
         Detail::File<double> simulation_results() {
             try {
-                const auto path = Detail::FilePathResolver()() /= "simulation_results.hdf5";
+                const auto path = Detail::FilePathResolver()() /= "simulation_results_phi.hdf5";
                 return Detail::load_from_file<double> (path, 3, 4, ::TurboDorn::Hagedorn::Detail::hyperbolic_cut_shape);
             } catch(const std::exception& _e){
                 throw _e;

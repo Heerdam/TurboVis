@@ -1,11 +1,99 @@
+#define DEBUG_TRACE
 
 #include <TurboDorn/turbodorn.hpp>
+#include <bitset>
 
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 
 using namespace TurboDorn;
 
+TEST_CASE( "Morton encoding", "UtilFunctions" ) {
+
+    {
+        const auto idx = Hagedorn::Detail::morton_index(Eigen::Vector3d(1., 1., 1.));
+        std::bitset<64> b(idx);
+        REQUIRE(b[61] == false);
+        REQUIRE(b[62] == false);
+        REQUIRE(b[63] == false);
+    }
+    {
+        const auto idx = Hagedorn::Detail::morton_index(Eigen::Vector3d(-1., -1., -1.));
+        std::bitset<64> b(idx);
+        REQUIRE(b[61] == true);
+        REQUIRE(b[62] == true);
+        REQUIRE(b[63] == true);
+    }
+
+    {
+        const auto idx = Hagedorn::Detail::morton_index(Eigen::Vector3d(-1., 1., -1.));
+        std::bitset<64> b(idx);
+        REQUIRE(b[61] == true);
+        REQUIRE(b[62] == false);
+        REQUIRE(b[63] == true);
+    }
+
+}
+/*
+TEST_CASE( "unload, load, values", "Chunk" ) {
+    const auto path = IO::Detail::FilePathResolver()() / "test_chunk";
+    if(std::filesystem::exists(path)) std::filesystem::remove_all(path);
+
+    Geometry::Detail::Chunk<double> chunk(path, Eigen::Vector3i(0, 1 ,2), Eigen::Vector3d(2., 2., 2.));
+    REQUIRE(chunk.unload() == true);
+    REQUIRE(std::filesystem::exists(path) == true);
+
+    REQUIRE(chunk.load() == true);
+
+    for(size_t i = 0; i < 100; ++i){
+        const Eigen::VectorXd pos = Eigen::Vector3d{-100., -100., -100.} + Eigen::Vector3d{2., 2., 2.} * i;
+        const bool r = chunk.insert(pos, {double(i), 0.});
+        REQUIRE(r == true);
+    }
+
+    REQUIRE(chunk.unload() == true);
+    REQUIRE(chunk.load() == true);
+
+    for(size_t i = 0; i < 100; ++i){
+        const Eigen::VectorXd pos = Eigen::Vector3d{-100., -100., -100.} + Eigen::Vector3d{2., 2., 2.} * i;
+        const auto val = chunk.sample(pos);
+        REQUIRE(size_t(val.real()) == i);
+    }
+
+    std::filesystem::remove_all(path);
+}
+*/
+
+TEST_CASE( "grid chunking", "ChunkGrid" ) {
+
+    const auto path = IO::Detail::FilePathResolver()() / "test_chunk";
+    if(std::filesystem::exists(path)) std::filesystem::remove_all(path);
+
+    {
+        Geometry::ChunkGrid<double> grid(path, Eigen::Vector3i(0, 1 ,2), Eigen::Vector3d(2., 2., 2.), 5*5*5*sizeof(std::complex<double>));
+        for(size_t i = 0; i < 100; ++i){
+            //std::cout << i << std::endl;
+            const Eigen::VectorXd pos = Eigen::Vector3d{-100., -100., -100.} + Eigen::Vector3d{2., 2., 2.} * i;
+            const bool r = grid.insert(pos, {double(i), 0.});
+            REQUIRE(r == true);
+        }
+    }
+
+    if(false){
+        Geometry::ChunkGrid<double> grid(path, Eigen::Vector3i(0, 1 ,2), Eigen::Vector3d(2., 2., 2.), 5*5*5*sizeof(std::complex<double>));
+        for(size_t i = 0; i < 100; ++i){
+            const Eigen::VectorXd pos = Eigen::Vector3d{-100., -100., -100.} + Eigen::Vector3d{2., 2., 2.} * i;
+            const auto val = grid[pos];
+            REQUIRE(size_t(val.real()) == i);
+        }
+
+    }
+
+    std::filesystem::remove_all(path);
+
+}
+
+/*
 TEST_CASE( "rgb-hsl conversion", "UtilFunctions" ) {
 
     using Color = Eigen::Matrix<float, 3, 1>;
@@ -374,6 +462,7 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
     }
 
 }
+*/
 
 /*
 using Now = std::chrono::high_resolution_clock::time_point;

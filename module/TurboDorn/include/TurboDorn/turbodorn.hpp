@@ -43,58 +43,83 @@ namespace TurboDorn {
             template<class T>
             class Chunk {
 
-                std::filesystem::path path;
+                const std::filesystem::path path;
 
                 tsl::robin_map<uint_fast64_t, std::complex<T>> data;
 
-                Eigen::Vector3i cardinal;
-                Eigen::Vector3<T> cell_size;
+                const Eigen::Vector3i cardinal;
+                const Eigen::Vector3<T> cell_size;
+                const Eigen::Vector3<T> cell_half;
 
                 bool is_loaded = false;
 
             public:
-
-                //constructor for sampling
                 Chunk(std::filesystem::path _file, const Eigen::Vector3i& _cardinal, const Eigen::Vector3<T>& _cell_size) noexcept 
-                    : path(std::move(_file)), cardinal(_cardinal), cell_size(_cell_size) { }
+                    : path(std::move(_file)), cardinal(_cardinal), cell_size(_cell_size), cell_half(_cell_size * T(0.5)) { 
+
+#ifdef DEBUG_TRACE
+                    std::cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n";
+                    std::cout << "Chunk:\t\t\t\tNew \nPath:\t\t\t\t" << path << "\nCardinal:\t\t\t[" << 
+                    _cardinal(0) << ", " << _cardinal(1) << ", " << _cardinal(2) << 
+                    "]\nCell Size:\t\t\t[" << cell_size(0) << ", " << cell_size(1) << ", " << cell_size(2) << "]\n";
+                    std::cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n";  
+#endif
+                }
 
                 bool load() {
                     is_loaded = true;
                     data = tsl::robin_map<uint_fast64_t, std::complex<T>>();
-                    std::fstream in (path, in.binary | in.trunc | in.in);
+                    std::fstream in (path, in.binary | in.in);
                     if(in.good()){
                         size_t s = 0;
-                        in >> s;
+                        in.read(reinterpret_cast<char*>(&s), sizeof(s));
                         data.reserve(s);
                         for(size_t i = 0; i < s; ++i){
-                            uint_fast64_t idx = 0;
+                            uint_fast64_t idx;
                             std::complex<T> val; 
-                            in >> idx >> val;
+                            in.read(reinterpret_cast<char*>(&idx), sizeof(idx));
+                            in.read(reinterpret_cast<char*>(&val), sizeof(val));
                             data[idx] = val;
                         }
+#ifdef DEBUG_TRACE
+                        std::cout << "Chunk:\t\t\t\tLoad\nStatus:\t\t\t\tSuccess" << "\nPath:\t\t\t\t" << path <<
+                            "\nCount:\t\t\t\t" << data.size() << std::endl << std::endl;
+#endif
                         return true;
                     }
+#ifdef DEBUG_TRACE
+                    std::cout << "Chunk:\t\t\t\tLoad\nStatus:\t\t\t\tFailed" << "\nPath:\t\t\t\t" << path << std::endl << std::endl;
+#endif
                     return false;
                 }
 
                 bool unload() {
-                    //if(is_loaded) {
-                        is_loaded = false;
-                        std::fstream in (path, in.binary | in.trunc | in.out);
-                        if(in.good()){
-                            in << data.size();
-                            for(auto it = data.begin(); it != data.end(); ++it){
-                                in << it.key() << it.value();
-                            }
-                       // }
+                    is_loaded = false;
+                    std::fstream in (path, in.binary | in.out);
+                    if(in.good()){
+                        size_t s = data.size();
+                        in.write(reinterpret_cast<char*>(&s), sizeof(s));
+                        for(auto it = data.begin(); it != data.end(); ++it){
+                            uint_fast64_t k = it.key();
+                            std::complex<T> v = it.value();
+                            in.write(reinterpret_cast<char*>(&k), sizeof(k));
+                            in.write(reinterpret_cast<char*>(&v), sizeof(v));
+                        }
+#ifdef DEBUG_TRACE
+                        std::cout << "Chunk:\t\t\t\tUnload\nStatus:\t\t\t\tSuccess" << "\nPath:\t\t\t\t" << path <<
+                            "\nCount:\t\t\t\t" << data.size() << std::endl << std::endl;
+#endif                        
                         data = tsl::robin_map<uint_fast64_t, std::complex<T>>();
                         return true;
                     }
+#ifdef DEBUG_TRACE
+                    std::cout << "Chunk:\t\t\t\tUnload\nStatus:\t\t\t\tFailed" << "\nPath:\t\t\t\t\t" << path << std::endl << std::endl;
+#endif
                     return false;
                 }
 
                 uint_fast64_t idx(const Eigen::VectorX<T>& _pos) const {
-                const Eigen::Vector3<T> pos = Eigen::Vector3<T>(_pos(cardinal(0)), _pos(cardinal(1)), _pos(cardinal(2)));
+                const Eigen::Vector3<T> pos = Eigen::Vector3<T>(_pos(cardinal(0)), _pos(cardinal(1)), _pos(cardinal(2))) - cell_half;
                 const T x = std::floor(pos(0) / cell_size(0));
                 const T y = std::floor(pos(1) / cell_size(1));
                 const T z = std::floor(pos(2) / cell_size(2));
@@ -103,14 +128,20 @@ namespace TurboDorn {
 
                 bool insert(const Eigen::VectorX<T>& _pos, const std::complex<T>& _val) {
                     if(!is_loaded) return false;
-                    data[idx(_pos)] =_val;
+                    const auto id = idx(_pos);
+                    data[id] =_val;
+#ifdef DEBUG_TRACE
+                    std::cout << "Insert Chunk\t\tPosition: [" << _pos(0) << "," << _pos(1) << "," << _pos(2) << "]\t\t" <<
+                        "Val: " << _val << "\t\tIdx: " << id << std::endl;
+#endif
                     return true;
                 }
 
                 std::complex<T> sample(const Eigen::VectorX<T>& _pos) const {
                     const uint_fast64_t id = idx(_pos);
-                    if(is_loaded && data.contains(id)) return data[id];
-                    else return {0., 0.};
+                    const auto it = data.find(id);
+                    if(it == data.end()) return {0., 0.};
+                    else return it.value();
                 }
 
             };//Chunk
@@ -133,6 +164,7 @@ namespace TurboDorn {
             Eigen::Vector3i cardinal;
             Eigen::Vector3<T> cell_size;
             Eigen::Vector3<T> chunk_size;
+            Eigen::Vector3<T> chunk_half;
 
             size_t chunk_extend;
             size_t chunk_byte_size;
@@ -192,7 +224,7 @@ namespace TurboDorn {
             }
 
             uint_fast64_t idx(const Eigen::VectorX<T>& _pos) const {
-                const Eigen::Vector3<T> pos = Eigen::Vector3<T>(_pos(cardinal(0)), _pos(cardinal(1)), _pos(cardinal(2)));
+                const Eigen::Vector3<T> pos = Eigen::Vector3<T>(_pos(cardinal(0)), _pos(cardinal(1)), _pos(cardinal(2))) - chunk_half;
                 const T x = std::floor(pos(0) / chunk_size(0));
                 const T y = std::floor(pos(1) / chunk_size(1));
                 const T z = std::floor(pos(2) / chunk_size(2));
@@ -205,10 +237,44 @@ namespace TurboDorn {
                 std::filesystem::path _path, 
                 const Eigen::Vector3i& _cardinal, 
                 const Eigen::Vector3<T>& _cell_size, 
-                size_t max_chunk_size = 50000000
-            ) : cardinal(_cardinal), cell_size(_cell_size), path(std::move(_path)) {
+                size_t max_chunk_size = 50000000,
+                size_t max_gridsize_byte = 50000000 * 10
+            ) : cardinal(_cardinal), cell_size(_cell_size), chunk_half(cell_size * T(0.5)), path(std::move(_path)) {
                 chunk_extend = size_t(std::floor(std::sqrt(max_chunk_size / sizeof(std::complex<T>))));
                 chunk_size = cell_size * chunk_extend;
+                max_chunks_loaded = max_gridsize_byte / max_chunk_size;
+#ifdef DEBUG_TRACE
+                std::cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << std::endl;
+                std::cout << "ChunkGrid:\t\t\tNew \nPath:\t\t\t\t" << path << "\nCardinal:\t\t\t[" << 
+                _cardinal(0) << ", " << _cardinal(1) << ", " << _cardinal(2) << 
+                "]\nCell Size:\t\t\t[" << 
+                cell_size(0) << ", " << cell_size(1) << ", " << cell_size(2) << 
+                "]\nMax. Chunk Size:\t\t" << max_chunk_size << " bytes \nChunk Extent:\t\t\t" << 
+                chunk_extend << "\nChunk Size:\t\t\t[" << 
+                chunk_size(0) << ", " << chunk_size(1) << ", " << chunk_size(2) << 
+                "]\nMax Chunks Loaded:\t\t" << max_chunks_loaded << std::endl;
+                std::cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << std::endl;
+                
+#endif
+            }
+
+            ChunkGrid(std::filesystem::path _path) {
+
+/*
+#ifdef DEBUG_TRACE
+                std::cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << std::endl;
+                std::cout << "ChunkGrid:\t\t\tLoad \nPath:\t\t\t\t" << path << "\nCardinal:\t\t\t[" << 
+                _cardinal(0) << ", " << _cardinal(1) << ", " << _cardinal(2) << 
+                "]\nCell Size:\t\t\t[" << 
+                cell_size(0) << ", " << cell_size(1) << ", " << cell_size(2) << 
+                "]\nMax. Chunk Size:\t\t" << max_chunk_size << "bytes \nChunk Extent:\t\t\t" << 
+                chunk_extend << "\nChunk Size:\t\t\t[" << 
+                chunk_size(0) << ", " << chunk_size(1) << ", " << chunk_size(2) << 
+                "]\nMax Chunks Loaded:\t\t" << max_chunks_loaded << std::endl;
+                std::cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << std::endl;
+                
+#endif
+*/
             }
 
             ~ChunkGrid() {
@@ -228,8 +294,23 @@ namespace TurboDorn {
             bool insert(const Eigen::VectorX<T>& _pos, const std::complex<T>& _val){
                 if(std::abs(_val.real()) < std::numeric_limits<T>::epsilon() && std::abs(_val.imag()) < std::numeric_limits<T>::epsilon()) return true;
                 std::lock_guard<std::mutex> lock (mutex);
-                std::cout << _val << std::endl;
-                if(ensure_loaded(idx(_pos))) return chunks[idx(_pos)]->insert(_pos, _val);
+                const auto id = idx(_pos);
+                if(ensure_loaded(id)){
+                    const bool r = chunks[id]->insert(_pos, _val);
+#ifdef DEBUG_TRACE
+                    if(r)
+                        std::cout << "Insert Grid: Success\tPosition: [" << _pos(0) << "," << _pos(1) << "," << _pos(2) << "]\t" <<
+                        "Val: " << _val << "\tIdx: " << id << std::endl;
+                    else
+                        std::cout << "Insert Grid: Fail\tPosition: [" << _pos(0) << "," << _pos(1) << "," << _pos(2) << "]\t" <<
+                        "Val: " << _val << "\tIdx: " << id << std::endl;
+#endif
+                    return r;
+                }
+#ifdef DEBUG_TRACE
+                std::cout << "Insert: Ensure load failed\t\tPosition: [" << _pos(0) << "," << _pos(1) << "," << _pos(2) << "]\t" <<
+                    "Val: " << _val << std::endl;
+#endif
                 return false;
             }
 
@@ -1655,9 +1736,6 @@ namespace TurboDorn {
 
         }
 
-        //---------------------------------------------------------------------------------------//
-        //                                   
-        //---------------------------------------------------------------------------------------//
     }
 
     //---------------------------------------------------------------------------------------//

@@ -92,7 +92,7 @@ TEST_CASE( "grid chunking", "ChunkGrid" ) {
 
 }
 
-/*
+
 TEST_CASE( "rgb-hsl conversion", "UtilFunctions" ) {
 
     using Color = Eigen::Matrix<float, 3, 1>;
@@ -461,7 +461,6 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
     }
 
 }
-*/
 
 /*
 using Now = std::chrono::high_resolution_clock::time_point;

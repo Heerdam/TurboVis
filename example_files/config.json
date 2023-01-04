@@ -7,6 +7,6 @@
     "cardinal": [0, 1, 2], 
     "aabb min": [-100, -100, -24], 
     "aabb max": [100, 100, 100], 
-    "lattice": [25, 25, 25],
+    "lattice": [250, 250, 250],
     "const dims": []
 }

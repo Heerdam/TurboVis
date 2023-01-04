@@ -11,6 +11,7 @@
 #include <cstring>
 #include <mutex>
 #include <cmath>
+#include <chrono>
 
 #include <Eigen/Eigen>
 #include <tsl/robin_map.h>
@@ -156,6 +157,14 @@ namespace TurboDorn {
                     return is_loaded;
                 }
 
+                size_t get_entry_count() const noexcept {
+                    return data.size();
+                }
+
+                size_t get_byte_size() const noexcept {
+                    return data.size() * (sizeof(uint_fast64_t) + sizeof(std::complex<T>));
+                }
+
             };//Chunk
 
             //---------------------------------------------------------------------------------------//
@@ -255,6 +264,10 @@ namespace TurboDorn {
                     size_t max_gridsize_byte = 50000000 * 10
                 ) : cardinal(_cardinal), cell_size(_cell_size), chunk_half(cell_size * T(0.5)), max_chunk_size(_max_chunk_size), path(std::move(_path)) {
                     static_assert(IS_SAMPLER == true, "Don't use sampler constructor for rendering.");
+                    if(std::filesystem::exists(path)){
+                        std::cerr << "[Samplergrid] Chunk data already exists at this path: " << path << std::endl;
+                        std::terminate();
+                    }
                     chunk_extend = size_t(std::floor(std::sqrt(max_chunk_size / sizeof(std::complex<T>))));
                     chunk_size = cell_size * chunk_extend;
                     max_chunks_loaded = max_gridsize_byte / max_chunk_size;
@@ -274,6 +287,10 @@ namespace TurboDorn {
 
                 ChunkGrid(std::filesystem::path _path, size_t max_gridsize_byte = 50000000 * 10) : path(std::move(_path)){
                     static_assert(IS_SAMPLER == false, "Don't use render constructor for sampling.");
+                    if(!std::filesystem::exists(path)){
+                        std::cerr << "[Rendergrid] Chunk data does not exists at this path: " << path << std::endl;
+                        std::terminate();
+                    }
                     //load meta data
                     std::fstream in (path / "grid", in.binary | in.in);
                     if(in.good()){
@@ -315,9 +332,15 @@ namespace TurboDorn {
                         }
                     }
 
+                    size_t byte_out = 0;
+                    size_t chunks_out = chunks.size();
+                    size_t entries_out = 0;
                     for(auto it = chunks.begin(); it != chunks.end(); ++it){
+                        byte_out += it.value()->get_byte_size();
+                        entries_out += it.value()->get_entry_count();
                         it.value()->unload();      
                     }
+                    std::cout << "Data written:\n" << "Chunks:\t\t\t" << chunks_out << "\nTotal Byte:\t\t" << byte_out << "\nEntries:\t\t" << entries_out << std::endl;
                 }
 
                 //snychronized
@@ -1332,85 +1355,6 @@ namespace TurboDorn {
             }; //hyperbolic_cut_shape
 
             //---------------------------------------------------------------------------------------//
-            //                                            
-            //---------------------------------------------------------------------------------------//
-
-            //struct StreamingOctreeOptions {
-
-            //};
-
-            /*
-                voxel size: size of a voxel in world coords
-                depth: how many subdivides the octree has
-                chunk size: symmetric 2^n extends -> size: 4*2*(2^n)^3 bytes (n = 32 (262'144 bytes) or 64 (2'097'152 bytes))
-
-                only lowest level has data. rest only boolmaps
-
-                format:
-                double                              voxel size
-                size_t                              depth
-                size_t                              chunk size
-                n bits with 1 byte/subdivision      ((8^(n+1))-1)/7-1 nodes
-                chunks...                           chunk_size^3 bytes for every none-empty chunk
-
-            */
-        /*
-            template<class T = double>
-            class Chunkerator {
-
-                iVec extends;
-
-                bVec bmap;
-                cVec temp_chunk;
-
-                //iterator state
-                const bool isEndIterator = false;
-
-                //file meta information
-                std::filesystem::path path;
-                dVec camPos, camPlaneNorm, halfExtCamPlane;
-
-
-            public:
-
-                using iterator_category = std::forward_iterator_tag;
-
-                /*
-                    path - path to the file
-                    p - position of the camera plane in world coords
-                    n - normalized plane normal of the camera plane
-                    e - half extends of the camera plane in world units
-                */
-                //Chunkerator(std::filesystem::path&& _path, dVec&& _p, dVec&& _n, dVec&& _e) : 
-                    //   path(std::move(_path)), camPos(std::move(_p)),  camPlaneNorm(std::move(_n)), halfExtCamPlane(std::move(_e)){}
-
-                //creates an end chunkerator
-                //Chunkerator() : isEndIterator(true) {};
-
-                //void intitialise() {
-                //    if(!isEndIterator) throw std::runtime_error("Can't initialize an end chunkerator!");
-                    
-                //}
-
-                //void operator*() {
-
-                //}
-
-                //void operator++() {
-
-                //}
-
-                //void operator++(int) {
-
-                //}
-
-                //bool operator==(const Chunkerator<T>& _other) const noexcept {
-                //    if(isEndIterator && _other.isEndIterator) return true;
-                //}
-
-            //};//Chunkerator
-
-            //---------------------------------------------------------------------------------------//
             //                                    ray_aabb_intersect
             //---------------------------------------------------------------------------------------//
 
@@ -1732,13 +1676,13 @@ namespace TurboDorn {
             Eigen::Index _time_step, 
             const Eigen::Vector3i& _idx,
             const Eigen::Vector3i& _cardinal,
-            const Eigen::Vector3<T>& _cell_extend,
+            const Eigen::Vector3<T>& _cell_extent,
             const Eigen::VectorX<T>& _aabb_min,
             const INVARIANTS<T>& _inv
         ) {
             Eigen::VectorX<T> pos = _aabb_min; //todo: errör
             for(Eigen::Index i = 0; i < 3; ++i)
-                pos(_cardinal(i)) += _idx(i) * _cell_extend(i);
+                pos(_cardinal(i)) += _idx(i) * _cell_extent(i);
             const Hagedorn::HyperCube<T> cube(_time_step, pos, _inv);
             return _grid.insert(pos, cube.VAL());
         }//insert_sample_into_grid
@@ -1758,27 +1702,29 @@ namespace TurboDorn {
             const Eigen::VectorX<T>& _const_dims,
             const INVARIANTS<T>& _inv
         ){
-
             const Eigen::Vector3<T> ext = _aabb_max - _aabb_min;
-            std::cout << ext << std::endl;
             const Eigen::Vector3<T> c = { ext(_cardinal(0)) / T(_lattice(0)), ext(_cardinal(1)) / T(_lattice(1)), ext(_cardinal(2)) / T(_lattice(2)) };
-            std::cout << c << std::endl;
 
-            Geometry::SamplerGrid<T> grid(_output, _cardinal, c);
+            std::cout << "------------ Sampling start ------------" << std::endl;
+            const auto start = std::chrono::high_resolution_clock::now();
+            {
+                Geometry::SamplerGrid<T> grid(_output, _cardinal, c);
+                for(Eigen::Index z = 0; z < _lattice(2); ++z){
+                    for(Eigen::Index y = 0; y < _lattice(1); ++y){
+                        for(Eigen::Index x = 0; x < _lattice(0); ++x){
 
-            for(Eigen::Index z = 0; z < _lattice(2); ++z){
-                for(Eigen::Index y = 0; y < _lattice(1); ++y){
-                    for(Eigen::Index x = 0; x < _lattice(0); ++x){
+                            const bool s = insert_sample_into_grid<T>(grid, _time_step, Eigen::Vector3i(x, y, z), _cardinal, c, _aabb_min, _inv);
+                            if(!s){
+                                std::cerr << "Error" << std::endl;
+                            }
 
-                        const bool s = insert_sample_into_grid<T>(grid, _time_step, Eigen::Vector3i(x, y, z), _cardinal, c, _aabb_min, _inv);
-                        if(!s){
-                            std::cerr << "Error" << std::endl;
                         }
-
                     }
                 }
             }
-
+            const auto end = std::chrono::high_resolution_clock::now();
+            std::cout << "Total Samples:\t\t" << _lattice(0) * _lattice(1) * _lattice(2) << std::endl;
+            std::cout << "------------ Sampling done after " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << "s ------------\n";
         }
 
     }
@@ -1894,13 +1840,7 @@ namespace TurboDorn {
             TurboDorn::IO::Detail::File<T> file = TurboDorn::IO::Detail::load_from_file<T, size_t>(input, dims, K, TurboDorn::Hagedorn::Detail::hyperbolic_cut_shape);
 
             const auto inv = Hagedorn::Detail::prepare_invariants_from_file<T>(file);
-
-            std::cout << "Starting" << std::endl;
-
             TurboDorn::Detail::sample_grid<T>(output, time_step, cardinal, lattice, aabb_min, aabb_max, const_dims, *inv);
-
-            std::cout << "Done" << std::endl;
-
         }
 
     };

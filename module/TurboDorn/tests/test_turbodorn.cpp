@@ -39,7 +39,7 @@ TEST_CASE( "unload, load, values", "Chunk" ) {
     const auto path = IO::Detail::FilePathResolver()() / "test_chunk";
     if(std::filesystem::exists(path)) std::filesystem::remove_all(path);
 
-    Geometry::Detail::Chunk<double> chunk(path, Eigen::Vector3i(0, 1 ,2), Eigen::Vector3d(2., 2., 2.));
+    Geometry::Detail::Chunk<double, true> chunk(path, Eigen::Vector3i(0, 1 ,2), Eigen::Vector3d(2., 2., 2.));
     REQUIRE(chunk.unload() == true);
     //REQUIRE(std::filesystem::exists(path) == true);
 

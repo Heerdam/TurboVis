@@ -23,6 +23,8 @@
 
 #include <libmorton/morton.h>
 
+#include <lodepng.h>
+
 using namespace nlohmann;
 using namespace std::chrono_literals;
 
@@ -41,7 +43,7 @@ namespace TurboDorn {
             //                                        Chunk
             //---------------------------------------------------------------------------------------//
 
-            template<class T>
+            template<class T, bool IS_SAMPLER>
             class Chunk {
 
                 const std::filesystem::path path;
@@ -104,23 +106,29 @@ namespace TurboDorn {
                 bool unload() {
                     if(!is_loaded) return true;
                     is_loaded = false;
-                    std::fstream in (path, in.binary | in.out);
-                    if(in.good()){
-                        size_t s = data.size();
-                        in.write(reinterpret_cast<char*>(&s), sizeof(s));
-                        for(auto it = data.begin(); it != data.end(); ++it){
-                            uint_fast64_t k = it.key();
-                            std::complex<T> v = it.value();
-                            in.write(reinterpret_cast<char*>(&k), sizeof(k));
-                            in.write(reinterpret_cast<char*>(&v), sizeof(v));
-                        }
+                    if constexpr(IS_SAMPLER){
+                        std::fstream in (path, in.binary | in.out);
+                        if(in.good()){
+                            size_t s = data.size();
+                            in.write(reinterpret_cast<char*>(&s), sizeof(s));
+                            for(auto it = data.begin(); it != data.end(); ++it){
+                                uint_fast64_t k = it.key();
+                                std::complex<T> v = it.value();
+                                in.write(reinterpret_cast<char*>(&k), sizeof(k));
+                                in.write(reinterpret_cast<char*>(&v), sizeof(v));
+                            }
 #ifdef DEBUG_TRACE
-                        std::cout << "Chunk:\t\t\t\tUnload\nStatus:\t\t\t\tSuccess" << "\nPath:\t\t\t\t" << path <<
-                            "\nCount:\t\t\t\t" << data.size() << std::endl << std::endl;
+                            std::cout << "Chunk:\t\t\t\tUnload\nStatus:\t\t\t\tSuccess" << "\nPath:\t\t\t\t" << path <<
+                                "\nCount:\t\t\t\t" << data.size() << std::endl << std::endl;
 #endif                        
+                            data = tsl::robin_map<uint_fast64_t, std::complex<T>>();
+                            return true;
+                        }
+                    } else {
                         data = tsl::robin_map<uint_fast64_t, std::complex<T>>();
                         return true;
                     }
+                    
 #ifdef DEBUG_TRACE
                     std::cout << "Chunk:\t\t\t\tUnload\nStatus:\t\t\t\tFailed" << "\nPath:\t\t\t\t\t" << path << std::endl << std::endl;
 #endif
@@ -189,7 +197,7 @@ namespace TurboDorn {
                 size_t chunk_byte_size;
                 size_t max_byte_size_dense;
 
-                tsl::robin_map<uint_fast64_t, std::unique_ptr<Detail::Chunk<T>>> chunks;
+                tsl::robin_map<uint_fast64_t, std::unique_ptr<Detail::Chunk<T, IS_SAMPLER>>> chunks;
 
                 size_t max_chunks_loaded;
                 size_t max_chunk_size;
@@ -213,7 +221,7 @@ namespace TurboDorn {
                             ss << "chunks/chunk_" << _idx;
                             const auto np = path / ss.str();
 
-                            std::unique_ptr<Detail::Chunk<T>> nc = std::make_unique<Detail::Chunk<T>>(std::move(np), cardinal, cell_size);
+                            std::unique_ptr<Detail::Chunk<T, IS_SAMPLER>> nc = std::make_unique<Detail::Chunk<T, IS_SAMPLER>>(std::move(np), cardinal, cell_size);
                             //nc->unload();
                             chunks[_idx] = std::move(nc);
                         //} else return false;
@@ -330,23 +338,30 @@ namespace TurboDorn {
                             in.write(reinterpret_cast<char*>(chunk_size.data()), sizeof(chunk_size));
                             in.write(reinterpret_cast<char*>(&max_chunk_size), sizeof(max_chunk_size));
                         }
-                    }
-
-                    size_t byte_out = 0;
-                    size_t chunks_out = chunks.size();
-                    size_t entries_out = 0;
-                    for(auto it = chunks.begin(); it != chunks.end(); ++it){
-                        byte_out += it.value()->get_byte_size();
-                        entries_out += it.value()->get_entry_count();
-                        it.value()->unload();      
-                    }
+                   
+                        size_t byte_out = 0;
+                        size_t chunks_out = chunks.size();
+                        size_t entries_out = 0;
+                        for(auto it = chunks.begin(); it != chunks.end(); ++it){
+                            byte_out += it.value()->get_byte_size();
+                            entries_out += it.value()->get_entry_count();
+                            it.value()->unload();      
+                        }
                     std::cout << "Data written:\n" << "Chunks:\t\t\t" << chunks_out << "\nTotal Byte:\t\t" << byte_out << "\nEntries:\t\t" << entries_out << std::endl;
+                    }
                 }
 
                 //snychronized
                 std::complex<T> operator[](const Eigen::VectorX<T>& _pos) {
                     std::lock_guard<std::mutex> lock (mutex);
-                    if(ensure_loaded(idx(_pos))) return chunks[idx(_pos)]->sample(_pos);
+                    if(ensure_loaded(idx(_pos))){
+                        const std::complex<T> val = chunks[idx(_pos)]->sample(_pos);
+#ifdef DEBUG_TRACE
+                        std::cout << "Sample: \tPosition: [" << _pos(0) << "," << _pos(1) << "," << _pos(2) << "]\t" <<
+                            "Val: " << val << std::endl;
+#endif                        
+                        return val;
+                    }
                     return {0., 0.};                
                 }
 
@@ -384,591 +399,7 @@ namespace TurboDorn {
         template<class T>
         using RenderGrid = Detail::ChunkGrid<T, false>;
 
-        //---------------------------------------------------------------------------------------//
-
-        using Vector3 = Eigen::Vector3d;
-        using Point3 = Eigen::Vector3d;
-        using Vector3int32 = Eigen::Vector3i;
-        using Point3int32 = Eigen::Vector3i;
-
-        using int32 = int32_t;
-
-        namespace Detail {
-
-            inline Vector3 operator/ (const Vector3& lkVector, const Vector3& rkVector) {
-                return Vector3(lkVector.x() / rkVector.x(), lkVector.y() / rkVector.y(), lkVector.z() / rkVector.z());
-            }
-
-            template <typename T> 
-            int sign(T _val) {
-                return (T(0) < _val) - (_val < T(0));
-            }
-
-            template<typename T>
-            T square(T _v) {
-                return _v * _v;
-            }
-
-            class AABox {
-                /** NaN if empty */
-                Point3 lo;
-
-                /** NaN if empty */
-                Point3 hi;
-
-            public:
-                /** Creates the empty bounds, i.e., an empty set of points. */
-                AABox() : lo(NAN, NAN, NAN), hi(NAN, NAN, NAN) {}
-
-                AABox(Point3 _lo, Point3 _hi) : lo(std::move(_lo)), hi(std::move(_hi)) {}
-
-                /**
-                 Constructs a zero-volume AABox at v.
-                */
-                explicit AABox(const Point3& v) {
-                    lo = hi = v;
-                }
-
-                /** Returns not-a-number if empty */
-                const Point3& low() const {
-                    return lo;
-                }
-
-                /** Returns not-a-number if empty */
-                const Point3& high() const {
-                    return hi;
-                }
-
-                /** Returns the centroid of the box (NaN if empty) */
-                Point3 center() const {
-                    return (lo + hi) * 0.5;
-                }
-
-                Point3 corner(int index) const {
-                    // default constructor inits all components to 0
-                    Vector3 v;
-
-                    switch (index) {
-                    case 0:
-                        v.x() = lo.x();
-                        v.y() = lo.y();
-                        v.z() = hi.z();
-                        break;
-
-                    case 1:
-                        v.x() = hi.x();
-                        v.y() = lo.y();
-                        v.z() = hi.z();
-                        break;
-
-                    case 2:
-                        v.x() = hi.x();
-                        v.y() = hi.y();
-                        v.z() = hi.z();
-                        break;
-
-                    case 3:
-                        v.x() = lo.x();
-                        v.y() = hi.y();
-                        v.z() = hi.z();
-                        break;
-
-                    case 4:
-                        v.x() = lo.x();
-                        v.y() = lo.y();
-                        v.z() = lo.z();
-                        break;
-
-                    case 5:
-                        v.x() = hi.x();
-                        v.y() = lo.y();
-                        v.z() = lo.z();
-                        break;
-
-                    case 6:
-                        v.x() = hi.x();
-                        v.y() = hi.y();
-                        v.z() = lo.z();
-                        break;
-
-                    case 7:
-                        v.x() = lo.x();
-                        v.y() = hi.y();
-                        v.z() = lo.z();
-                        break;
-
-                    default:
-                        assert(false && "Invalid corner index");
-                        break;
-                    }
-                    return v;
-                }
-
-                bool isEmpty() const {
-                    if(std::isnan(lo[0])) return true;
-                    if(std::isnan(lo[1])) return true;
-                    if(std::isnan(lo[2])) return true;
-                }
-
-                /** Distance from corner(0) to the next corner along axis a. */
-                float extent(int a) const {
-                    if (isEmpty()) return 0.0f;
-                    assert(a < 3);
-                    return hi[a] - lo[a];
-                }
-
-                Vector3 extent() const {
-                    if (isEmpty()) return Vector3::Zero();
-                    return hi - lo;
-                }
-
-            };
-
-            class Ray {
-                Point3 m_origin;
-
-                double m_minDistance;
-
-                /** Unit length */
-                Vector3 m_direction;
-
-                double m_maxDistance;
-
-            public:
-                const Point3& origin() const {
-                    return m_origin;
-                }
-                
-                /** Unit direction vector. */
-                const Vector3& direction() const {
-                    return m_direction;
-                }
-
-                /** \param direction Assumed to have unit length */
-                void set(const Point3& origin, const Vector3& direction, double minDistance = 0.0f, double maxDistance = INFINITY);
-
-                Ray() {
-                    set(Point3::Zero(), Vector3::UnitX());
-                }
-
-                /** \param direction Assumed to have unit length */
-                Ray(const Point3& origin, const Vector3& direction, double minDistance = 0.0f, double maxDistance = INFINITY) {
-                    set(origin, direction, minDistance, maxDistance);
-                }
-
-                /**
-                 Creates a Ray from a origin and a (nonzero) unit direction.
-                */
-                static Ray fromOriginAndDirection(const Point3& point, const Vector3& direction, double minDistance = 0.0f, double maxDistance = INFINITY) {
-                    return Ray(point, direction, minDistance, maxDistance);
-                }
-
-            };
-
-            /**
-                @brief Calculates intersection of a ray and a static Axis-Aligned Box (AABox).
-
-                @note Avoids the sqrt from collisionTimeForMovingPointFixedAABox; 
-                early-out branches and operations optimized for Intel Core2 architecture.
-                
-                @param invDir      1/dir
-                @param location    Location of collision. [Post Condition]
-                @param inside      Does the ray originate inside the box? [Post Condition]
-
-                @return True if the ray hits the box
-            */
-            bool inter_rayAABox(
-                const Ray& ray, 
-                const Vector3& invDir, 
-                const AABox& box, 
-                const Vector3& boxCenter,
-                double boundingRadiusSquared,
-                Vector3& location,
-                bool& inside) {
-                
-                //assert(fabs(ray.direction().squaredLength() - 1.0f) < 0.01f, format("Length = %f", ray.direction().length()));
-                {
-                    // Pre-emptive partial bounding sphere test
-                    const Vector3 L(boxCenter - ray.origin());
-                    double d = L.dot(ray.direction());
-
-                    double L2 = L.dot(L);
-                    double D2 = d * d;
-                    double M2 = L2 - D2;
-
-                    if (((d < 0) && (L2 > boundingRadiusSquared)) || (M2 > boundingRadiusSquared)) {
-                        inside = false;
-                        return false;
-                    }
-                    // Passing here does not mean that the ray hits the bounding sphere;
-                    // we would still have to perform more expensive tests to determine
-                    // that.
-                }
-
-                inside = true;
-                const Vector3& MinB = box.low();
-                const Vector3& MaxB = box.high();
-                Vector3 MaxT(-1.0f, -1.0f, -1.0f);
-
-                // Find candidate planes.
-                for (int i = 0; i < 3; ++i) {
-                    if (ray.origin()[i] < MinB[i]) {
-                        location[i]    = MinB[i];
-                        inside      = false;
-                        
-                        // Calculate T distances to candidate planes
-                        if (ray.direction()[i] != 0.) {
-                            MaxT[i] = (MinB[i] - ray.origin()[i]) * invDir[i];
-                        }
-                    } else if (ray.origin()[i] > MaxB[i]) {
-                        location[i]    = MaxB[i];
-                        inside      = false;
-
-                        // Calculate T distances to candidate planes
-                        if (ray.direction()[i] != 0.) {
-                            MaxT[i] = (MaxB[i] - ray.origin()[i]) * invDir[i];
-                        }
-                    }
-                }
-
-                if (inside) {
-                    // Ray origin inside bounding box
-                    location = ray.origin();
-                    return true;
-                }
-                
-                // Get largest of the maxT's for final choice of intersection
-                int WhichPlane = 0;
-                if (MaxT[1] > MaxT[WhichPlane]) {
-                    WhichPlane = 1;
-                }
-
-                if (MaxT[2] > MaxT[WhichPlane]) {
-                    WhichPlane = 2;
-                }
-
-                // Check final candidate actually inside box
-                if (MaxT[WhichPlane] < 0.0f) {
-                    // Miss the box
-                    return false;
-                }
-
-                for (int i = 0; i < 3; ++i) {
-                    if (i != WhichPlane) {
-                        location[i] = ray.origin()[i] + MaxT[WhichPlane] * ray.direction()[i];
-                        if ((location[i] < MinB[i]) ||
-                            (location[i] > MaxB[i])) {
-                            // On this plane we're outside the box extents, so
-                            // we miss the box
-                            return false;
-                        }
-                    }
-                }
-                
-                return true;
-            }
-
-        }  // namespace Detail
-
-        using namespace Detail;
-
-        /**
-        Computes conservative line raster/voxelization across a grid for
-        use in walking a grid spatial data structure or or voxel scene
-        searching for intersections.  At each iteration, the iterator
-        steps exactly one cell in exactly one dimension.
-
-        Example of this iterator applied to ray-primitive intersection in a
-        grid:
-
-        \code
-        bool firstRayIntersection(const Ray& ray, Value*& value, float& distance) const {
-
-        for (RayGridIterator it(ray, cellSize); inBounds(it.index); ++it) {
-            // Search for an intersection within this grid cell
-            const Cell& c = cell(it.index);
-            float maxdistance = min(distance, t.tExit);
-            if (c.firstRayIntersection(ray, value, maxdistance)) {
-                distance = maxdistance;
-                return true;
-            }
-        }
-        }
-        \endcode
-
-        \sa CollisionDetection, PointHashGrid, Ray, Intersect
-
-        */
-        class RayGridIterator {
-            
-        protected:
-            /** Extent of the grid in each dimension, in grid cell units.*/
-            Vector3int32 m_numCells;
-
-            /** Current grid cell m_index */
-            Vector3int32 m_index;
-
-            /** Sign of the direction that the ray moves along each axis; +/-1
-             or 0 */
-            Vector3int32 m_step;
-
-            /** Size of one cell in units of t along each axis. */
-            Vector3 m_tDelta;
-
-            /** Distance along the ray of the first intersection with the
-             current cell (i.e., that given by m_index). Zero for the cell that contains the ray origin. */
-            double m_enterDistance;
-
-            /** Distance along the ray to the intersection with the next grid
-             cell.  enterDistance and m_exitDistance can be used to bracket ray
-            ray-primitive intersection tests within a cell.
-            */
-            Vector3 m_exitDistance;
-
-            /** The axis along which the ray entered the cell; X = 0, Y = 1, Z = 2.  This is always set to X for the cell that contains the ray origin. */
-            int m_enterAxis;
-
-            /** The original ray */
-            Ray m_ray;
-
-            /** Size of each cell along each axis */
-            Vector3 m_cellSize;
-
-            /** True if index() refers to a valid cell inside the grid.  This
-                is usually employed as the loop termination condition.*/
-            bool m_insideGrid;
-
-            /** The value that the index will take on along each boundary when
-                it just leaves the grid. */
-            Vector3int32 m_boundaryIndex;
-
-            /** True if this cell contains the ray origin */
-            bool m_containsRayOrigin;
-
-        public:
-            /** \copydoc m_ray */
-            const Ray& ray() const {
-                return m_ray;
-            }
-
-            /** \copydoc m_numCells */
-            Vector3int32 numCells() const {
-                return m_numCells;
-            }
-
-            /** \copydoc m_enterAxis */
-            int enterAxis() const {
-                return m_enterAxis;
-            }
-
-            /** Outward-facing normal to the current grid cell along the
-             partition just entered.  Initially zero. */
-            Vector3int32 enterNormal() const {
-                Vector3int32 normal(0, 0, 0);
-                normal[m_enterAxis] = -m_step[m_enterAxis];
-                return normal;
-            }
-
-            /** \copydoc m_cellSize */
-            const Vector3& cellSize() const {
-                return m_cellSize;
-            }
-
-            /** Location where the ray entered the current grid cell */
-            Point3 enterPoint() const {
-                return m_ray.origin() + m_enterDistance * m_ray.direction();
-            }
-
-            /** Location where the ray exits the current grid cell */
-            Point3 exitPoint() const {
-                return m_ray.origin() + m_exitDistance.minCoeff() * m_ray.direction();
-            }
-
-            /** \copydoc m_enterDistance */
-            double enterDistance() const {
-                return m_enterDistance;
-            }
-
-            /** Distance from the ray origin to the exit point in this cell. */
-            double exitDistance() const {
-                return m_exitDistance.minCoeff();
-            }
-
-            /** \copydoc m_step */
-            const Vector3int32& step() const {
-                return m_step;
-            }
-
-            /** \copydoc m_index */
-            const Vector3int32& index() const {
-                return m_index;
-            }
-
-            /** \copydoc m_tDelta */
-            const Vector3& tDelta() const {
-                return m_tDelta;
-            }
-
-            /** \copydoc m_insideGrid */
-            bool insideGrid() const {
-                return m_insideGrid;
-            }
-
-            /** \copydoc m_containsRayOrigin */
-            bool containsRayOrigin() const {
-                return m_containsRayOrigin;
-            }
-
-            /**
-                \brief Initialize the iterator to the first grid cell hit by
-                the ray and precompute traversal variables.
-
-                The grid is assumed to have a corner at (0,0,0) and extend
-                along the canonical axes.  For intersections grids transformed
-                by a rigid body transformation, first transform the ray into
-                the grid's object space with CFrame::rayToObjectSpace.
-
-                If the ray never passes through the grid, insideGrid() will
-                be false immediately after intialization.
-
-                If using for 2D iteration, set <code>numCells.z = 1</code> and
-                <code>ray.origin().z = 0.5</code>
-
-                \param cellSize The extent of one cell
-
-                \param minBoundsLocation The location of the lowest corner of grid cell minBoundsCellIndex along each axis.
-                This translates the grid relative to the ray's coordinate frame.
-
-                \param minBoundsCellIndex The index of the first grid cell.  This allows
-                operation with grids defined on negative indices.  This translates all
-                grid indices.
-            */
-            RayGridIterator(Ray ray,
-                                        const Vector3int32& numCells,
-                                        const Vector3& cellSize,
-                                        const Point3& gridOrigin,
-                                        const Point3int32& gridOriginIndex) : m_numCells(numCells),
-                                                                            m_enterDistance(0.0f),
-                                                                            m_enterAxis(0),
-                                                                            m_ray(ray),
-                                                                            m_cellSize(cellSize),
-                                                                            m_insideGrid(true),
-                                                                            m_containsRayOrigin(true) {
-                if (!gridOrigin.isZero()) {
-                    // Change to the grid's reference frame
-                    ray = Ray::fromOriginAndDirection(ray.origin() - gridOrigin, ray.direction());
-                }
-
-                //////////////////////////////////////////////////////////////////////
-                // See if the ray begins inside the box
-                const AABox gridBounds(Vector3::Zero(), Vector3(numCells(0) * cellSize(0), numCells(1) * cellSize(1), numCells(2) * cellSize(2)));
-
-                bool startsOutside = false;
-                bool inside = false;
-                Point3 startLocation = ray.origin();
-
-                const bool passesThroughGrid = inter_rayAABox(
-                    ray, 
-                    Vector3::Ones() / ray.direction(),
-                    gridBounds, 
-                    gridBounds.center(),
-                    square(gridBounds.extent().norm() * 0.5f),
-                    startLocation,
-                    inside
-                );
-
-                if (!inside) {
-                    if (passesThroughGrid) {
-                        // Back up slightly so that we immediately hit the
-                        // start location.  The precision here is tricky--if
-                        // the ray strikes at a very glancing angle, we need
-                        // to move a large distance along the ray to enter the
-                        // grid.  If the ray strikes head on, we only need to
-                        // move a small distance.
-                        m_enterDistance = (ray.origin() - startLocation).norm() - 0.0001f;
-                        startLocation = ray.origin() + ray.direction() * m_enterDistance;
-                        startsOutside = true;
-                    } else {
-                        // The ray never hits the grid
-                        m_insideGrid = false;
-                    }
-                }
-
-                //////////////////////////////////////////////////////////////////////
-                // Find the per-iteration variables
-                for (int a = 0; a < 3; ++a) {
-                    m_index[a] = (int32)floor(startLocation[a] / cellSize[a]);
-                    m_tDelta[a] = cellSize[a] / fabs(ray.direction()[a]);
-
-                    m_step[a] = (int32)sign(ray.direction()[a]);
-
-                    // Distance to the edge fo the cell along the ray direction
-                    float d = startLocation[a] - m_index[a] * cellSize[a];
-                    if (m_step[a] > 0) {
-                        // Measure from the other edge
-                        d = cellSize[a] - d;
-
-                        // Exit on the high side
-                        m_boundaryIndex[a] = m_numCells[a];
-                    } else {
-                        // Exit on the low side (or never)
-                        m_boundaryIndex[a] = -1;
-                    }
-                    assert(d >= 0 && d <= cellSize[a]);
-
-                    if (ray.direction()[a] != 0) {
-                        m_exitDistance[a] = d / fabs(ray.direction()[a]) + m_enterDistance;
-                    } else {
-                        // Ray is parallel to this partition axis.
-                        // Avoid dividing by zero, which could be NaN if d == 0
-                        m_exitDistance[a] = (float)INFINITY;
-                    }
-                }
-
-                if (!gridOriginIndex.isZero()) {
-                    // Offset the grid coordinates
-                    m_boundaryIndex += gridOriginIndex;
-                    m_index += gridOriginIndex;
-                }
-
-                if (startsOutside) {
-                    // Let the increment operator bring us into the first cell
-                    // so that the starting axis is initialized correctly.
-                    ++(*this);
-                }
-            }
-
-            /** Increment the iterator, moving to the next grid cell */
-            RayGridIterator& operator++() {
-                // Find the axis of the closest partition along the ray
-                if (m_exitDistance.x() < m_exitDistance.y()) {
-                    if (m_exitDistance.x() < m_exitDistance.z()) {
-                        m_enterAxis = 0;
-                    } else {
-                        m_enterAxis = 2;
-                    }
-                } else if (m_exitDistance.y() < m_exitDistance.z()) {
-                    m_enterAxis = 1;
-                } else {
-                    m_enterAxis = 2;
-                }
-
-                m_enterDistance = m_exitDistance[m_enterAxis];
-                m_index[m_enterAxis] += m_step[m_enterAxis];
-                m_exitDistance[m_enterAxis] += m_tDelta[m_enterAxis];
-
-                // If the index just hit the boundary exit, we have
-                // permanently exited the grid.
-                m_insideGrid = m_insideGrid &&
-                            (m_index[m_enterAxis] != m_boundaryIndex[m_enterAxis]);
-
-                m_containsRayOrigin = false;
-
-                return *this;
-            }
-        };
-
-    }//Griderator
+    }
     
     namespace Hagedorn::Detail {
         std::vector<Eigen::VectorXi> hyperbolic_cut_shape(size_t _dim, size_t _K);
@@ -1727,6 +1158,105 @@ namespace TurboDorn {
             std::cout << "------------ Sampling done after " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << "s ------------\n";
         }
 
+        //---------------------------------------------------------------------------------------//
+        //                                   render_grid
+        //---------------------------------------------------------------------------------------//
+        template<class T>
+        std::vector<T> render_grid(
+            const std::filesystem::path& _input,
+            const Eigen::Vector3<T>& _cam_or,
+            const Eigen::Vector3<T>& _cam_dir,
+            const Eigen::Vector3<T>& _cam_right,
+            const Eigen::Vector2i& _img_size_pixel,
+            T _pixel_world_size,
+            const Eigen::Vector3<T>& _aabb_min,
+            const Eigen::Vector3<T>& _aabb_max,
+            T step_size,
+            T _hsl_max_value,
+            Geometry::RenderGrid<T>& _grid
+        ) {
+
+            const auto contains = [](const Eigen::Vector3<T>& _min, const Eigen::Vector3<T>& _max, const Eigen::Vector3<T>& _pos) -> bool {
+                for(Eigen::Index i = 0; i < 3; ++i)
+                    if(_pos(i) < _min(i) || _pos(i) > _max(i)) return false;
+                return true;
+            };
+
+            std::vector<T> buffer (_img_size_pixel(0) * _img_size_pixel(1) * 4);
+            std::fill(buffer.begin(), buffer.end(), 0.);
+
+            const Eigen::Vector3<T> cam_up = (_cam_dir.cross(_cam_right)).normalized();
+            const T dS = step_size;
+
+            const T max_dist = ((_aabb_min + (_aabb_max - _aabb_min) * 0.5) - _cam_or).norm() * 10.;
+
+            for(size_t x = 0; x < _img_size_pixel(0); ++x){
+                for(size_t y = 0; y < _img_size_pixel(1); ++y){
+
+                    const Eigen::Vector2<T> pp = Eigen::Vector2<T>((2. * T(x) - T(_img_size_pixel(0))) / T(_img_size_pixel.maxCoeff()), (2. * T(y) - T(_img_size_pixel(1))) / T(_img_size_pixel.maxCoeff()));
+                    const Eigen::Vector3<T> rr = _cam_or + _pixel_world_size * (pp(0) * _cam_right + pp(1) * cam_up);
+
+                    T tt = 0.;
+                    const bool hit = Hagedorn::Detail::ray_aabb_intersect(rr, _cam_dir, _aabb_min, _aabb_max, max_dist, tt);
+  
+                    if(!hit){
+                        buffer[4 * (y * _img_size_pixel(0) + x) + 3] = 1.;
+                        continue;
+                    }
+
+                    T transmission = 1.;
+                    Eigen::Vector3<T> col = Eigen::Vector3<T>::Zero();
+                    
+                    while(true){
+
+                        const Eigen::VectorX<T> pos = rr + _cam_dir * tt;
+                        if(!contains(_aabb_min, _aabb_max, pos)) break;
+
+                        const std::complex<T> res = _grid[pos];
+
+                        //compute color
+                        const auto hsl = Hagedorn::Detail::c_to_HSL(res, _hsl_max_value);
+                        transmission *= std::exp(-hsl(2) * dS);
+                        const auto rgb = Hagedorn::Detail::HSL_to_RGB_rad(hsl);
+                        col += transmission * rgb * dS;
+
+                        tt += dS;
+
+                    }
+
+                    buffer[4 * (y * _img_size_pixel(0) + x)] = col(0);
+                    buffer[4 * (y * _img_size_pixel(0) + x) + 1] = col(1);
+                    buffer[4 * (y * _img_size_pixel(0) + x) + 2] = col(2);
+                    buffer[4 * (y * _img_size_pixel(0) + x) + 3] = 1.;
+
+                    //std::cout << "[" << col(0) << ", " << col(1) << ", " << col(2) << "]" << std::endl;
+
+                }
+            }
+
+            return buffer;
+        }
+
+        //---------------------------------------------------------------------------------------//
+        //                                   normalize_to_char
+        //---------------------------------------------------------------------------------------//
+        template<class T>
+        EIGEN_STRONG_INLINE std::vector<unsigned char> normalize_to_char(const std::vector<T>& _in) {
+            using uchar = unsigned char;
+            std::vector<unsigned char> out (_in.size());
+            T max = -std::numeric_limits<T>::infinity();
+            for(size_t i = 0; i < out.size(); ++i){
+                max = std::max<T>(max, _in[i]);
+            }
+            for(size_t i = 0; i < out.size()-4; i+=4){
+                out[i] = uchar((_in[i] / max) * 255);
+                out[i+1] = uchar((_in[i+1] / max) * 255);
+                out[i+2] = uchar((_in[i+2] / max) * 255);
+                out[i+3] = 255;
+            }
+            return out;
+        }
+
     }
 
     //---------------------------------------------------------------------------------------//
@@ -1735,9 +1265,7 @@ namespace TurboDorn {
 
     template<class T>
     class Sampler {
-
     public:
-
         Sampler(const json& _config) {
 
             const auto extract = [](const json& _config) -> Eigen::VectorX<T> {
@@ -1842,24 +1370,134 @@ namespace TurboDorn {
             const auto inv = Hagedorn::Detail::prepare_invariants_from_file<T>(file);
             TurboDorn::Detail::sample_grid<T>(output, time_step, cardinal, lattice, aabb_min, aabb_max, const_dims, *inv);
         }
-
     };
 
     //---------------------------------------------------------------------------------------//
     //                                        Renderer
     //---------------------------------------------------------------------------------------//
 
+    template<class T>
     class Renderer {
-
     public:
-        Renderer(const json& _config) {
+        Renderer(const json& _views) {
+
+            const auto extract3 = [](const json& _config) -> Eigen::Vector3<T> {
+                Eigen::Vector3<T> out;
+                Eigen::Index i = 0;
+                for(auto it = _config.begin(); it != _config.end(); ++it){
+                    out.coeffRef(i++) = T(*it);
+                }
+                return out;
+            };
+
+            const auto extract2i = [](const json& _config) -> Eigen::Vector2i {
+                Eigen::Vector2i out;
+                Eigen::Index i = 0;
+                for(auto it = _config.begin(); it != _config.end(); ++it){
+                    out.coeffRef(i++) = int(*it);
+                }
+                return out;
+            };
+
+            size_t idx = 0;
+
+            for(auto it = _views.begin(); it != _views.end(); ++it){
+
+                const json& j = (*it);
+
+                const std::filesystem::path input = std::filesystem::path(j["input"]);
+                if(!std::filesystem::exists(input)){
+                    std::cerr << "[IO Error]: Input does not exist. Aborting..." << std::endl;
+                    std::terminate();
+                }
+
+                if(!j.contains("camera position")) {
+                    std::cerr << "[Json Error]: field 'camera position' missing. Aborting..." << std::endl;
+                    std::terminate();
+                }
+
+                if(!j.contains("camera forward")) {
+                    std::cerr << "[Json Error]: field 'camera forward' missing. Aborting..." << std::endl;
+                    std::terminate();
+                }
+
+                if(!j.contains("camera up")) {
+                    std::cerr << "[Json Error]: field 'camera up' missing. Aborting..." << std::endl;
+                    std::terminate();
+                }
+
+                if(!j.contains("image pixel")) {
+                    std::cerr << "[Json Error]: field 'image pixel' missing. Aborting..." << std::endl;
+                    std::terminate();
+                }
+
+                if(!j.contains("pixel world size")) {
+                    std::cerr << "[Json Error]: field 'pixel world size' missing. Aborting..." << std::endl;
+                    std::terminate();
+                }
+
+                if(!j.contains("aabb min")) {
+                    std::cerr << "[Json Error]: field 'aabb min' missing. Aborting..." << std::endl;
+                    std::terminate();
+                }
+
+                if(!j.contains("aabb max")) {
+                    std::cerr << "[Json Error]: field 'aabb max' missing. Aborting..." << std::endl;
+                    std::terminate();
+                }
+
+                if(!j.contains("step size")) {
+                    std::cerr << "[Json Error]: field 'step size' missing. Aborting..." << std::endl;
+                    std::terminate();
+                }
+
+                const Eigen::Vector3<T> cam_or = extract3(j["camera position"]);
+                const Eigen::Vector3<T> cam_dir = extract3(j["camera forward"]);
+                const Eigen::Vector3<T> cam_right = extract3(j["camera up"]);
+                const Eigen::Vector2i img_size_pixel = extract2i(j["image pixel"]);
+                const T pixel_world_size = j["pixel world size"];
+                const Eigen::Vector3<T> aabb_min = extract3(j["aabb min"]);
+                const Eigen::Vector3<T> aabb_max = extract3(j["aabb max"]);
+                const T step_size = j["step size"];
+
+                //optional
+                const T hsl_max_value = j.contains("hsl max value") ? T(j["hsl max value"]) : T(10.);
+                const size_t max_gridsize_byte = j.contains("max grid size byte") ? size_t(j["max grid size byte"]) : 500000000;
+
+                //output file (optional)
+                std::filesystem::path output;
+                if(!j.contains("output")) {
+                    std::stringstream ss;
+                    ss << "out_" << idx++ << "_" << input.stem().c_str() << ".png";
+                    output = input.parent_path() / ss.str();
+                } else output = std::filesystem::path(j["output"]);
+
+                Geometry::RenderGrid<T> grid(input, max_gridsize_byte);
+
+                std::cout << "Render start" << std::endl;
+                const std::vector<T> buffer = TurboDorn::Detail::render_grid<T>(
+                    input, 
+                    cam_or, 
+                    cam_dir, 
+                    cam_right, 
+                    img_size_pixel, 
+                    pixel_world_size, 
+                    aabb_min, 
+                    aabb_max, 
+                    step_size, 
+                    hsl_max_value, 
+                    grid
+                );
+                std::cout << "Render done" << std::endl;
+                const std::vector<unsigned char> img = TurboDorn::Detail::normalize_to_char(buffer);
+
+                if(lodepng::encode(output.c_str(), img.data(), img_size_pixel(0), img_size_pixel(1))){
+                    std::cerr << "failed to save img" << std::endl;
+                }
+
+            }
 
         }
-
-        bool success() {
-            return true; 
-        }
-
     };//Renderer
 
 }//Hagedorn

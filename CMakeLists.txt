@@ -13,6 +13,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -march=native")
 include(FetchContent)
 
 add_executable(tv "src/main.cpp")
+add_executable(cam "src/camera_tool.cpp")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
@@ -28,7 +29,8 @@ FetchContent_GetProperties(eigen3)
 
 if(NOT eigen3_POPULATED)
 	FetchContent_Populate(eigen3)
-	target_include_directories(tv PUBLIC "${eigen3_SOURCE_DIR}")
+	#target_include_directories(tv PUBLIC "${eigen3_SOURCE_DIR}")
+	#target_include_directories(cam PUBLIC "${eigen3_SOURCE_DIR}")
 endif()
 
 # ------------------ LODEPNG ------------------
@@ -48,8 +50,6 @@ if(NOT lodepng_POPULATED)
 	)
 
 	add_library(lodepng "${LODEPNG_FILES}")
-
-	target_include_directories(tv PUBLIC "${lodepng_SOURCE_DIR}")
 endif()
 
 # ------------------ HIGHFIVE ------------------
@@ -122,3 +122,4 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/module/TurboDorn/module.cmake")
 
 # ------------------------------------
 target_link_libraries(tv turbodorn)
+target_link_libraries(cam turbodorn)

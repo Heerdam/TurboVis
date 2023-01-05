@@ -11,6 +11,7 @@ set(LIBS_TT
   "lodepng"
 )
 target_include_directories(turbodorn INTERFACE "${eigen3_SOURCE_DIR}")
+target_include_directories(turbodorn INTERFACE "${lodepng_SOURCE_DIR}")
 target_link_libraries(turbodorn INTERFACE "${LIBS_TT}")
 
 # ----------- Tests -----------

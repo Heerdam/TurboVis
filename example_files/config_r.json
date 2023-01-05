@@ -1,0 +1,17 @@
+{
+    "mode": "render",
+    "views": [
+        {
+            "input": "../example_files/out_simulation_results_phi_0_1_2",
+            "output": "../example_files/out_0.png",
+            "camera position": [0, 1.25, -15], 
+            "camera forward": [0, 0, 1], 
+            "camera up": [1, 0, 0], 
+            "image pixel": [500, 500],
+            "pixel world size": 5,
+            "aabb min": [-10, -10, -10], 
+            "aabb max": [10, 10, 10],
+            "step size": 0.1
+        }
+    ]
+}

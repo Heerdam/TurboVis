@@ -80,21 +80,7 @@
 
 int main(int argc, char* argv[]) {
 
-    std::string test = 
-    "{"
-        "\"mode\": \"sample\","
-        "\"input\": \"../example_files/simulation_results_phi.hdf5\","
-        "\"time step\": 0," 
-        "\"dims\": 3,"
-        "\"K\": 4,"
-        "\"cardinal\": [0, 1, 2],"
-        "\"aabb min\": [-100, -100, -24],"
-        "\"aabb max\": [-100, -100, -100],"
-        "\"lattice\": [25, 25, 25],"
-        "\"const dims\": []"
-    "}";
-
-    std::string tt = "../example_files/config.json";
+    std::string tt = "../example_files/cam.json";
     char* targv[] = { nullptr, tt.data() };
 
     const auto getJsonPath = [](int _argc, char* _argv[]) {
@@ -114,8 +100,6 @@ int main(int argc, char* argv[]) {
             return out;
         }
     };
-
-
 
     /*
     ***********************************************************************************************************
@@ -140,33 +124,20 @@ int main(int argc, char* argv[]) {
         std::terminate();
     }
 
-
-
     /*
     ***********************************************************************************************************
         If we have reached this point the config file is valid and we can proceed with sampling or rendering.
     ***********************************************************************************************************
     */
-
     //build
     if(mode == 1){
-
         TurboDorn::Sampler<double> sampler (config);
-
-        //if(sampler.success()) EXIT_SUCCESS;
-        //else EXIT_FAILURE;
     }
-    /*
     //render
     if(mode == 2){
-        TurboDorn::Renderer renderer (config);
-        
-        if(renderer.success()) EXIT_SUCCESS;
-        else EXIT_FAILURE;
+        TurboDorn::Renderer<double> renderer (config["views"]);
     }
-*/
     return EXIT_SUCCESS;
-
 }
 
 

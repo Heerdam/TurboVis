@@ -1,6 +1,13 @@
 
 #include <TurboDorn/turbodorn.hpp>
 
+/*
+    This is a small helper tool to create a render json for an orbiting camera.
+
+    Use ffmpeg -framerate 25 -i out_%00d.png -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p output.mp4
+    to create a video from the resulting images.
+*/
+
 int main() {
 
     constexpr size_t its = 36;
@@ -21,7 +28,7 @@ int main() {
             ss << "../example_files/out_" << i << ".png";
             t["output"] = ss.str();
         }
-        t["pixel world size"] = 5;
+        t["pixel world size"] = ((2 * M_PI) / double(its)) * double(i);
         t["step size"] = 0.1;
 
         t["image pixel"] = json::array();
@@ -38,8 +45,11 @@ int main() {
         t["aabb max"].push_back(10);
         t["aabb max"].push_back(10);
 
-        const double ax = std::cos(i * dPi);
-        const double ay = std::sin(i * dPi);
+        //const double ax = std::cos(i * dPi);
+        //const double ay = std::sin(i * dPi);
+
+        const double ax = std::cos(0 * dPi);
+        const double ay = std::sin(0 * dPi);
 
         const Eigen::Vector3d dir (ax, ay, 0.);
         const Eigen::Vector3d cpos = center + dir * 15.;
@@ -63,7 +73,7 @@ int main() {
 
     }
 
-    std::ofstream out ("cam.json");
+    std::ofstream out ("cam_exp.json");
     out << file.dump(4);
 
     return EXIT_SUCCESS;

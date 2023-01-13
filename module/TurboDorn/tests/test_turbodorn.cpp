@@ -463,6 +463,12 @@ TEST_CASE( "Function Values", "Hagedorn" ) {
 }
 
 /*
+    ****************************************************************************************
+    Uncomment the following section for benching the hagedorn hypercube computation
+    ****************************************************************************************
+*/
+
+/*
 using Now = std::chrono::high_resolution_clock::time_point;
 //375.3 gflops
 

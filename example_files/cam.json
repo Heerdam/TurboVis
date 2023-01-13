@@ -1,0 +1,1265 @@
+{
+    "mode": "render",
+    "views": [
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -1.0,
+                -0.0,
+                -0.0
+            ],
+            "camera position": [
+                15.0,
+                0.0,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_0.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.984807753012208,
+                -0.17364817766693033,
+                -0.0
+            ],
+            "camera position": [
+                14.772116295183121,
+                2.6047226650039548,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_1.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.9396926207859084,
+                -0.3420201433256687,
+                -0.0
+            ],
+            "camera position": [
+                14.095389311788626,
+                5.130302149885031,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_2.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.8660254037844387,
+                -0.49999999999999994,
+                -0.0
+            ],
+            "camera position": [
+                12.99038105676658,
+                7.499999999999999,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_3.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.766044443118978,
+                -0.6427876096865393,
+                -0.0
+            ],
+            "camera position": [
+                11.49066664678467,
+                9.641814145298088,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_4.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.6427876096865394,
+                -0.766044443118978,
+                -0.0
+            ],
+            "camera position": [
+                9.64181414529809,
+                11.49066664678467,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_5.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.5000000000000001,
+                -0.8660254037844386,
+                -0.0
+            ],
+            "camera position": [
+                7.500000000000002,
+                12.990381056766578,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_6.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.3420201433256688,
+                -0.9396926207859083,
+                -0.0
+            ],
+            "camera position": [
+                5.130302149885033,
+                14.095389311788624,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_7.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.17364817766693041,
+                -0.984807753012208,
+                -0.0
+            ],
+            "camera position": [
+                2.604722665003956,
+                14.772116295183121,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_8.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -6.123233995736766e-17,
+                -1.0,
+                -0.0
+            ],
+            "camera position": [
+                9.18485099360515e-16,
+                15.0,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_9.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.1736481776669303,
+                -0.984807753012208,
+                -0.0
+            ],
+            "camera position": [
+                -2.6047226650039548,
+                14.772116295183121,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_10.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.3420201433256687,
+                -0.9396926207859084,
+                -0.0
+            ],
+            "camera position": [
+                -5.130302149885031,
+                14.095389311788626,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_11.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.4999999999999998,
+                -0.8660254037844387,
+                -0.0
+            ],
+            "camera position": [
+                -7.4999999999999964,
+                12.99038105676658,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_12.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.6427876096865394,
+                -0.766044443118978,
+                -0.0
+            ],
+            "camera position": [
+                -9.64181414529809,
+                11.49066664678467,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_13.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.7660444431189779,
+                -0.6427876096865395,
+                -0.0
+            ],
+            "camera position": [
+                -11.490666646784668,
+                9.641814145298092,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_14.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.8660254037844387,
+                -0.49999999999999994,
+                -0.0
+            ],
+            "camera position": [
+                -12.99038105676658,
+                7.499999999999999,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_15.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.9396926207859083,
+                -0.3420201433256689,
+                -0.0
+            ],
+            "camera position": [
+                -14.095389311788624,
+                5.130302149885033,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_16.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.984807753012208,
+                -0.1736481776669307,
+                -0.0
+            ],
+            "camera position": [
+                -14.772116295183121,
+                2.6047226650039605,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_17.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                1.0,
+                -1.2246467991473532e-16,
+                -0.0
+            ],
+            "camera position": [
+                -15.0,
+                1.83697019872103e-15,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_18.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.9848077530122081,
+                0.17364817766693003,
+                -0.0
+            ],
+            "camera position": [
+                -14.772116295183121,
+                -2.6047226650039503,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_19.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.9396926207859084,
+                0.34202014332566866,
+                -0.0
+            ],
+            "camera position": [
+                -14.095389311788626,
+                -5.13030214988503,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_20.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.8660254037844388,
+                0.4999999999999997,
+                -0.0
+            ],
+            "camera position": [
+                -12.990381056766582,
+                -7.499999999999996,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_21.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.766044443118978,
+                0.6427876096865393,
+                -0.0
+            ],
+            "camera position": [
+                -11.49066664678467,
+                -9.641814145298088,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_22.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.6427876096865395,
+                0.7660444431189779,
+                -0.0
+            ],
+            "camera position": [
+                -9.641814145298092,
+                -11.490666646784668,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_23.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.5000000000000004,
+                0.8660254037844384,
+                -0.0
+            ],
+            "camera position": [
+                -7.500000000000007,
+                -12.990381056766577,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_24.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.3420201433256694,
+                0.9396926207859082,
+                -0.0
+            ],
+            "camera position": [
+                -5.130302149885041,
+                -14.095389311788622,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_25.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                0.17364817766693033,
+                0.984807753012208,
+                -0.0
+            ],
+            "camera position": [
+                -2.6047226650039548,
+                -14.772116295183121,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_26.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                1.8369701987210297e-16,
+                1.0,
+                -0.0
+            ],
+            "camera position": [
+                -2.7554552980815444e-15,
+                -15.0,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_27.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.17364817766692997,
+                0.9848077530122081,
+                -0.0
+            ],
+            "camera position": [
+                2.6047226650039494,
+                -14.772116295183121,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_28.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.34202014332566816,
+                0.9396926207859085,
+                -0.0
+            ],
+            "camera position": [
+                5.130302149885022,
+                -14.095389311788628,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_29.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.5000000000000001,
+                0.8660254037844386,
+                -0.0
+            ],
+            "camera position": [
+                7.500000000000002,
+                -12.990381056766578,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_30.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.6427876096865393,
+                0.7660444431189781,
+                -0.0
+            ],
+            "camera position": [
+                9.641814145298088,
+                -11.490666646784671,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_31.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.7660444431189778,
+                0.6427876096865396,
+                -0.0
+            ],
+            "camera position": [
+                11.490666646784668,
+                -9.641814145298094,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_32.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.8660254037844384,
+                0.5000000000000004,
+                -0.0
+            ],
+            "camera position": [
+                12.990381056766577,
+                -7.500000000000007,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_33.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.9396926207859081,
+                0.34202014332566943,
+                -0.0
+            ],
+            "camera position": [
+                14.09538931178862,
+                -5.130302149885042,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_34.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        },
+        {
+            "aabb max": [
+                10,
+                10,
+                10
+            ],
+            "aabb min": [
+                -10,
+                -10,
+                -10
+            ],
+            "camera forward": [
+                -0.984807753012208,
+                0.1736481776669304,
+                -0.0
+            ],
+            "camera position": [
+                14.772116295183121,
+                -2.6047226650039557,
+                0.0
+            ],
+            "camera up": [
+                0,
+                0,
+                1
+            ],
+            "image pixel": [
+                500,
+                500
+            ],
+            "input": "../example_files/out_simulation_results_phi_s2",
+            "output": "../example_files/out_35.png",
+            "pixel world size": 5,
+            "step size": 0.1
+        }
+    ]
+}

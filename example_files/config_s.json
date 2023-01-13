@@ -1,7 +1,8 @@
 {
     "mode": "sample",
     "input": "../example_files/simulation_results_phi.hdf5",
-    "time step": 0, 
+    "output": "../example_files/out_simulation_results_phi_s2",
+    "time step": 2, 
     "dims": 3,
     "K": 4,
     "cardinal": [0, 1, 2], 

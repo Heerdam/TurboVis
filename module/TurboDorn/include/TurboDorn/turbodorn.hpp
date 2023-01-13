@@ -13,6 +13,8 @@
 #include <cmath>
 #include <chrono>
 
+#include <omp.h>
+
 #include <Eigen/Eigen>
 #include <tsl/robin_map.h>
 
@@ -43,6 +45,11 @@ namespace TurboDorn {
             //                                        Chunk
             //---------------------------------------------------------------------------------------//
 
+            /*
+                A chunk holds a certain number of values of the grid. Every chunk has a file on the disk
+                associated and can be loaded and unloaded on demand.
+            */
+
             template<class T, bool IS_SAMPLER>
             class Chunk {
 
@@ -57,6 +64,11 @@ namespace TurboDorn {
                 bool is_loaded = false;
 
             public:
+                /*
+                  _file - the path to the chunk data of this chunk
+                  _cardinal - the 3 main dimensions
+                  _cell_size - the size of a single cell of the lattice in world unit
+                */
                 Chunk(std::filesystem::path _file, const Eigen::Vector3i& _cardinal, const Eigen::Vector3<T>& _cell_size) noexcept 
                     : path(std::move(_file)), cardinal(_cardinal), cell_size(_cell_size), cell_half(_cell_size * T(0.5)) { 
 
@@ -182,7 +194,7 @@ namespace TurboDorn {
             /*
                 A 3d hashed infinite grid that automatically loads and unloads
                 chunks to keep the memory footprint under a certain value.
-                Uses a simple LRU policy.
+                Uses a simple LRU policy for chunk loading and morton keys for indices.
             */
 
             template<class T, bool IS_SAMPLER>
@@ -264,6 +276,14 @@ namespace TurboDorn {
 
             public:
 
+                /*
+                    This is the constructor used for sampling.
+                    _path - the path to the folder to store chunk data
+                    _cardinal - the 3 main dimensions
+                    _cell_size - the size of a single cell in world units
+                    _max_chunk_size - the max size of a single chunk in byte
+                    max_gridsize_byte - the maximum size the grid in byte. 
+                */
                 ChunkGrid(
                     std::filesystem::path _path, 
                     const Eigen::Vector3i& _cardinal, 
@@ -293,6 +313,11 @@ namespace TurboDorn {
 #endif
                 }
 
+                /*
+                    This is the constructor used for rendering.
+                    _path - the path to the folder to store chunk data
+                    max_gridsize_byte - the maximum size the grid in byte. 
+                */
                 ChunkGrid(std::filesystem::path _path, size_t max_gridsize_byte = 50000000 * 10) : path(std::move(_path)){
                     static_assert(IS_SAMPLER == false, "Don't use render constructor for sampling.");
                     if(!std::filesystem::exists(path)){
@@ -413,6 +438,9 @@ namespace TurboDorn {
             //---------------------------------------------------------------------------------------//
             //                                        FilePathResolver
             //---------------------------------------------------------------------------------------//
+            /*
+                A functional that returns the path to the example files folder
+            */
             class FilePathResolver {
 
                 std::filesystem::path path_asset;
@@ -1050,7 +1078,9 @@ namespace TurboDorn {
         //---------------------------------------------------------------------------------------//
         //                                        HyperCube
         //---------------------------------------------------------------------------------------//
-
+        /*
+            A functional that computes the functional value at a given world position and time step.
+        */
         template <class T>
         class HyperCube {
 
@@ -1140,6 +1170,8 @@ namespace TurboDorn {
             const auto start = std::chrono::high_resolution_clock::now();
             {
                 Geometry::SamplerGrid<T> grid(_output, _cardinal, c);
+
+                #pragma omp parallel for schedule(dynamic) collapse(3) shared(grid)
                 for(Eigen::Index z = 0; z < _lattice(2); ++z){
                     for(Eigen::Index y = 0; y < _lattice(1); ++y){
                         for(Eigen::Index x = 0; x < _lattice(0); ++x){
@@ -1150,8 +1182,9 @@ namespace TurboDorn {
                             }
 
                         }
-                    }
+                    }//1119 1168 369 387
                 }
+
             }
             const auto end = std::chrono::high_resolution_clock::now();
             std::cout << "Total Samples:\t\t" << _lattice(0) * _lattice(1) * _lattice(2) << std::endl;
@@ -1190,6 +1223,9 @@ namespace TurboDorn {
 
             const T max_dist = ((_aabb_min + (_aabb_max - _aabb_min) * 0.5) - _cam_or).norm() * 10.;
 
+            const T dp = ((2 * M_PI) / T(36));
+
+            //#pragma omp parallel for schedule(dynamic) shared(buffer) num_threads(4)
             for(size_t x = 0; x < _img_size_pixel(0); ++x){
                 for(size_t y = 0; y < _img_size_pixel(1); ++y){
 
@@ -1219,7 +1255,6 @@ namespace TurboDorn {
                         transmission *= std::exp(-hsl(2) * dS);
                         const auto rgb = Hagedorn::Detail::HSL_to_RGB_rad(hsl);
                         col += transmission * rgb * dS;
-
                         tt += dS;
 
                     }
@@ -1262,7 +1297,9 @@ namespace TurboDorn {
     //---------------------------------------------------------------------------------------//
     //                                        Sampler
     //---------------------------------------------------------------------------------------//
-
+    /*
+        An example implementation that shows how to sample a give file from the config json.
+    */
     template<class T>
     class Sampler {
     public:
@@ -1375,7 +1412,9 @@ namespace TurboDorn {
     //---------------------------------------------------------------------------------------//
     //                                        Renderer
     //---------------------------------------------------------------------------------------//
-
+    /*
+        An example implementation that shows how to render a give file from the config json.
+    */
     template<class T>
     class Renderer {
     public:
@@ -1474,7 +1513,8 @@ namespace TurboDorn {
 
                 Geometry::RenderGrid<T> grid(input, max_gridsize_byte);
 
-                std::cout << "Render start" << std::endl;
+                std::cout << "------------ Render start ------------" << std::endl;
+                const auto start = std::chrono::high_resolution_clock::now();
                 const std::vector<T> buffer = TurboDorn::Detail::render_grid<T>(
                     input, 
                     cam_or, 
@@ -1488,7 +1528,8 @@ namespace TurboDorn {
                     hsl_max_value, 
                     grid
                 );
-                std::cout << "Render done" << std::endl;
+                const auto end = std::chrono::high_resolution_clock::now();
+                std::cout << "------------ Render done after " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << "s ------------\n";
                 const std::vector<unsigned char> img = TurboDorn::Detail::normalize_to_char(buffer);
 
                 if(lodepng::encode(output.c_str(), img.data(), img_size_pixel(0), img_size_pixel(1))){
